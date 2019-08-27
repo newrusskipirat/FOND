@@ -14,7 +14,7 @@
  Слитки: золотой (PID 1682), железный (PID 1474).
 */
 
-void FurnaceInit(Item& item, bool firstTime){ //old flags were: 269226496
+/*void FurnaceInit(Item& item, bool firstTime){ //old flags were: 269226496
     item.SetEvent( ITEM_EVENT_SKILL, "_FurnaceSkill" ); //нельзя трогать руками, если нагрета, впрочем можно на ней готовить
     item.SetEvent( ITEM_EVENT_USE_ON_ME, "_FurnaceOnMe" ); //лом, вода, зажигалка, или лопата
 }
@@ -186,7 +186,7 @@ uint e_FurnaceBurn( uint[]@ values )
 		}
 	}
 	return 0;
-}
+}*/
 
 void unsafe_ClearHex( Critter& player, int x, int y, int , string@ , int[]@ )
 {
