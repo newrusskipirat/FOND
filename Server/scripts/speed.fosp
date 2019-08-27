@@ -1,0 +1,400 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                    
+
+import uint GetAllPlayers(Critter@[]&crs)from"manager";
+
+void ModuleInit(string&in,Handle@)
+{
+	EventRoot.SetCallback("Start",InitSpeedArray);
+}
+
+int[]SpeedArray(2000,0);
+
+void InitSpeedArray(string&in,Handle@)
+{
+	file crTypes;
+	if(crTypes.open("./data/CritterTypes.cfg","r")==-1)
+	return;
+	
+	while(!crTypes.isEndOfFile())
+	{
+		string str;
+		crTypes.readLine(str);
+		if(str.length()<10||str[0]!=64)
+		continue;
+		
+		string@[]@line=splitEx(str," ");
+		
+		int num=0,walk=0,run=0;
+		if(!StrToInt(line[1],num)||num<0||num>999||!StrToInt(line[37],walk)||!StrToInt(line[38],run))
+		continue;
+		
+		SpeedArray[num*2]=walk;
+		SpeedArray[num*2+1]=run;
+	}
+	crTypes.close();
+}
+
+void reset()
+{
+	Critter@[]crs;
+	GetAllPlayers(crs);
+	
+	for(uint i=0,j=crs.length();i<j;i++)
+	{
+		ChangeCritterSpeed(crs[i]);
+	}
+}
+
+void reset(Critter&cr,int p0,int p1,int)
+{
+	reset();
+}
+
+void testISA(Critter&cr,int p0,int p1,int)
+{
+	InitSpeedArray("Start",null);
+	reset();
+} 
+
+void ChangeCritterSpeed(Critter&cr)
+{
+	if(cr.IsPlayer()&&cr.GetAccess()==(3)&&cr.Mode[(543)]!=0)return;
+	
+	uint16 run=0,walk=0,healthMod=0;
+	int curHp=cr.Stat[(72)],maxHp=cr.Stat[(7)];
+	uint carry=cr.Stat[(11)],weight=cr.ItemsWeight(),carryMod=0;
+	
+	Item@armor=cr.GetItem(0,(3));
+	bool apa=false;
+	if(@armor!=null)
+	{
+		uint16 pid=armor.GetProtoId();
+		
+		apa=(pid==(3)||
+		pid==(232)||
+		pid==(348)||
+		pid==(349));
+	}
+	
+	if(carry==0)
+	carry+=1;
+	uint weight_cantRun=carry*0.5,
+	weight_limitWalk=carry*0.75,
+	weight_cantWalk=carry;
+	
+	bool CanRun=((SpeedArray[cr.CrType*2+1]!=0)&&(weight<weight_cantRun)&&!apa);
+	if(cr.GetTimeEvents((10),null,null,null)==0)
+	cr.ModeBase[(540)]=(CanRun?0:1);
+	
+	if(curHp<=0)
+	curHp=1;
+	healthMod=uint16(20*maxHp/curHp);
+	
+	if(!apa)
+	carryMod=uint(400*weight/(carry));
+	
+	uint8 speedMod=cr.StatBase[(120)];
+	speedMod=(((speedMod)>(1000))?(1000):(((speedMod)<(1))?(1):(speedMod)));
+	
+	walk=uint16(SpeedArray[cr.CrType*2]+((weight>weight_limitWalk)?carryMod:0)+healthMod)/(speedMod*0.01);
+	run=uint16(SpeedArray[cr.CrType*2+1]+carryMod+healthMod)/(speedMod*0.01); 
+	
+	walk=(((walk)>(1000))?(1000):(((walk)<(400))?(400):(walk)));
+	run=(((run)>(walk))?(walk):(((run)<(200))?(200):(run)));
+	
+	cr.StatBase[(117)]=walk;
+	cr.StatBase[(118)]=run;
+}

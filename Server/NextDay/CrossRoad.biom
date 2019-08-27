@@ -1,0 +1,6 @@
+Maps:EW = 801
+Maps:SN = 800
+Mimic = Road Rail
+Symbol:Client = R
+Symbol:Parse = C
+Symbol:Color = 130 51 1 255

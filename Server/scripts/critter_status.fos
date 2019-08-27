@@ -1,0 +1,141 @@
+// critter status
+// pm
+
+#include "_macros.fos"
+
+import int  GetDeteriorationProcent( Item& item ) from "repair";
+import void InjureCritter( Critter& cr, uint dmg, uint dmgType, uint8 dir, uint attackerId ) from "combat"; // Export
+
+void ChangeStatus( Critter& cr, uint16 status, uint8 value, bool set )                                      // export
+{
+    bool onlyFlag = false;
+
+    if( set )
+    {
+        switch( status )
+        {
+        case CR_STATUS_BLEED:
+            BleedCritter( cr, value );
+            break;
+        case CR_STATUS_BLOOD_TOXIC:
+            BloodToxicCritter( cr );
+            break;
+        default:
+            break;
+        }
+
+        SETFLAG( cr.StatBase[ ST_CRSTATUS ], status );
+    }
+    else
+    {
+        switch( status )
+        {
+        case CR_STATUS_HEAVY_DMG:
+            onlyFlag = true;
+            break;
+        case CR_STATUS_BULLET_OVER:
+            onlyFlag = true;
+            break;
+        default:
+            break;
+        }
+
+        if( onlyFlag && FLAG( cr.StatBase[ ST_CRSTATUS ], status ) )
+            UNSETFLAG( cr.StatBase[ ST_CRSTATUS ], status );
+    }
+}
+
+void BleedCritter( Critter& cr, int8 bleedValue )
+{
+
+    uint[] indexes;
+    uint[] rates;
+    uint[] durations;
+    uint8 eventCount = cr.GetTimeEvents( CTE_BLEED, indexes, durations, rates );
+    uint  time = 60 * __TimeMultiplier;
+
+    if( eventCount > 0 )
+    {
+		if (bleedValue > cr.Stat[ ST_BLEED ]) cr.StatBase[ ST_BLEED ] = bleedValue;
+    } else {
+		cr.StatBase[ ST_BLEED ] = bleedValue;
+        cr.AddTimeEvent( "cte_bleed", time, CTE_BLEED, 0 );
+        cr.Say( SAY_NETMSG, "У Вас началось кровотечение." );
+	}
+}
+
+uint cte_bleed( Critter& cr, int identifier, uint& rate )
+{
+    int bleed = cr.StatBase[ ST_BLEED ];
+    if( bleed <= 0 )
+    {
+        UNSETFLAG( cr.StatBase[ ST_CRSTATUS ], CR_STATUS_BLEED );
+        cr.Say( SAY_NETMSG, "Вы перестали истекать кровью." );
+        return 0;
+    }
+
+    uint16 damage = CLAMP( bleed * 0.1, 0, cr.StatBase[ ST_CURRENT_HP ] / 10 ) ;
+
+    if( cr.StatBase[ ST_CURRENT_HP ] > damage ) cr.StatBase[ ST_CURRENT_HP ] -= damage;
+    else InjureCritter( cr, damage, DAMAGE_NORMAL, 0, 0 );
+
+    bleed --;
+    bleed = CLAMP( bleed, 0, bleed );
+    cr.StatBase[ ST_BLEED ] = bleed;
+
+    cr.Say( SAY_NETMSG, "Вы истекаете кровью." );
+
+    return ( 60 * __TimeMultiplier );
+}
+
+void DropBleed( Critter& cr )
+{
+    uint[] indexes;
+    uint[] rates;
+    uint[] durations;
+    uint8 eventCount = cr.GetTimeEvents( CTE_BLEED, indexes, durations, rates );
+
+    if( eventCount > 0 )
+    {
+        cr.EraseTimeEvent( indexes[ 0 ] );
+    }
+}
+
+void BloodToxicCritter( Critter& cr )
+{
+    cr.StatBase[ ST_BLOOD_TOXIC ] ++;
+}
+
+uint cte_blood_toxic( Critter& cr, int identifier, uint& rate )
+{
+    int toxicLevel = cr.StatBase[ ST_BLOOD_TOXIC ];
+    if( toxicLevel >= cr.Stat[ ST_ENDURANCE ] * 10 )
+    {
+        cr.ToDead( Random( 0, 1 ) == 0 ? ANIM2_DEAD_FRONT : ANIM2_DEAD_BACK, null );
+        //UNSETFLAG( cr.StatBase[ ST_CRSTATUS ], CR_STATUS_BLOOD_TOXIC );
+		//cr.StatBase[ ST_BLOOD_TOXIC ] = 0;
+        cr.Say( SAY_NETMSG, "Вы умерли от заражения крови." );
+        return 0;
+    }
+    else if( toxicLevel <= 0 )
+        return 0;
+
+    cr.StatBase[ ST_BLOOD_TOXIC ] ++;
+    cr.Say( SAY_NETMSG, "Вы страдаете от заражения крови.");
+    return ( 300 * __TimeMultiplier );
+}
+
+void DropToxic( Critter& cr )
+{
+    uint[] indexes;
+    uint[] rates;
+    uint[] durations;
+    uint8 eventCount = cr.GetTimeEvents( CTE_BLOOD_TOXIC, indexes, durations, rates );
+
+    if( eventCount > 0 )
+    {
+        cr.EraseTimeEvent( indexes[ 0 ] );
+    }
+
+    cr.StatBase[ ST_BLOOD_TOXIC ] = 0;
+}

@@ -1,0 +1,828 @@
+
+#
+# Local map
+#
+
+# Name, (pid + 1) * 10 + 0							#Имя
+# Music, (pid + 1) * 10 + 5							#Музыка на локации
+# Ambient, (pid + 1) * 10 + 6						#Звуки на локации
+# NoLogOut, (pid + 1) * 10 + 7						#
+# Transit Name, (pid + 1) * 10 + 8 pm added			#Название на курсоре при переходе
+
+# Map 0, Global, base 10
+{10}{}{Глобальная карта}
+{15}{}{20car}
+{15}{}{23world}
+{15}{}{03 - A Way To Anywhere.ogg}
+{15}{}{04 - 12h. Dusk.ogg}
+{15}{}{08 - Blue Grass.ogg}
+{15}{}{12 - Kill Klesk.ogg}
+{16}{}{blank:100}
+
+
+#================================================================================================================
+#Satter
+#================================================================================================================
+
+{610}{}{Satter 1 1}
+{615}{}{13carvrn}
+{616}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{618}{}{Руины: Северо-Запад}
+
+{620}{}{Satter 1 1 dn}
+{625}{}{13carvrn}
+{626}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{628}{}{Тоннели: Северо-Запад}
+ 
+{640}{}{Satter 1 2}
+{645}{}{13carvrn}
+{646}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{648}{}{Кратер: Север}
+
+{650}{}{Satter 1 2 dn}
+{655}{}{13carvrn}
+{656}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{658}{}{Тоннели: Север}
+ 
+{660}{}{Satter 1 3}
+{665}{}{13carvrn}
+{666}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{668}{}{Руины: Север}
+
+{670}{}{Satter 1 3 dn}
+{675}{}{13carvrn}
+{676}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{678}{}{Тоннели: Север}
+ 
+{680}{}{Satter 1 4}
+{685}{}{13carvrn}
+{686}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{688}{}{Магазины: Северо-Восток}
+
+{690}{}{Satter 1 4 dn}
+{695}{}{13carvrn}
+{696}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{698}{}{Тоннели: Северо-Восток}
+ 
+{700}{}{Satter 2 1}
+{705}{}{13carvrn}
+{706}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{708}{}{Руины: Запад}
+
+{710}{}{Satter 2 1 dn}
+{715}{}{13carvrn}
+{716}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{718}{}{Тоннели: Запад}
+ 
+{720}{}{Satter 2 4}
+{725}{}{13carvrn}
+{726}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{728}{}{Руины: Восток}
+
+{730}{}{Satter 2 4 dn}
+{735}{}{13carvrn}
+{736}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{738}{}{Тоннели: Восток}
+ 
+{740}{}{Satter 3 1}
+{745}{}{13carvrn}
+{746}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{748}{}{Железка: Запад}
+
+{750}{}{Satter 3 1 dn}
+{755}{}{13carvrn}
+{756}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{758}{}{Тоннели: Запад}
+ 
+{760}{}{Satter 3 4}
+{765}{}{13carvrn}
+{766}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{768}{}{Железка: Восток} 
+
+{770}{}{Satter 3 4 dn}
+{775}{}{13carvrn}
+{776}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{778}{}{Тоннели: Восток}
+ 
+{780}{}{Satter 4 1}
+{785}{}{13carvrn}
+{786}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{788}{}{Станция: Юго-Запад}
+
+{790}{}{Satter 4 1 dn}
+{795}{}{13carvrn}
+{796}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{798}{}{Тоннели: Юго-Запад}
+ 
+{800}{}{Satter 4 2}
+{805}{}{13carvrn}
+{806}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{808}{}{Руины: Юг}
+ 
+{810}{}{Satter 4 2 dn}
+{815}{}{13carvrn}
+{816}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{818}{}{Тоннели: Юг}
+ 
+{820}{}{Satter 4 3}
+{825}{}{13carvrn}
+{826}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{828}{}{Парк: Юг}
+
+{830}{}{Satter 4 3 dn}
+{835}{}{13carvrn}
+{836}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{838}{}{Тоннели: Юг}
+ 
+{840}{}{Satter 4 4}
+{845}{}{13carvrn}
+{846}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{848}{}{Казино: Юго-Восток}
+
+{850}{}{Satter 4 4 dn}
+{855}{}{13carvrn}
+{856}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{858}{}{Тоннели: Юго-Восток}
+ 
+{890}{}{Satter center}
+{895}{}{13carvrn}
+{896}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{898}{}{Центрайльный Район}
+ 
+{900}{}{Satter center dn}
+{905}{}{13carvrn}
+{906}{}{puddle1:30, puddle:30, water:5, water1:5, pebble:5, pebble1:5}
+{908}{}{Тоннели: Центрайльный Район}
+
+#
+# Encounters
+#
+
+{5010}{}{Wasteland}
+{5015}{}{03wrldmp}
+{5018}{}{Пустошь}
+
+{5020}{}{Wasteland}
+{5025}{}{03wrldmp}
+{5028}{}{Пустошь}
+
+{5030}{}{Wasteland}
+{5035}{}{03wrldmp}
+{5038}{}{Пустошь}
+
+{5040}{}{Wasteland}
+{5045}{}{03wrldmp}
+{5048}{}{Пустошь}
+
+{5050}{}{Wasteland}
+{5055}{}{03wrldmp}
+{5058}{}{Пустошь}
+
+{5060}{}{Wasteland}
+{5065}{}{03wrldmp}
+{5068}{}{Пустошь}
+
+{5070}{}{Wasteland}
+{5075}{}{03wrldmp}
+{5078}{}{Пустошь}
+
+{5080}{}{Wasteland}
+{5085}{}{03wrldmp}
+{5088}{}{Пустошь}
+
+{5090}{}{Wasteland}
+{5095}{}{03wrldmp}
+{5098}{}{Пустошь}
+
+{5100}{}{Wasteland}
+{5105}{}{03wrldmp}
+{5108}{}{Пустошь}
+
+{5518}{}{Лес}
+{5528}{}{Лес}
+{5538}{}{Лес}
+{5548}{}{Лес}
+{5558}{}{Лес}
+
+
+{6018}{}{Руины}
+{6028}{}{Руины}
+{6038}{}{Руины}
+
+{6518}{}{Река}
+{6528}{}{Река}
+{6538}{}{Река}
+{6568}{}{Река}
+{6578}{}{Река}
+{6588}{}{Река}
+{6618}{}{Река}
+{6628}{}{Река}
+{6638}{}{Река}
+{6668}{}{Река}
+{6678}{}{Река}
+{6688}{}{Река}
+{6718}{}{Река}
+{6728}{}{Река}
+{6738}{}{Река}
+{6768}{}{Река}
+{6778}{}{Река}
+{6788}{}{Река}
+
+
+{7018}{}{Железная дорога}
+{7028}{}{Железная дорога}
+{7038}{}{Железная дорога}
+
+{7068}{}{Железная дорога}
+{7078}{}{Железная дорога}
+{7088}{}{Железная дорога}
+
+{7118}{}{Железная дорога}
+{7128}{}{Железная дорога}
+{7138}{}{Железная дорога}
+
+{7168}{}{Железная дорога}
+{7178}{}{Железная дорога}
+{7188}{}{Железная дорога}
+
+{7218}{}{Железная дорога}
+{7228}{}{Железная дорога}
+{7238}{}{Железная дорога}
+
+{7268}{}{Железная дорога}
+{7278}{}{Железная дорога}
+{7288}{}{Железная дорога}
+
+{7318}{}{Железная дорога}
+{7328}{}{Железная дорога}
+{7338}{}{Железная дорога}
+
+{7368}{}{Железная дорога}
+{7378}{}{Железная дорога}
+{7388}{}{Железная дорога}
+
+{7418}{}{Железная дорога}
+{7428}{}{Железная дорога}
+{7438}{}{Железная дорога}
+
+{7458}{}{Железная дорога}
+{7468}{}{Железная дорога}
+{7478}{}{Железная дорога}
+
+
+{7518}{}{Дорога}
+{7528}{}{Дорога}
+{7538}{}{Дорога}
+
+{7568}{}{Дорога}
+{7578}{}{Дорога}
+{7588}{}{Дорога}
+
+{7618}{}{Дорога}
+{7628}{}{Дорога}
+{7638}{}{Дорога}
+
+{7668}{}{Дорога}
+{7678}{}{Дорога}
+{7688}{}{Дорога}
+
+{7718}{}{Дорога}
+{7728}{}{Дорога}
+{7738}{}{Дорога}
+
+{7768}{}{Дорога}
+{7778}{}{Дорога}
+{7788}{}{Дорога}
+
+{7818}{}{Дорога}
+{7828}{}{Дорога}
+{7838}{}{Дорога}
+
+{7868}{}{Дорога}
+{7878}{}{Дорога}
+{7888}{}{Дорога}
+
+{7918}{}{Дорога}
+{7928}{}{Дорога}
+{7938}{}{Дорога}
+
+
+{7968}{}{Дорога}
+{7978}{}{Дорога}
+{7988}{}{Дорога}
+
+{9018}{}{Озеро}
+{9028}{}{Озеро}
+{9038}{}{Озеро}
+{9048}{}{Озеро}
+
+{9068}{}{Озеро}
+{9078}{}{Озеро}
+{9088}{}{Озеро}
+
+{9118}{}{Озеро}
+{9128}{}{Озеро}
+{9138}{}{Озеро}
+{9148}{}{Озеро}
+{9158}{}{Озеро}
+
+{9168}{}{Озеро}
+{9178}{}{Озеро}
+{9188}{}{Озеро}
+{9198}{}{Озеро}
+{9208}{}{Озеро}
+{9218}{}{Озеро}
+{9228}{}{Озеро}
+{9238}{}{Озеро}
+
+{9268}{}{Озеро}
+{9278}{}{Озеро}
+{9288}{}{Озеро}
+{9298}{}{Озеро}
+{9308}{}{Озеро}
+
+{9318}{}{Озеро}
+{9328}{}{Озеро}
+{9338}{}{Озеро}
+
+{9368}{}{Озеро}
+{9378}{}{Озеро}
+{9388}{}{Озеро}
+
+{9418}{}{Озеро}
+{9428}{}{Озеро}
+{9438}{}{Озеро}
+
+{9468}{}{Озеро}
+{9468}{}{Озеро}
+{9478}{}{Озеро}
+
+{9518}{}{Озеро}
+{9528}{}{Озеро}
+{9538}{}{Озеро}
+{9548}{}{Озеро}
+{9558}{}{Озеро}
+
+{9568}{}{Озеро}
+{9578}{}{Озеро}
+{9588}{}{Озеро}
+
+{10018}{}{Мост}
+{10028}{}{Мост}
+
+{11118}{}{Горы}
+{11168}{}{Горы}
+{11218}{}{Горы}
+{11268}{}{Горы}
+{11318}{}{Горы}
+{11368}{}{Горы}
+{11418}{}{Горы}
+{11468}{}{Горы}
+{11518}{}{Горы}
+{11668}{}{Горы}
+
+
+#================================================================================================================
+#Big lake
+#================================================================================================================
+
+# Name, (pid + 1) * 10 + 0							#Имя
+# Music, (pid + 1) * 10 + 5							#Музыка на локации
+# Ambient, (pid + 1) * 10 + 6						#Звуки на локации
+# NoLogOut, (pid + 1) * 10 + 7						#
+# Transit Name, (pid + 1) * 10 + 8 pm added			#Название на курсоре при переходе
+
+#1.		(27 45)	 [Area 1200]	Map 1200	Big_lake_coast_es1
+#
+{12010}{}{Big_lake_coast_es1}
+{12015}{}{13carvrn}
+{12016}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12018}{}{Озеро}
+
+
+#2.		(28 45)	 [Area 1201]	Map 1201	Big_lake_coast_ws1
+#
+{12020}{}{Big_lake_coast_ws1}
+{12025}{}{13carvrn}
+{12026}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12028}{}{Озеро}
+
+
+#3.		(26 46)	 [Area 1202]	Map 1202	Big_lake_coast_es2
+#
+{12030}{}{Big_lake_coast_es2}
+{12035}{}{13carvrn}
+{12036}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12038}{}{Озеро}
+
+
+#4.		(27 46)	 [Area 1203]	Map 1203	Big_lake_coast_se1
+#
+{12040}{}{Big_lake_coast_se1}
+{12045}{}{13carvrn}
+{12046}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12048}{}{Озеро}
+
+
+#5.		(28 46)	 [Area 1204]	Map 1204	Big_lake_coast_sw1
+#
+{12050}{}{Big_lake_coast_sw1}
+{12055}{}{13carvrn}
+{12056}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12058}{}{Озеро}
+
+
+#6.		(29 46)	 [Area 1205]	Map 1205	Big_lake_coast_s1
+#
+{12060}{}{Big_lake_coast_s1}
+{12065}{}{13carvrn}
+{12066}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12068}{}{Озеро}
+
+
+#7.		(30 46)	 [Area 1206]	Map 1206	Big_lake_coast_ws2
+#
+{12070}{}{Big_lake_coast_ws2}
+{12075}{}{13carvrn}
+{12076}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12078}{}{Озеро}
+
+
+#8.		(26 47)	 [Area 1207]	Map 1207	Big_lake_coast_e1
+#
+{12080}{}{Big_lake_coast_e1}
+{12085}{}{13carvrn}
+{12086}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12088}{}{Озеро}
+
+
+#9.		(30 47)	 [Area 1211]	Map 1211	Big_lake_coast_w1
+#
+{12120}{}{Big_lake_coast_w1}
+{12125}{}{13carvrn}
+{12126}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12128}{}{Озеро}
+
+
+#10.	(26 48)	 [Area 1212]	Map 1212	Big_lake_coast_e2
+#
+{12130}{}{Big_lake_coast_e2}
+{12135}{}{13carvrn}
+{12136}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12138}{}{Озеро}
+
+
+#11.	(30 48)	 [Area 1216]	Map 1216	Big_lake_town
+#
+{12170}{}{Big_lake_town}
+{12175}{}{13carvrn}
+{12176}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12178}{}{Пирс}
+
+
+#12.	(26 49)	 [Area 1217]	Map 1217	Big_lake_coast_en1
+#
+{12180}{}{Big_lake_coast_en1}
+{12185}{}{13carvrn}
+{12186}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12188}{}{Озеро}
+
+
+#13.	(27 49)	 [Area 1218]	Map 1218	Big_lake_coast_ne1
+#
+{12190}{}{Big_lake_coast_ne1}
+{12195}{}{13carvrn}
+{12196}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12198}{}{Озеро}
+
+
+#14.	(29 49)	 [Area 1220]	Map 1220	Big_lake_coast_nw1
+#
+{12210}{}{Big_lake_coast_nw1}
+{12215}{}{13carvrn}
+{12216}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12218}{}{Озеро}
+
+
+#15.	(30 49)	 [Area 1221]	Map 1221	Big_lake_coast_wn1
+#
+{12220}{}{Big_lake_coast_wn1}
+{12225}{}{13carvrn}
+{12226}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12228}{}{Озеро}
+
+
+#16.	(27 50)	 [Area 1222]	Map 1222	Big_lake_coast_e3
+#
+{12230}{}{Big_lake_coast_e3}
+{12235}{}{13carvrn}
+{12236}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12238}{}{Озеро}
+
+
+#17.	(29 50)	 [Area 1224]	Map 1224	Big_lake_coast_sw2
+#
+{12250}{}{Big_lake_coast_sw2}
+{12255}{}{13carvrn}
+{12256}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12258}{}{Озеро}
+
+
+#18.	(30 50)	 [Area 1225]	Map 1225	Big_lake_coast_ws3
+#
+{12260}{}{Big_lake_coast_ws3}
+{12265}{}{13carvrn}
+{12266}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12268}{}{Озеро}
+
+
+#19.	(27 51)	 [Area 1226]	Map 1226	Big_lake_coast_en2
+#
+{12270}{}{Big_lake_coast_en2}
+{12275}{}{13carvrn}
+{12276}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12278}{}{Озеро}
+
+
+#20.	(28 51)	 [Area 1227]	Map 1227	Big_lake_coast_ne2
+#
+{12280}{}{Big_lake_coast_ne2}
+{12285}{}{13carvrn}
+{12286}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12288}{}{Озеро}
+
+
+#21.	(29 51)	 [Area 1228]	Map 1228	Big_lake_coast_nw2
+#
+{12290}{}{Big_lake_coast_nw2}
+{12295}{}{13carvrn}
+{12296}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12298}{}{Озеро}
+
+
+#22.	(30 51)	 [Area 1229]	Map 1229	Big_lake_coast_wn2
+#
+{12300}{}{Big_lake_coast_wn2}
+{12305}{}{13carvrn}
+{12306}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12308}{}{Озеро}
+
+
+#23.	(28 52)	 [Area 1230]	Map 1230	Big_lake_coast_en3
+#
+{12310}{}{Big_lake_coast_en3}
+{12315}{}{13carvrn}
+{12316}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12318}{}{Озеро}
+
+
+#24.	(29 52)	 [Area 1231]	Map 1231	Big_lake_coast_wn3
+#
+{12320}{}{Big_lake_coast_wn3}
+{12325}{}{13carvrn}
+{12326}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12328}{}{Озеро}
+
+
+#================================================================================================================
+#Modoc
+#================================================================================================================
+
+# Name, (pid + 1) * 10 + 0							#Имя
+# Music, (pid + 1) * 10 + 5							#Музыка на локации
+# Ambient, (pid + 1) * 10 + 6						#Звуки на локации
+# NoLogOut, (pid + 1) * 10 + 7						#
+# Transit Name, (pid + 1) * 10 + 8 pm added			#Название на курсоре при переходе
+
+
+#1.		(9 5)	 [Area 1232]	Map 1232	modoc_lands_town
+#
+{12330}{}{modoc_lands_town}
+{12335}{}{18modoc}
+{12336}{}{gntlwin1:25, gntlwind:25, animal1:20, laughter:15, animal:20, winddoor:20, gustwin1:5, gustwin1:5}
+{12338}{}{Модок : город}
+
+
+#2.		(7 3)	 [Area 1238]	Map 1238	modoc_lands_river_turn
+#
+{12390}{}{modoc_lands_river_turn}
+{12395}{}{18modoc}
+{12396}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12398}{}{Модок : река}
+
+
+#3.		(7 4)	 [Area 1239]	Map 1239	modoc_lands_river_3
+#
+{12400}{}{modoc_lands_river_3}
+{12405}{}{18modoc}
+{12406}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12408}{}{Модок : река}
+
+
+#4.		(7 5)	 [Area 1240]	Map 1240	modoc_lands_river_2
+#
+{12410}{}{modoc_lands_river_2}
+{12415}{}{18modoc}
+{12416}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12418}{}{Модок : река}
+
+
+#5.		(7 6)	 [Area 1241]	Map 1241	modoc_lands_river_1
+#
+{12420}{}{modoc_lands_river_1}
+{12425}{}{18modoc}
+{12426}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12428}{}{Модок : река}
+
+
+#6.		(7 7)	 [Area 1242]	Map 1242	modoc_lands_bridge
+#
+{12430}{}{modoc_lands_bridge}
+{12435}{}{18modoc}
+{12436}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12438}{}{Модок : мост}
+
+
+#7.		(8 3)	 [Area 1243]	Map 1243	modoc_lands_cliff_1
+#
+{12440}{}{modoc_lands_bridge}
+{12445}{}{18modoc}
+{12446}{}{gntlwin1:20, gntlwind:20, animal1:15, animal:15, gustwind:5, gustwin1:5, electri1:10, electric:10}
+{12448}{}{Модок : утес}
+
+
+#8.		(8 4)	 [Area 1244]	Map 1244	modoc_lands_river_4
+#
+{12450}{}{modoc_lands_river_4}
+{12455}{}{18modoc}
+{12456}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12458}{}{Модок : река}
+
+
+#9.		(8 7)	 [Area 1245]	Map 1245	lands_caravan_camp
+#
+{12460}{}{lands_caravan_camp}
+{12465}{}{18modoc}
+{12466}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12468}{}{Модок : стоянка караванов}
+
+
+#10.	(9 3)	 [Area 1246]	Map 1246	modoc_lands_cliff_2
+#
+{12470}{}{modoc_lands_cliff_2}
+{12475}{}{18modoc}
+{12476}{}{gntlwin1:20, gntlwind:20, animal1:15, animal:15, gustwind:5, gustwin1:5, electri1:10, electric:10}
+{12478}{}{Модок : утес}
+
+
+#11.	(9 4)	 [Area 1247]	Map 1247	modoc_lands_river_5
+#
+{12480}{}{modoc_lands_river_5}
+{12485}{}{18modoc}
+{12486}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12488}{}{Модок : река}
+
+
+#12.	(9 7)	 [Area 1248]	Map 1248	modoc_lands_gas_station
+#
+{12490}{}{modoc_lands_gas_station}
+{12495}{}{18modoc}
+{12496}{}{dogbark:10, dogbark1:10, gntlwind:20, gntlwin1:20, blank:40}
+{12498}{}{Модок : заправка}
+
+
+#13.	(10 3)	 [Area 1249]	Map 1249	modoc_lands_cliff_3
+#
+{12500}{}{modoc_lands_cliff_3}
+{12505}{}{18modoc}
+{12506}{}{gntlwin1:20, gntlwind:20, animal1:15, animal:15, gustwind:5, gustwin1:5, electri1:10, electric:10}
+{12508}{}{Модок : утес}
+
+
+#14.	(10 4)	 [Area 1250]	Map 1250	modoc_lands_cliff_4
+#
+{12510}{}{modoc_lands_cliff_4}
+{12515}{}{18modoc}
+{12516}{}{gntlwin1:20, gntlwind:20, animal1:15, animal:15, gustwind:5, gustwin1:5, electri1:10, electric:10}
+{12518}{}{Модок : утес}
+
+
+#15.	(10 5)	 [Area 1251]	Map 1251	modoc_lands_graveyard
+#
+{12520}{}{modoc_lands_graveyard}
+{12525}{}{18modoc}
+{12526}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12528}{}{Модок : кладбище}
+
+
+#16.	(10 6)	 [Area 1252]	Map 1252	modoc_lands_shebang
+#
+{12530}{}{modoc_lands_shebang}
+{12535}{}{18modoc}
+{12536}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12538}{}{Модок : притон}
+
+
+#17.	(10 7)	 [Area 1253]	Map 1253	modoc_lands_oasis
+#
+{12540}{}{modoc_lands_oasis}
+{12545}{}{18modoc}
+{12546}{}{gntlwin1:30, gntlwind:30, gustwin1:10, gustwind:10, vulture:10, vulture1:10}
+{12548}{}{Модок : оазис}
+
+
+#18.	(11 4)	 [Area 1254]	Map 1254	modoc_lands_forest_3
+#
+{12550}{}{modoc_lands_forest_3}
+{12555}{}{18modoc}
+{12556}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12558}{}{Модок : лес}
+
+
+#19.	(11 5)	 [Area 1255]	Map 1255	modoc_lands_forestfarm
+#
+{12560}{}{modoc_lands_forestfarm}
+{12565}{}{18modoc}
+{12566}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12568}{}{Модок : хижина}
+
+
+#20.	(11 6)	 [Area 1256]	Map 1256	modoc_lands_forest_1
+#
+{12570}{}{modoc_lands_forest_1}
+{12575}{}{18modoc}
+{12576}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12578}{}{Модок : лес}
+
+
+#21.	(12 4)	 [Area 1257]	Map 1257	modoc_lands_forest_4
+#
+{12580}{}{modoc_lands_forest_4}
+{12585}{}{18modoc}
+{12586}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12588}{}{Модок : лес}
+
+
+#22.	(12 5)	 [Area 1258]	Map 1258	modoc_lands_sawmill
+#
+{12590}{}{modoc_lands_sawmill}
+{12595}{}{18modoc}
+{12596}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12598}{}{Модок : лесопилка}
+
+
+#23.	(12 6)	 [Area 1259]	Map 1259	modoc_lands_forest_2
+#
+{12600}{}{modoc_lands_forest_2}
+{12605}{}{18modoc}
+{12606}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12608}{}{Модок : лес}
+
+
+#23.	(14 4)	 [Area 1260]	Map 1260	modoc_lands_ghostfarm
+#
+{12610}{}{modoc_lands_ghostfarm}
+{12615}{}{18modoc}
+{12616}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12618}{}{Модок : ферма}
+
+#24.	(14 4)	 [Area 1260]	Map 1260	modoc_lands_ghostfarm
+#
+{12630}{}{modoc_lands_ghostfarm}
+{12635}{}{18modoc}
+{12636}{}{gntlwin1:25, gntlwind:25, animal1:20, animal:20, gustwind:5, gustwin1:5}
+{12638}{}{Модок : лес}
+
+
+
+
+
+
+#
+# Global map
+#
+
+# Name, (pid + 100) * 1000 + 0
+# Info, (pid + 100) * 1000 + 5
+# Location picture, (pid + 100) * 1000 + 20
+# Tab picture, (pid + 100) * 1000 + 30
+# Count entries, (pid + 100) * 1000 + 90
+# Entire X name, (pid + 100) * 1000 + 100 + X*10 + 1
+# Entire X pic x, (pid + 100) * 1000 + 100 + X*10 + 2
+# Entire X pic y, (pid + 100) * 1000 + 100 + X*10 + 3
+
+
+#
+# Worldmap Encounter messages
+#
+
+#{10000010}{}{Вы наткнулись на @lex who@.}
+#{10000011}{}{Вы наткнулись на @lex who@ и @lex player@.}
+#{10000012}{}{Вы наткнулись на @lex who@ и банду @lex player@.}
+#{10000013}{}{Вы наткнулись на @lex player@.}
+#{10000014}{}{Вы наткнулись на банду @lex player@.}
+#{10000020}{}{Вы хотите увидеть @lex who@?}
+#{10000021}{}{Вы хотите увидеть @lex who@ и @lex player@?}
+#{10000022}{}{Вы хотите увидеть @lex who@ и банду @lex player@?}
+#{10000023}{}{Вы хотите увидеть @lex player@?}
+#{10000024}{}{Вы хотите увидеть банду @lex player@?}

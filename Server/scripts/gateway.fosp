@@ -1,0 +1,706 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                    
+
+uint[]guards;
+
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target,int minHp)from"npc_planes";
+import uint EraseAttackPlane(Critter&npc,Critter&target)from"npc_planes";                                      
+
+uint ClosestNpcByPrototype(Critter&player,int proto_first,int proto_last)
+{
+	Map@map=player.GetMap();
+	if((@map!=null))
+	{
+		Critter@[]npc;
+		uint dist=15;
+		uint id=0;
+		if(map.GetCritters(0,(0x0F)|(0x20),npc)==0)
+		{
+			player.Say((11),"нет нужного человека");
+		}
+		else
+		{
+			for(uint i=0;i<npc.length();i++)
+			{
+				if(npc[i].GetProtoId()>=proto_first&&npc[i].GetProtoId()<=proto_last)
+				{
+					if(npc[i].IsSee(player)&&GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY)<dist)
+					{
+						dist=GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY);
+						id=npc[i].Id;
+					}
+				}
+			}
+			return id;
+		}
+	}
+	return 0;
+}
+
+Critter@GetClosestGuard(Critter&cr){
+	return GetCritter(ClosestNpcByPrototype(cr,1930,1941));          
+	
+}
+
+void Say(Critter&target,Critter@guard,string text,int SAY_TYPE)
+{
+	if(!(@guard!=null))return;
+	uint8 dir=GetDirection(guard.HexX,guard.HexY,target.HexX,target.HexY);
+	guard.SetDir(dir);
+	guard.Say(SAY_TYPE,text);
+}
+void Warn(Critter&target,Critter@guard,string text){
+	Say(target,guard,text,(2));
+}
+void Cry(Critter&target,Critter@guard,string text){
+	Say(target,guard,text,(4));
+}
+
+void Stop(Critter&target){
+	target.SetEvent((0),null);
+	target.Wait(1000);
+}
+
+string PhraseGetOff(){
+	string[][]parts={
+		{"Таким как ты ","Тебе ","Уродам ","Вам "},
+		{"здесь ","тут ","в городе ","в Модоке "},
+		{"не рады","не место","делать нечего"},
+		{"!"}
+	};
+	string[]special={
+		"В могилу захотелось?","Проваливай, пока ноги ходят!","Смотри кто явился! Жить надоело?","За смертью своей пришёл!?"
+	};
+	string result="";
+	if(Random(0,3)==0)result=special[Random(0,special.length()-1)];
+	else for(uint n=0,nEnd=parts.length();n<nEnd;n++)
+	result+=parts[n][Random(0,parts[n].length()-1)];
+	return result;
+}
+
+string LastWarning(){
+	string[]result={
+		"ЕЩЁ ШАГ И ТЫ ПОКОЙНИК",
+		"СТОЙ! СТРЕЛЯТЬ БУДУ",
+		"НИ ШАГУ ДАЛЬШЕ, МАТЬ ТВОЮ",
+		"КУДА ПРЁШЬ? УБЬЮ НАХРЕН"
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string AttackMsg(){
+	string[]result={
+		"получай",
+		"я предупреждал",
+		"лежать",
+		"нарушитель"
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string DontGoBack(){
+	string[]result={
+		"Скатертью дорога!",
+		"Вали туда, отуда пришёл!",
+		"В город тебе прохода нет!",
+		"И не возвращайся!"
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string NeedAccess(){
+	string[]result={
+		"Кого попало в город не пускаем.",
+		"Сначала раздобудь документы.",
+		"Ты здесь никто. Проваливай.",
+		"Нет пропуска - не пройдёшь."
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string NeedAccessInfo(){
+	string[]result={
+		"Найди того, кто за тебя поручится.",
+		"Чёртовы иммигранты.",
+		"Ты здесь никто. Проваливай.",
+		"Шевелись, нечего проход загораживать."
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string NeedRegainAccess(){
+	string[]result={
+		"Пропуск сдан - назад дороги нет.",
+		"Без нового пропуска не возвращайся.",
+		"Пока не раздобудешь ещё один пропуск - в город не пустим.",
+		"Этому городу не нужны бездельники."
+	};
+	return result[Random(0,result.length()-1)];
+}
+
+string OnlyApproved(){
+	string[][]parts={
+		{"В городе карантин, ","Стой! Тебе нельзя, ","Сколько раз повторять, "},
+		{"вход только для жителей города!"}
+	};
+	string result="";
+	for(uint n=0,nEnd=parts.length();n<nEnd;n++)
+	result+=parts[n][Random(0,parts[n].length()-1)];
+	return result;
+}
+
+string NoMovement(){
+	return"А ну прочь от КПП! Вход и выход из города запрещены!";
+}
+
+string NoMovementInfo(){
+	return"Не нервируй меня! В следующий раз могу и выстрелить!";
+}
+
+void t_EnterHex(Critter&cr,Scenery&trigger,bool entered,uint8 dir,int val)
+{
+	if(cr.IsNpc())return;
+	if(cr.Quest[(701)]!=0)return;
+	
+	GameVar@br=GetGlobalVar((7343));
+	
+	if((br.GetValue()==4))return;
+	
+	Critter@guard=GetClosestGuard(cr);
+	
+	if((cr.Quest[(705)]==10)){
+		if((cr.Dir==4||cr.Dir==5||cr.Dir==0)){
+			if(entered&&(val==4))Warn(cr,guard,PhraseGetOff());
+			if(entered&&(val==5)){Cry(cr,guard,LastWarning());Stop(cr);}
+			if(!entered&&(val==5)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+		if((cr.Dir==1||cr.Dir==2||cr.Dir==3)){
+			if(!entered&&(val==5))Warn(cr,guard,DontGoBack());
+		}
+		return;
+	}
+	
+	if((br.GetValue()==0)){
+		if((cr.Quest[(705)]>=2))return;
+		if((cr.Dir==4||cr.Dir==5||cr.Dir==0)){
+			if((cr.Quest[(705)]==1)){
+				if(!entered&&(val==4))cr.Say((6),"показывает пропуск");
+			}
+			if(!(cr.Quest[(705)]==1)){
+				if(entered&&(val==4)){Warn(cr,guard,NeedAccess());Stop(cr);}
+				if(entered&&(val==5)){Cry(cr,guard,LastWarning());Stop(cr);}
+				if(!entered&&(val==5)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+			}
+		}
+		if((cr.Dir==1||cr.Dir==2||cr.Dir==3)){
+			if(!entered&&(val==5)){
+				if((cr.Quest[(705)]==1)){
+					cr.QuestBase[(705)]=(0);
+					cr.Say((6),"сдает пропуск охране");
+					Item@[]DayPass;
+					cr.GetItems(-1,DayPass);
+					for(uint i=0,iEnd=DayPass.length();i<iEnd;i++)
+					{
+						if(DayPass[i].GetProtoId()==(912))
+						do{if(DayPass[i].GetCount()>(1))
+							DayPass[i].SetCount(DayPass[i].GetCount()-(1));else
+							DeleteItem(DayPass[i]);}while(false);
+					}
+				}else Warn(cr,guard,NeedAccessInfo());
+			}
+			if(!entered&&(val==4)){
+				if(!(cr.Quest[(705)]==1)){
+					Warn(cr,guard,NeedRegainAccess());
+				}
+			}
+		}
+		return;
+	}
+	
+	if((br.GetValue()==1)){
+		if((cr.Quest[(705)]>=2)&&!(cr.Quest[(705)]==2))return;
+		if((cr.Dir==4||cr.Dir==5||cr.Dir==0)){
+			if(entered&&(val==4))Warn(cr,guard,OnlyApproved());
+			if(entered&&(val==5)){Cry(cr,guard,LastWarning());Stop(cr);}
+			if(!entered&&(val==5)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+		if((cr.Dir==1||cr.Dir==2||cr.Dir==3)){
+			
+		}
+		return;
+	}
+	
+	if((br.GetValue()==2)){
+		if((cr.Quest[(704)]==1)||(cr.Quest[(704)]==2)||(cr.Quest[(704)]==3))return;
+		if((cr.Quest[(704)]==7)||(cr.Quest[(704)]==8))return;
+		if((cr.Dir==4||cr.Dir==5||cr.Dir==0)){
+			if(entered&&(val==4)){Warn(cr,guard,NoMovement());Stop(cr);}
+			if(!entered&&(val==5))Warn(cr,guard,NoMovementInfo());
+			if(entered&&(val==5)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+		if((cr.Dir==1||cr.Dir==2||cr.Dir==3)){
+			if(entered&&(val==5)){Warn(cr,guard,NoMovement());Stop(cr);}
+			if(!entered&&(val==4))Warn(cr,guard,NoMovementInfo());
+			if(entered&&(val==4)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+	}
+	
+	if((br.GetValue()==3)){
+		if((cr.Quest[(704)]==7)||(cr.Quest[(704)]==8))return;
+		if((cr.Dir==4||cr.Dir==5||cr.Dir==0)){
+			if(entered&&(val==4)){Warn(cr,guard,NoMovement());Stop(cr);}
+			if(!entered&&(val==5))Warn(cr,guard,NoMovementInfo());
+			if(entered&&(val==5)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+		if((cr.Dir==1||cr.Dir==2||cr.Dir==3)){
+			if(entered&&(val==5)){Warn(cr,guard,NoMovement());Stop(cr);}
+			if(!entered&&(val==4))Warn(cr,guard,NoMovementInfo());
+			if(entered&&(val==4)){Cry(cr,guard,AttackMsg());AttackAndCatch(cr,guard);}
+		}
+		return;
+	}
+}
+
+void AttackAndCatch(Critter&cr,Critter@guard)
+{
+	if(!(@guard!=null)){cr.Say((11),"Кажется, с охраной что-то не так..");return;}
+	AddAttackPlane(guard,0,cr,0);
+	cr.SetEvent((25),"_KoAndCatch");
+}
+
+void AttackAndCatch(Critter&cr){
+	Map@map=cr.GetMap();
+	if(map is null)
+	return;
+	
+	for(uint i=0;i<guards.length();i++)
+	{
+		Critter@guard=GetCritter(guards[i]);
+		if(guard is null)
+		continue;
+		
+		uint len=GetDistantion(cr.HexX,cr.HexY,guard.HexX,guard.HexY);
+		if(len>25||!guard.IsSee(cr)||(cr.GetMap().Id!=guard.GetMap().Id))
+		continue;
+		
+		AddAttackPlane(guard,0,cr,0);
+	}
+	
+	if(cr.Quest[(703)]!=(3)&&cr.Stat[(67)]!=(29))
+	cr.SetEvent((25),"_KoAndCatch");
+} 
+
+void _KoAndCatch(Critter&cr,uint anim2begin,uint anim2idle,uint anim2end,uint lostAp,uint knockDist)
+{
+	Map@map=cr.GetMap();
+	if((@map!=null))
+	{
+		Critter@[]npc;
+		uint dist=15;
+		uint id=0;
+		if(map.GetCritters(0,(0x0F)|(0x20),npc)==0)
+		{
+		}
+		else
+		{
+			for(uint i=0;i<npc.length();i++)
+			{
+				if(npc[i].GetProtoId()>=1930&&npc[i].GetProtoId()<=1941)
+				{
+					EraseAttackPlane(npc[i],cr);
+				}
+			}
+		}
+	}
+	cr.SetEvent((25),null);                         
+	
+}
+
+bool catch(Critter&cr)
+{
+	
+	Map@map=cr.GetMap();
+	if(map is null)
+	return false;
+	Location@loc=map.GetLocation();
+	if((loc.GetProtoId()>=1&&loc.GetProtoId()<=4)||loc.GetProtoId()==6)
+	{
+		Map@map2=GetLocationByPid((1249),0).GetMapByIndex(0);
+		if(map2 is null)
+		{
+			Log("gw map");
+			return false;
+		}
+		bool ch=false;
+		ch=cr.TransitToMap(map2.Id,0);
+		return ch;
+	}
+	
+	bool ch=false;
+	ch=cr.TransitToHex(120+Random(-5,5),240+Random(-5,5),2);
+	cr.Say((11),"вас выкинули из города");
+	return ch;
+}
+
+void addGuard(Critter&npc)
+{
+	guards.insertLast(npc.Id);
+} 
+
+void r_toHex(Critter&master,Critter@slave,int val)
+{
+	Map@map=master.GetMap();
+	
+	if(map is null)
+	return;
+	
+	uint16 hexX=0,hexY=0;
+	
+	if(!map.GetEntireCoords(val,0,hexX,hexY))
+	return;
+	
+	master.TransitToHex(hexX,hexY,5);
+}
+
+bool d_isGoOut(Critter&master,Critter@slave)
+{
+	Map@map=master.GetMap();
+	
+	if(map is null)
+	return false;
+	
+	uint16 hexX=0,hexY=0;
+	
+	if(!map.GetEntireCoords(83,0,hexX,hexY))
+	return false;
+	
+	if(master.HexX==hexX&&master.HexY==hexY)
+	return true;
+	
+	uint8 dir=GetDirection(master.HexX,master.HexY,hexX,hexY);
+	
+	return(dir>0&&dir<4);
+	
+}
+
+void AttackAndCatch(Critter&player,int id,int param1,int param2)
+{
+	player.Say((11),"Команда отключена, извините за причинённые неудобства.");     
+	
+}
+
+void Release(Critter&player,int id,int param1,int param2)
+{
+	Critter@cr=GetCritter(id);
+	if(cr is null)
+	return;
+	Map@map=cr.GetMap();
+	if(map is null||map.GetProtoId()!=18)
+	return;
+	if(cr.HexX>=120||cr.HexX<=100||cr.HexY>=220||cr.HexY<=210)
+	return;
+	
+	cr.TransitToHex(player.HexX+1,player.HexY+1,5);
+	Item@toCont=map.GetItem(117,208,188);
+	if((@toCont!=null))
+	{
+		Item@[]items;
+		toCont.GetItems(cr.Id,items);
+		
+		MoveItems(items,cr);
+		
+		player.Say((11),"Item return ok.");
+	}
+}

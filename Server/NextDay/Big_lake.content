@@ -1,0 +1,10 @@
+#==========================================================
+#ND Big lake
+#==========================================================
+
+Name = Big_lake_town
+LocationPid = 1216
+Flags = Static 
+Visible = 50
+Size = 1 1
+Create:Big_lake_town = 30 48

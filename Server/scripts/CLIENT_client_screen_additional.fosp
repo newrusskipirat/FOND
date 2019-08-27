@@ -1,0 +1,1014 @@
+ 
+
+import void SetHiveData(int[]hivedata)from"client_main";             
+
+import IGUIScreenOpt@GUI_CreateScreen(int screenIndex,string@sprName)from"client_gui";
+
+import void GUI_DeleteScreen(int screenIndex)from"client_gui";
+
+import IGUIElementOpt@GUI_AddScreenElement(int screenIndex,string@sprName,int x,int y)from"client_gui";
+
+import IGUIScreenOpt@GUI_GetScreenOptions(int screenIndex)from"client_gui";
+
+import IGUIScreenOpt@GUI_GetScreenOptions()from"client_gui";
+
+import IGUIElementOpt@GUI_GetElementOptions()from"client_gui";
+import void GUI_HideScreen(int screenIndex,int p0,int p1,int p2)from"client_gui";
+
+import void GUI_DeleteScreenElements(int screenIndex)from"client_gui"; 
+
+import IGUIScreenOpt@GUI_CreateScreenIni(int screenIndex,string@iniKey)from"client_gui";
+import IGUIElementOpt@GUI_AddScreenElementIni(int screenIndex,string@ini,int defx,int defy)from"client_gui";
+import IGUIElementOpt@GUI_AddScreenElementIni(int screenIndex,string@ini,int defx,int defy,string@defSpr)from"client_gui";      
+
+shared interface IGUIScreenCallbackShow
+{
+	void OnShow(int p0,int p1,int p2);
+}
+shared interface IGUIScreenCallbackHide
+{
+	void OnHide(int p0,int p1,int p2);
+}
+shared interface IGUIScreenCallbackMove
+{
+	void OnMove(int posX,int posY);
+}
+
+shared interface IGUIScreenCallbackInit{
+	void OnInit();
+}
+
+shared interface IGUIScreenOpt
+{
+	IGUIScreenOpt@CallbackShow(IGUIScreenCallbackShow@callback);
+	IGUIScreenOpt@CallbackHide(IGUIScreenCallbackHide@callback);
+	IGUIScreenOpt@CallbackMove(IGUIScreenCallbackMove@callback);
+	IGUIScreenOpt@Position(int x,int y);
+	IGUIScreenOpt@CanMove(bool enabled);
+	IGUIScreenOpt@Modal(bool enabled);
+	IGUIScreenOpt@Multiinstance(bool enabled);
+	IGUIScreenOpt@IgnoreBorders(bool enabled);
+	IGUIScreenOpt@CloseOnMiss(bool enabled);
+	IGUIScreenOpt@AutoCursor(bool enabled,int cursorType);
+	IGUIScreenOpt@SetElementCount(int8 ElementCount);
+	IGUIScreenOpt@Pic(string@sprName,int path);  
+	
+	int GetPosX();
+	int GetPosY();
+	uint16 GetElementsLength();
+	IGUIElementOpt@GetElement(uint16 index);
+	
+}    
+
+shared interface IGUIElementCallbackInit
+{
+	void OnInit();
+}
+shared interface IGUIElementCallbackDraw
+{
+	void OnDraw(int posX,int posY,int w,int h);
+}
+shared interface IGUIElementCallbackMouseClick
+{
+	void OnMouseClick(int click);
+}
+shared interface IGUIElementCallbackKeyPress
+{
+	void OnKeyPress(uint8 key,uint8 letter);
+}
+
+shared interface IGUIElementOpt
+{
+	IGUIElementOpt@CallbackInit(IGUIElementCallbackInit@callback);
+	IGUIElementOpt@CallbackDraw(IGUIElementCallbackDraw@callback);
+	IGUIElementOpt@CallbackMouseClick(IGUIElementCallbackMouseClick@callback);
+	IGUIElementOpt@CallbackKeyPress(IGUIElementCallbackKeyPress@callback);
+	IGUIElementOpt@Position(int x,int y);
+	IGUIElementOpt@Position(int x,int y,int w,int h);
+	IGUIElementOpt@Position(string&iniKey);
+	IGUIElementOpt@DownPic(string@sprName);
+	IGUIElementOpt@Text(string@text,int font,uint color,uint downColor,int flags);
+	IGUIElementOpt@TextInput(bool enabled,uint maxLen,uint colorFocused);
+	IGUIElementOpt@Switch(bool enabled); 
+	
+	IGUIElementOpt@SetVisible(bool enabled);
+	IGUIElementOpt@Realese();
+	IGUIElementOpt@SetElementType(uint8 type);
+	IGUIElementOpt@SetDescription(string desc);
+	IGUIElementOpt@SetElementBtnNum(uint8 btnNum);
+	IGUIElementOpt@SetElementFastPanelType(uint8 type);
+	IGUIElementOpt@SetElementFastPanelId(uint16 id);
+	IGUIElementOpt@UpPic(string@sprName);
+	IGUIElementOpt@Pic(string@sprName,int path);
+	IGUIElementOpt@SetLayer(uint8 layer);
+	IGUIElementOpt@SetSpecialValue(uint value);
+	IGUIElementOpt@SetRenderLayer(uint8 layer);
+	IGUIElementOpt@PicSetFrmCount(uint16 count);   
+	
+	int GetPosX();
+	int GetPosY();
+	string@GetText(); 
+	
+	bool GetVisible();
+	uint8 GetLayer();
+	uint8 GetType();
+	uint8 GetBtnNum();
+	uint8 GetFastPanelType();
+	uint16 GetFastPanelId();
+	string GetDescription();
+	uint16 GetSurfaceHeight();
+	uint16 GetSurfaceWidth();
+	uint GetSpecValue();
+	uint8 GetRenderLayer(); 
+	
+}                                                      
+
+string[]__critterHistoryInfo;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name);                           
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+}                                                  
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}                                       
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}                            
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	}                      
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}                                                                                                                                              
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                                                               
+
+string animIndexHive;
+uint16 realLocX;
+uint16 realLocY;
+uint16[]crTypes;
+string[]animIndex;
+IGUIElementOpt@[]hiveBtnsOpt;   
+
+void SetHivePos(int16 x,int16 y,int16 realX,int16 realY,int16 type,uint8 count)
+{    
+	
+	CritterCl@choo=GetChosen();
+	if(@choo==null)
+	return;
+	
+	if(choo.Stat[(121)]<=0)
+	return;
+	
+	hiveBtnsOpt[count].Position(x,y);
+	hiveBtnsOpt[count].SetElementType(type);
+	
+	uint data=(int(realX)&0xFFFF)|((int(realY)&0xFFFF)<<16);
+	hiveBtnsOpt[count].SetSpecialValue(data);
+	
+	bool isCollX=(((350)-__GmapOffsetX)*__GmapZoom<x);
+	bool isCollY=(((350)-__GmapOffsetY)*__GmapZoom<y); 
+	
+	hiveBtnsOpt[count].SetVisible(isCollX&&ShowRespawnButtonsLevel(type,choo.StatBase[(77)]));       
+	
+}
+
+void DrawHives(uint8 hiveCount)
+{      
+	
+	GUI_DeleteScreenElements((6));
+	
+	hiveBtnsOpt.resize(0);
+	IGUIElementOpt@tempOpt;
+	
+	for(uint8 i=0;i<hiveCount;i++)
+	{
+		GlobalMapArcadeHiveBtn arcadeGlobalButton(i);
+		@tempOpt=GUI_AddScreenElement((6),"ebut_out.frm",95,70)
+		.CallbackInit(arcadeGlobalButton)
+		.CallbackMouseClick(arcadeGlobalButton)
+		
+		.DownPic("ebut_in.frm");  
+		
+		hiveBtnsOpt.insertLast(tempOpt);
+	}
+	
+}
+
+bool ShowRespawnButtonsLevel(uint8 crType,uint8 level)
+{
+	switch(crType)
+	{
+		case(52):
+		if(level>=1)
+		return true;
+		else
+		break;
+		case(24):
+		if(level>=1)
+		return true;
+		else
+		break;
+		case(97):
+		if(level>=2)
+		return true;
+		else
+		break;
+		case(55):
+		if(level>=3)
+		return true;
+		else
+		break;
+		case(67):
+		if(level>=3)
+		return true;
+		else
+		break;
+		case(16):
+		if(level>=3)
+		return true;
+		else
+		break;
+		case(68):
+		if(level>=4)
+		return true;
+		else
+		break;
+		case(15):
+		if(level>=4)
+		return true;
+		else
+		break;
+		case(19):
+		if(level>=5)
+		return true;
+		else
+		break;
+		case(76):
+		if(level>=6)
+		return true;
+		else
+		break;
+		case(59):
+		if(level>=7)
+		return true;
+		else
+		break;
+		case(22):
+		if(level>=8)
+		return true;
+		else
+		break;
+		case(60):
+		if(level>=9)
+		return true;
+		else
+		break;
+		case(80):
+		if(level>=9)
+		return true;
+		else
+		break;
+		case(25):
+		if(level>=10)
+		return true;
+		else
+		break;
+		case(51):
+		if(level>=10)
+		return true;
+		else
+		break;
+		case(23):
+		if(level>=11)
+		return true;
+		else
+		break;
+		case(86):
+		if(level>=12)
+		return true;
+		else
+		break;
+		case(100):
+		if(level>=12)
+		return true;
+		else
+		break;
+		case(81):
+		if(level>=12)
+		return true;
+		else
+		break;
+		default:
+		break;
+	}
+	return false;
+}     
+
+void SendAnimIndex(int LocX,int LocY,int param2,string@param3,int[]@param4)
+{
+	animIndexHive=param3;
+	Message(param3);
+	ShowScreen((54),LocX,LocY,0);
+}
+
+void SendHiveInfo(int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	
+	uint8 length=param4.length();
+	if(length<=0)
+	{
+		Message("wrong array length");
+		return;
+	}
+	DrawHives(length);
+	
+	SetHiveData(param4);            
+	
+}  
+
+void InitScreenAddiotional()
+{
+	
+	CharacterSkinSelectButtonShow chaSelBtn();  
+	
+	GUI_AddScreenElementIni((2),"RegChaSelUp",300,0)
+	.CallbackInit(chaSelBtn)
+	.CallbackMouseClick(chaSelBtn)
+	.Position("RegChaSel")
+	.DownPic(GetIfaceIniStr("RegChaSelDn")); 
+	
+	CharacterSkinSelectWindow chaSelWindow();
+	GUI_CreateScreenIni((49),"RegChaSel")
+	.CallbackHide(chaSelWindow)
+	.CallbackShow(chaSelWindow)
+	.CloseOnMiss(true)
+	.CanMove(false)
+	.AutoCursor(true,(0));
+	
+	CharacterSkinSelectButton chaSelBtnDone(chaSelWindow,0);
+	GUI_AddScreenElementIni((49),"RegChaSelBtnDoneUp",30,130)
+	.CallbackInit(chaSelBtnDone)
+	.CallbackMouseClick(chaSelBtnDone)
+	.Position("RegChaSelBtnDone")
+	.DownPic(GetIfaceIniStr("RegChaSelBtnDoneDn"));
+	
+	CharacterSkinSelectButton chaSelBtnUp(chaSelWindow,1);
+	GUI_AddScreenElementIni((49),"RegChaSelBtnUpPic1",95,30)
+	.CallbackInit(chaSelBtnUp)
+	.CallbackMouseClick(chaSelBtnUp)
+	.Position("RegChaSelBtnUp")
+	.DownPic(GetIfaceIniStr("RegChaSelBtnUpPic2"));
+	
+	CharacterSkinSelectButton chaSelBtnDn(chaSelWindow,2);
+	GUI_AddScreenElementIni((49),"RegChaSelBtnDnPic1",95,70)
+	.CallbackInit(chaSelBtnDn)
+	.CallbackMouseClick(chaSelBtnDn)
+	.Position("RegChaSelBtnDn")
+	.DownPic(GetIfaceIniStr("RegChaSelBtnDnPic2"));
+	
+	CharacterSkinSelectorImage chaSelImage(chaSelWindow);
+	GUI_AddScreenElementIni((49),"",30,25)
+	.Position(30,25,30,90)
+	.Position("RegChaSelImage")
+	.CallbackMouseClick(chaSelImage)
+	.CallbackDraw(chaSelImage)
+	.CallbackInit(chaSelImage); 
+	
+	AddInventoryCollectionButton(0,"None",120,240,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(1,"Weapon",120,255,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(2,"Ammo",120,270,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(3,"Armor",120,285,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(4,"Drug",120,300,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(5,"Misc",120,315,"PRFSLDOF.FRM");
+	AddInventoryCollectionButton(6,"Key",120,330,"PRFSLDOF.FRM");  
+	
+	LoginUpdateInfo updateInfo();
+	GUI_AddScreenElement((1),"updateinfopic_nocol.png",180,-360)
+	.CallbackInit(updateInfo)
+	.Position("UpdateLog");    
+	
+	GlobalMapArcadeWindow hiveWindow();
+	GUI_CreateScreen((54),"hive_window.png")
+	.CallbackHide(hiveWindow)
+	.CallbackShow(hiveWindow)
+	.Position(285,80)
+	.CloseOnMiss(false)
+	.CanMove(false)
+	.AutoCursor(true,(0));
+	
+	GlobalMapArcadeView hiveView(hiveWindow);
+	GUI_AddScreenElement((54),"",30,25)
+	.CallbackInit(hiveView);
+	
+	uint16 axistY=10;
+	hiveWindow.TextMain.resize(16);
+	for(uint8 i=0;i<16;i++)
+	{
+		GlobalMapArcadeText hiveTextMain(hiveWindow,i);
+		GUI_AddScreenElement((54),"hive_text.png",120,axistY)
+		.CallbackInit(hiveTextMain);
+		
+		axistY+=10;
+	}
+	
+	GlobalMapArcadeButton hiveBtnRefresh(hiveWindow,0);
+	GUI_AddScreenElement((54),"chosen_tab.png",10,170)
+	.CallbackInit(hiveBtnRefresh)
+	.CallbackMouseClick(hiveBtnRefresh)
+	.DownPic("chosen_tab.png")
+	.Text("Обновить",(5),((uint((0xFF<<24)|(((0x8F)&0xFF)<<16)|(((0x6F)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),(0x0004)|(0x0008));
+	
+	GlobalMapArcadeButton hiveBtnOk(hiveWindow,1);
+	GUI_AddScreenElement((54),"chosen_tab.png",10,190)
+	.CallbackInit(hiveBtnOk)
+	.CallbackMouseClick(hiveBtnOk)
+	.DownPic("chosen_tab.png")
+	.Text("Отмена",(5),((uint((0xFF<<24)|(((0x8F)&0xFF)<<16)|(((0x6F)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),(0x0004)|(0x0008));
+	
+	GlobalMapArcadeButton hiveBtnNo(hiveWindow,2);
+	GUI_AddScreenElement((54),"chosen_tab.png",10,210)
+	.CallbackInit(hiveBtnNo)
+	.CallbackMouseClick(hiveBtnNo)
+	.DownPic("chosen_tab.png")
+	.Text("Готово",(5),((uint((0xFF<<24)|(((0x8F)&0xFF)<<16)|(((0x6F)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),(0x0004)|(0x0008));
+	
+}
+
+void AddInventoryCollectionButton(uint index,string@ini,int defX,int defY,string@defSpr)
+{
+	@ini="InvCollection"+ini;
+	string@sprDown=GetIfaceIniStr(ini+"Down");
+	if(@sprDown is null||sprDown=="")
+	@sprDown="PRFSLDON.FRM";
+	
+	InventoryCollectionButton invCollButt(index);
+	GUI_AddScreenElementIni((10),ini,defX,defY,defSpr)
+	.CallbackMouseClick(invCollButt)
+	.CallbackInit(invCollButt)
+	.DownPic(sprDown);
+}        
+
+class GlobalMapArcadeHiveBtn:IGUIElementCallbackMouseClick,IGUIElementCallbackInit
+{
+	uint16 LocX;
+	uint16 LocY;
+	
+	uint8 Type;
+	uint8 BType;
+	
+	GlobalMapArcadeHiveBtn(uint8 type)
+	{
+		Type=type;
+	}
+	void OnMouseClick(int click)
+	{
+		if(click==(0))
+		{
+			BType=hiveBtnsOpt[Type].GetType();
+			LocX=(hiveBtnsOpt[Type].GetSpecValue())&0xFFFF;
+			LocY=(hiveBtnsOpt[Type].GetSpecValue()>>16)&0xFFFF;
+			RunServerScriptUnsafe("general_unsafe@unsafe_set_arcade_stat",LocX,LocY,BType,"",null);
+		}
+		
+	}
+	
+	void OnInit()
+	{
+		
+		@hiveBtnsOpt[Type]=GUI_GetElementOptions();       
+		
+	}
+}
+
+class GlobalMapArcadeWindow:IGUIScreenCallbackShow,IGUIScreenCallbackHide
+{
+	GlobalMapArcadeView@SkinImage;
+	GlobalMapArcadeText@[]TextMain;
+	
+	uint16 LocX;
+	uint16 LocY;
+	
+	uint8 Type;
+	
+	void OnShow(int p0,int p1,int p2)
+	{
+		LocX=p0;
+		LocY=p1;
+		Type=p2;
+		
+		SkinImage.SetPic(0);              
+		
+	}
+	
+	void OnHide(int p0,int p1,int p2)
+	{}
+}
+
+class GlobalMapArcadeButton:IGUIElementCallbackMouseClick,IGUIElementCallbackInit
+{
+	GlobalMapArcadeWindow@Instance;
+	IGUIElementOpt@Options;
+	uint8 Type;
+	
+	GlobalMapArcadeButton(GlobalMapArcadeWindow&instance,uint8 type)
+	{
+		@Instance=instance;
+		Type=type;
+	}
+	
+	void OnMouseClick(int click)
+	{
+		CritterCl@choo=GetChosen();
+		if(@choo is null)
+		{
+			Message("Choosen !valid");
+			return;
+		}
+		
+		switch(Type)
+		{
+			case 0:
+			for(uint8 i=0;i<11;i++)
+			{
+				Instance.TextMain[i].SetText(""+GetMsgStr((3),((10000)+i)*10+1)+" "+(choo.Stat[i]+(i==7?choo.Stat[(0)]*4+choo.Stat[(2)]*8:0)));
+				
+			}
+			Instance.TextMain[13].SetText(""+GetMsgStr((3),((10000)+(13))*10+1)+" "+choo.Stat[(13)]);
+			Instance.TextMain[14].SetText(""+GetMsgStr((3),((10000)+(203))*10+1)+" "+choo.Skill[(203)]);
+			Instance.TextMain[15].SetText(""+GetMsgStr((3),((10000)+(208))*10+1)+" "+choo.Skill[(208)]);
+			break;
+			
+			case 1:
+			HideScreen((54),2,2,2);
+			break;
+			
+			case 2:
+			Message("ToDo!!!"); 
+			
+			default:
+			break;
+		}
+	}
+	
+	void OnInit()
+	{
+		@Options=GUI_GetElementOptions();
+	}
+	
+}
+
+class GlobalMapArcadeView:IGUIElementCallbackInit
+{
+	GlobalMapArcadeWindow@Instance;
+	IGUIElementOpt@Options;
+	
+	GlobalMapArcadeView(GlobalMapArcadeWindow&instance)
+	{
+		@Instance=instance;
+		@Instance.SkinImage=this;
+	}
+	
+	void OnInit()
+	{
+		@Options=GUI_GetElementOptions();
+	}
+	
+	void SetPic(uint8 index)
+	{
+		Options.Pic(""+animIndexHive+"AA.frm",(3));
+		
+	}
+}
+
+class GlobalMapArcadeText:IGUIElementCallbackInit
+{
+	uint16 Type;
+	
+	GlobalMapArcadeWindow@Instance;
+	IGUIElementOpt@Options;
+	
+	GlobalMapArcadeText(GlobalMapArcadeWindow&instance,uint16 type)
+	{
+		@Instance=instance;
+		Type=type;
+	}
+	
+	void OnInit()
+	{
+		@Options=GUI_GetElementOptions();
+		@Instance.TextMain[Type]=this;    
+		
+	}
+	
+	void SetText(string text)
+	{
+		Options.Text(text,(5),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),(0x0040));
+	}
+	
+}
+
+class LoginUpdateInfo:IGUIElementCallbackInit
+{
+	IGUIElementOpt@Options;
+	
+	LoginUpdateInfo(){}
+	
+	void OnInit()
+	{
+		@Options=GUI_GetElementOptions();
+		string text=GetMsgStr((3),(1500000));
+		
+		string@[]@temp_lines=split(text,"@");
+		text="";
+		for(uint16 i=0,j=temp_lines.length();i<j;++i)
+		{
+			string@[]@temp_tabs=split(temp_lines[i],"#");
+			for(uint16 ii=0,jj=temp_tabs.length();ii<jj;++ii)
+			{
+				
+				text+=temp_tabs[ii]+"\t";
+			}
+			text+="\n"; 
+			
+		}
+		
+		Options.Text(text,(5),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0xC8)&0xFF)<<8)|((0)&0xFF)))),0);
+	}
+}  
+
+class InventoryCollectionButton:IGUIElementCallbackMouseClick,IGUIElementCallbackInit
+{
+	uint8 Type;
+	
+	InventoryCollectionButton(uint8 type)
+	{
+		Type=type;
+	}
+	void OnMouseClick(int click)
+	{
+		__inventoryCollection=Type;
+		RefreshItemsCollection((0));
+	}
+	
+	void OnInit()
+	{
+		
+	}
+}
+
+class CharacterSkinSelectButtonShow:IGUIElementCallbackInit,IGUIElementCallbackMouseClick
+{            
+	
+	void OnInit()
+	{}
+	
+	void OnMouseClick(int click)
+	{
+		::ShowScreen((49),0,0,0);
+	}
+}
+
+class CharacterSkinSelectWindow:IGUIScreenCallbackShow,IGUIScreenCallbackHide
+{
+	CharacterSkinSelectorImage@SkinImage;
+	
+	int8 Count;
+	
+	void OnShow(int p0,int p1,int p2)
+	{
+		LoadAnimationIndex();
+		Count=__baseCrType;
+		SetSkinImage(Count);  
+		
+	}
+	
+	void OnHide(int p0,int p1,int p2)
+	{
+		__baseCrType=crTypes[Count];
+		crTypes.resize(0);
+		animIndex.resize(0);
+		
+	}
+	
+	void SetSkinImage(uint8 index)
+	{
+		SkinImage.SetPic(index);
+	}
+}
+
+class CharacterSkinSelectorImage:IGUIElementCallbackInit,IGUIElementCallbackDraw,IGUIElementCallbackMouseClick
+{
+	CharacterSkinSelectWindow@Instance;
+	IGUIElementOpt@Options;
+	
+	int crType;
+	int dir;
+	
+	CharacterSkinSelectorImage(CharacterSkinSelectWindow&instance)
+	{
+		@Instance=instance;
+		@Instance.SkinImage=this;
+		
+		crType=0;
+		dir=3;
+	}
+	
+	void OnMouseClick(int click)override
+	{
+		if(click==(0))
+		{
+			dir++;
+			if(dir==6)
+			dir=0;
+		}
+		else if(click==(1))
+		{
+			if(dir==0)
+			dir=5;
+			else dir--;
+		}
+	}
+	
+	void OnDraw(int posX,int posY,int w,int h)override
+	{
+		if(w==0)
+		w=30;
+		if(h==0)
+		h=90;
+		
+		int anim1=(1),
+		anim2=(1),
+		
+		left=posX,
+		top=posY,
+		right=posX+w,
+		bottom=posY+h;
+		bool scratch=false,
+		center=true;
+		uint color=0;
+		
+		DrawCritter2d(crType,anim1,anim2,dir,left,top,right,bottom,scratch,center,color);
+	}
+	
+	void OnInit()
+	{
+		@Options=GUI_GetElementOptions();
+	}  
+	
+	void SetPic(uint8 index)
+	{
+		
+		crType=crTypes[index];
+		
+	}
+}
+
+class CharacterSkinSelectButton:IGUIElementCallbackInit,IGUIElementCallbackMouseClick
+{
+	
+	CharacterSkinSelectWindow@Instance; 
+	
+	uint8 ButtonClass; 
+	
+	CharacterSkinSelectButton(CharacterSkinSelectWindow&instance,uint8 btnClass)
+	{
+		@Instance=instance;
+		ButtonClass=btnClass;
+	}
+	
+	void OnInit()
+	{}
+	
+	void OnMouseClick(int click)
+	{
+		switch(ButtonClass)
+		{
+			case(0):
+			::HideScreen(0,2,2,2);
+			break;
+			case(1):
+			uint(Instance.Count)>=animIndex.length()-1?Instance.Count=0:Instance.Count++;
+			Instance.SetSkinImage(Instance.Count);
+			__baseCrType=crTypes[Instance.Count];
+			break;
+			
+			case(2):
+			Instance.Count<=0?Instance.Count=animIndex.length()-1:Instance.Count--;
+			Instance.SetSkinImage(Instance.Count);
+			__baseCrType=crTypes[Instance.Count];
+			break;
+		}
+		
+	}
+}
+
+void SetCrtype(int[]&params)
+{
+	params[(112)]=__baseCrType;
+	params[(67)]=__baseCrType;
+}
+
+void LoadAnimationIndex()
+{
+	string@[]@temp_anim=split(GetMsgStr((3),(322))," ");
+	string@[]@temp_crtype=split(GetMsgStr((3),(323))," ");
+	
+	uint8 len_anim=temp_anim.length();
+	
+	if(len_anim!=temp_crtype.length())
+	{
+		Message("Length of critter types not equel, Send this message to developers");
+		return;
+	}
+	
+	crTypes.resize(0);
+	animIndex.resize(0);
+	
+	int temp=0;
+	for(uint8 i=0;i<len_anim;i++)
+	{
+		animIndex.insertLast(temp_anim[i]);
+		StrToInt(temp_crtype[i],temp);
+		crTypes.insertLast(temp);  
+		
+	}
+}
+
+void testcoll(int p0,int p1,int p2,string@p3,int[]@p4)
+{
+	
+	RefreshItemsCollection((1));
+}

@@ -1,0 +1,4 @@
+#pragma bindfield "uint Critter::AIHash -> 10"
+#pragma bindfield "uint Critter::AIGroupHierarchy -> 14"
+#pragma bindfield "uint Critter::AIWorkRadius -> 18"
+#pragma bindfield "uint Critter::AIControllerFlag -> 22"

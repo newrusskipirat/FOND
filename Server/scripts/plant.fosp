@@ -1,0 +1,1710 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                                                   
+
+shared interface iManagerModule{bool manager_init();
+	bool manager_start();}
+shared interface iManager_loop{uint global_loop();}
+shared interface iManager_critter_init{bool global_critter_init(Critter&critter,bool firstTime);}
+shared interface iManager_critter_finish{bool global_critter_finish(Critter&critter,bool toDelete);}
+shared interface iManager_critter_idle{bool global_critter_idle(Critter&critter);}
+shared interface iManager_critter_dead{bool global_critter_dead(Critter&critter,Critter@killer);}
+shared interface iManager_critter_respawn{bool global_critter_respawn(Critter&critter);}
+shared interface iManager_map_critter_in{bool global_map_critter_in(Map&map,Critter&critter);}
+shared interface iManager_map_critter_out{bool global_map_critter_out(Map&map,Critter&critter);}
+shared interface iManager_world_save{bool global_world_save();}
+shared interface iManager_player_registration{bool global_player_registration(uint ip,string&name,uint&textMsg,uint&strNum);}
+shared interface iManager_player_login{bool global_player_login(uint ip,string&name,uint id,uint&textMsg,uint&strNum);}
+shared interface iManager_time{bool global_time(int8 type);}
+
+shared interface iManager_critter_use_skill{bool global_critter_use_skill(Critter&critter,int skill,Critter@targetCritter,Item@targetItem,Scenery@targetScenery);}
+
+shared interface iManagerElement
+{
+	iManagerModule@GetLink();
+	uint GetId();
+	string&GetName();
+	uint&GetEventFlags();
+	int8&GetTimeChangeCall();
+	uint8 GetPriority();
+}                     
+
+import iManagerElement@manager_add_module(iManagerModule@link,string&name,uint8 priority)from"manager";                                                                                                                                                  
+
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";   
+
+bool IsTree(Scenery@scen)
+{
+	if(not(@scen!=null))
+	return false;
+	uint16 pid=scen.ProtoId;
+	return pid==2066||pid==2316||pid==2317||pid==2318||pid==2319||pid==2320||pid==2321||pid==2945||pid==2946||pid==2947||
+	pid==3842||pid==3843||
+	(pid>=4562&&pid<=4572)
+	;
+}    
+
+bool UseAxeOnTree(Critter@cr,Scenery@tree) 
+
+{
+	if(not(@tree!=null)){
+		Log("Scenery (tree) is not valid.");
+		return false;
+	}
+	
+	return UseAxeOnTree(cr,tree.HexX,tree.HexY,(286));
+}
+
+bool UseAxeOnTree(Critter@cr,Scenery@tree,uint16 pid){
+	if(not(@tree!=null)){
+		Log("Scenery (tree) is not valid.");
+		return false;
+	}
+	
+	return UseAxeOnTree(cr,tree.HexX,tree.HexY,pid);
+}
+
+bool UseAxeOnTree(Critter@cr,Item@tree,uint16 pid,bool removeTree){
+	if(not(@tree!=null)){
+		Log("Item (tree) is not valid.");
+		return false;
+	}
+	
+	bool r=UseAxeOnTree(cr,tree.HexX,tree.HexY,pid);
+	
+	if(r&&removeTree){
+		DeleteItem(tree);
+	}
+	
+	return r;
+}
+
+bool UseAxeOnTree(Critter@cr,uint16 hX,uint16 hY,uint16 pid){   
+	
+	if(not(@cr!=null))
+	{
+		Log("Critter is not valid.");
+		return false;
+	}    
+	
+	bool damArmL=cr.Damage[(504)]!=0;
+	bool damArmR=cr.Damage[(503)]!=0;
+	bool damLegL=cr.Damage[(506)]!=0;
+	bool damLegR=cr.Damage[(505)]!=0;
+	
+	uint8 randNum_tree=(hX*hY)%100+1;
+	uint8 randNum_crit=cr.Id%100+1;
+	uint8 randNum_time=(__FullSecond/10)%100+1;
+	uint8 randNum=(randNum_tree*randNum_crit*randNum_time)%100;
+	uint8 crLuck=cr.Stat[(6)];
+	
+	uint8 penalty=0;
+	if(cr.Damage[(502)]!=0)
+	penalty=10;
+	
+	if((20+crLuck*2-penalty)>randNum)
+	{
+		
+		if(damArmL&&damArmR)
+		{
+			cr.SayMsg((11),(0),2200);
+			
+			return true;
+		}
+		
+		int32 axeLastTime_value=0;
+		GameVar@axeLastTime=GetLocalVar((4800),cr.Id);
+		if((@axeLastTime!=null))
+		axeLastTime_value=axeLastTime.GetValue();
+		else
+		Log("LVAR_scenery_axe_lasttime is not valid.");
+		
+		if(axeLastTime_value>__FullSecond-((15-cr.Stat[(2)])*__TimeMultiplier))
+		{
+			cr.SayMsg((11),(0),2201);
+			
+			return true;
+		}
+		
+		if((@axeLastTime!=null))
+		axeLastTime=__FullSecond;
+		
+		if(!damArmL&&!damArmR&&Random(1,crLuck*20+((((cr.Stat[(5)])>(10))?(10):(((cr.Stat[(5)])<(4))?(4):(cr.Stat[(5)])))-4)*10)==1)
+		{
+			if(Random(1,10)==1)
+			cr.DamageBase[(503)]=1;
+			else
+			cr.DamageBase[(504)]=1;
+			cr.SayMsg((11),(0),2202);
+			uint8 dir=GetDirection(hX,hY,cr.HexX,cr.HexY);
+			InjureCritter(cr,Random(10,10+cr.Stat[(0)]*2),(1),dir,0);
+			
+			return true;
+		} 
+		
+		uint8 count=((randNum_tree%10)+crLuck)/4;
+		uint16 mapPID=0;
+		Map@map=cr.GetMap();
+		if((@map!=null))
+		mapPID=map.GetProtoId();
+		else
+		Log("Map is not valid.");
+		if(damArmL||damArmR)
+		count=2;  
+		
+		if(mapPID!=6)
+		
+		{
+			int8 countEnc=((((cr.Skill[(217)])>(100))?(100):(((cr.Skill[(217)])<(49))?(49):(cr.Skill[(217)])))-40)/10;
+			if(damLegL)
+			count--;
+			if(damLegR)
+			count--;
+			if(damArmL||damArmR)
+			count-=2;
+			count+=(((countEnc)>(6))?(6):(((countEnc)<(0))?(0):(countEnc)));
+		}
+		ProtoItem@proto=GetProtoItem(pid);
+		uint32 itemsWeight=cr.ItemsWeight();
+		uint32 carryWeight=cr.Stat[(11)];
+		count=Random(1,count);
+		
+		if(cr.ItemsWeight()+proto.Weight*count<=carryWeight)
+		{
+			if(not(@cr.AddItem(pid,count)!=null))
+			{
+				Log("AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2203);
+		}
+		
+		else if(itemsWeight+proto.Weight<=carryWeight)
+		{
+			uint8 countDrop=count;
+			count=(carryWeight-itemsWeight)/proto.Weight;
+			countDrop-=count;
+			if(not(@cr.AddItem(pid,count)!=null))
+			{
+				Log("cr.AddItem fail.");
+				return false;
+			}
+			if(not(@map.AddItem(cr.HexX,cr.HexY,pid,countDrop)!=null))
+			{
+				Log("map.AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2204);
+		}
+		
+		else
+		{
+			if(not(@map.AddItem(cr.HexX,cr.HexY,pid,count)!=null))
+			{
+				Log("map.AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2205);
+		}
+		
+		return true;
+	}else{
+		string[]action={"Вам не кажется, что тут осталось что-либо полезное.","Это дерево уже дало все, что могло.","Вы не видите на этом дереве ничего, что можно было бы срубить.","Попытка нарубить немного дров успехом не увенчалась.","Вы промазали топором по суку. Бывает.","Вы хорошенько врезали топором по стволу, но мгновенного результата нет."};
+		cr.Say((11),action[Random(0,action.length()-1)]);
+	}
+	return false;
+} 
+
+import bool CheckGard(Map&map,uint16 hexX,uint16 hexY)from"farm";
+import void ExplodeEx(Map&map,uint16 hexX,uint16 hexY,uint16 effectPid,uint effectRadius,uint damage,uint damageType,uint damageRadius,uint ownerId)from"explode";                                                      
+
+class ProtoPlantStage:FileObject
+{
+	
+	string Name;
+	string Text;
+	
+	uint Time;
+	uint8 Water;
+	uint8 Shit;
+	uint8 CollectCount;
+	uint16 CollectPid;
+	bool IsCollectable;
+	uint16 Proto;
+	uint16 ProtoDead;
+	
+	ProtoPlantStage(string@name)
+	{
+		Name=name;
+	}     
+	
+	string@get_DictKey()override
+	{
+		return Name;
+	}
+	
+	string@get_ObjectName()const override
+	{
+		return"ProtoPlantStage";
+	}
+	
+	void FormatStringData(string&nameData,string&data)override
+	{
+		string@[]args=splitEx(nameData,":");
+		
+		if(args.length()>=1)
+		{
+			if(args.length()==1)
+			{
+				int temp=0;
+				StrToInt(data,temp);
+				
+				if(nameData=="Time")
+				{
+					Time=((temp)*3600);
+				}
+				else if(nameData=="Water")
+				{
+					Water=uint8(temp);
+				}
+				else if(nameData=="Shit")
+				{
+					Shit=uint8(temp);
+				}
+				else if(nameData=="CollectCount")
+				{
+					CollectCount=uint8(temp);
+				}
+				else if(nameData=="CollectPid")
+				{
+					CollectPid=uint16(temp);
+				}
+				else if(nameData=="IsCollectable")
+				{
+					IsCollectable=(temp>0);
+				}
+				else if(nameData=="Proto")
+				{
+					Proto=uint16(temp);
+				}
+				else if(nameData=="ProtoDead")
+				{
+					ProtoDead=uint16(temp);
+				}
+			}
+		}
+	}
+	
+	FileObject@get_Pattern(string&name)const override{return ProtoPlantStage(name);}
+	FileObject@get_Copy(string&name)override
+	{
+		ProtoPlantStage copy(name);
+		return copy;
+	}
+	
+	void set_GlobalData(string@name,string@value)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		{
+			GlobalDataList[i].Value=value;
+			return;
+		}
+	}
+	
+	string@get_GlobalData(string@name)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[]GlobalDataList;
+	
+	void Init(){}
+	
+	bool Release(Item&item)
+	{
+		item.Val6+=CollectCount;
+		return true;
+	}
+	
+	uint16 GetCollPid()
+	{
+		return CollectPid;
+	}
+	uint8 GetShit()
+	{
+		return Shit;
+	}
+	
+	bool CheckShit(Item&item)
+	{
+		return(Shit-item.Val5>=0);
+	}
+	
+	bool CheckWater(Item&item)
+	{
+		
+		int8 div=(Water-item.Val4);
+		
+		if(div<1)return true;
+		
+		div=(((div)>(10))?(10):(((div)<(1))?(1):(div)));
+		if(item.Val1>0)
+		{
+			if(Random(1,95)/(div)<30)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+}  
+
+class ProtoPlant:FileObject
+{ 
+	
+	string Name;
+	uint Time;
+	uint Water;
+	
+	uint8 PlantType;
+	int8 SeedCycle;
+	
+	uint BasePid;
+	uint ItemId;
+	
+	ProtoPlantStage@[]Cycles;
+	
+	ProtoPlant(string@name)
+	{
+		Name=name;
+		Cycles.resize(0);
+	}     
+	
+	string@get_DictKey()override{return Name;}
+	string@get_ObjectName()const override
+	{
+		return"ProtoPlant";
+	}
+	
+	void FormatStringData(string&nameData,string&data)override
+	{
+		string@[]args=splitEx(nameData,":");
+		if(args.length()>=1)
+		{
+			if(args.length()==1)
+			{
+				if(nameData=="stages")
+				{
+					string@[]stages=splitEx(data," ");
+					ProtoPlantStage@stage=null;
+					
+					for(uint8 i=0,ii=stages.length();i<ii;++i)
+					{
+						@stage=cast<ProtoPlantStage@>(objectManager.ProtoObject["ProtoPlantStage:"+stages[i]]);
+						if(stage is null)continue;
+						
+						Cycles.insertLast(stage);
+					}
+				}
+				
+				else if(nameData=="BasePid")
+				{
+					int temp=0;
+					StrToInt(data,temp);
+					BasePid=uint(temp);
+				}
+			}
+		}
+	}
+	
+	FileObject@get_Pattern(string&name)const override{return ProtoPlant(name);}
+	
+	FileObject@get_Copy(string&name)override
+	{
+		ProtoPlant copy(name);
+		
+		copy.Name=this.Name;
+		copy.Time=this.Time;
+		copy.Water=this.Water;
+		copy.PlantType=this.PlantType;
+		copy.SeedCycle=this.SeedCycle;
+		copy.BasePid=this.BasePid;
+		copy.ItemId=this.ItemId;
+		
+		copy.Cycles=this.Cycles;
+		
+		return copy;
+	}
+	
+	void set_GlobalData(string@name,string@value)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		{
+			GlobalDataList[i].Value=value;
+			return;
+		}
+	}
+	
+	string@get_GlobalData(string@name)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[]GlobalDataList;                         
+	
+	bool CycleCollectable()
+	{
+		return(uint(SeedCycle-1)<Cycles.length()&&SeedCycle>=(0)?Cycles[SeedCycle-1].IsCollectable:false);
+	}
+	
+	int Release()
+	{
+		Item@item=GetItem(ItemId);
+		
+		if(item is null)
+		{
+			return-1;
+		}
+		
+		Log("seed cycle "+SeedCycle+"\nVal1 "+item.Val1+"\nVal7 "+item.Val7); 
+		
+		if(SeedCycle<(0)&&item.Val7>=0)
+		{
+			item.Val7-=1;
+			if(item.Val7<=0)
+			{
+				if(SeedCycle<(-1))
+				{
+					return-1;
+				}
+				
+				else
+				{
+					MakeShit(item);
+				}
+			}
+			
+			return 0;
+		}  
+		
+		if(item.Accessory!=(2)&&SeedCycle!=(0))
+		{
+			Kill(item);
+			return 1;
+		}
+		
+		uint8 lenCyc=Cycles.length();
+		
+		if(SeedCycle<lenCyc)
+		{
+			
+			if(Cycles[SeedCycle].Time>__FullSecond)
+			{
+				return 0;
+			}
+			
+			if(Cycles[SeedCycle].CheckWater(item))
+			{
+				
+				if(Cycles[SeedCycle].GetShit()-item.Val5<=0)
+				{
+					item.Val2+=Random(0,1);
+				}
+				
+				Cycles[SeedCycle].Release(item);
+				
+				if(SeedCycle!=0)
+				{
+					if(Cycles[SeedCycle].Proto!=Cycles[SeedCycle-1].Proto)
+					{
+						item.ChangeProto(Cycles[SeedCycle].Proto);
+					}
+				}
+				
+				SeedCycle++;
+				
+				item.Val1=SeedCycle; 
+				
+				if(SeedCycle<lenCyc)
+				{
+					Cycles[SeedCycle].Init();
+				}
+				
+				return 0;
+			}
+			
+		}
+		
+		SeedCycle=lenCyc-1;
+		item.Val1=SeedCycle;
+		Kill(item);
+		
+		return 1;
+	}
+	
+	bool Kill(Item&item)
+	{
+		(item.Flags=((item.Flags)&(~((0x00000001)))));           
+		
+		uint16 pid=Cycles[SeedCycle].ProtoDead;
+		item.ChangeProto(pid);
+		SeedCycle=(-1);
+		item.Val1=SeedCycle;
+		item.Val7=(10);
+		item.Update();
+		return true;
+	}
+	
+	uint MakeShit(Item&item)
+	{
+		(item.Flags=((item.Flags)&(~((0x00000001)))));
+		item.ChangeProto((1599));
+		SeedCycle=(-2);
+		item.Val1=SeedCycle;
+		item.Val7=(20);
+		item.Update();
+		return 0;
+	}       
+	
+	void SetItemId(uint itemId)
+	{
+		ItemId=itemId;
+	}
+	
+	void RemoveItem()
+	{
+		Item@item=GetItem(ItemId);
+		if(@item!is null)
+		{
+			DeleteItem(item);
+		}
+	}
+	
+}
+
+class ProtoPlantNames:FileObject
+{
+	string Name;
+	string@[]Names;
+	
+	ProtoPlantNames(string@name)
+	{
+		Name=name;
+	}     
+	
+	string@get_DictKey()override{return Name;}
+	string@get_ObjectName()const override
+	{
+		return"ProtoPlantNames";
+	}
+	
+	void FormatStringData(string&nameData,string&data)override
+	{
+		string@[]args=splitEx(nameData,":");
+		if(args.length()>=1)
+		{
+			if(args.length()==1)
+			{
+				if(nameData=="Names")
+				{
+					string@[]names=splitEx(data," ");
+					Names=names;
+				}
+			}
+		}
+	}
+	
+	FileObject@get_Pattern(string&name)const override{return ProtoPlantNames(name);}
+	FileObject@get_Copy(string&name)override
+	{
+		ProtoPlantStage copy(name);
+		return copy;
+	}
+	
+	void set_GlobalData(string@name,string@value)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		{
+			GlobalDataList[i].Value=value;
+			return;
+		}
+	}
+	
+	string@get_GlobalData(string@name)override
+	{
+		const uint hash=GetStrHash(name);
+		for(uint i=0,iEnd=GlobalDataList.length();i<iEnd;i++)
+		if(GlobalDataList[i].Hash==hash)
+		return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[]GlobalDataList;
+	
+}                                                         
+
+class CPlantCycle
+{
+	
+	uint Time;
+	uint8 Water;
+	uint8 Shit;
+	uint8 CollectCount;
+	uint16 CollectPid;
+	bool IsCollectable;
+	uint16 Proto; 
+	
+	CPlantCycle(uint time,uint8 water,uint8 shit,uint8 collectCount,uint16 collectPid,bool collectable,uint16 proto){
+		Time=__FullSecond+time;
+		Water=water;
+		Shit=shit;
+		IsCollectable=collectable;
+		CollectCount=collectCount;
+		CollectPid=collectPid;
+		Proto=proto;
+	}
+	
+	void Init(){}
+	
+	bool Release(Item&item){
+		item.Val6+=CollectCount;
+		return true;
+	}
+	
+	uint16 GetCollPid(){
+		return CollectPid;
+	}
+	uint8 GetShit(){
+		return Shit;
+	}
+	
+	bool CheckShit(Item&item){
+		return(Shit-item.Val5>=0);
+	}
+	
+	bool CheckWater(Item&item)
+	{ 
+		
+		int8 div=(Water-item.Val4);
+		
+		if(div<1)return true;
+		
+		div=(((div)>(10))?(10):(((div)<(1))?(1):(div)));
+		if(item.Val1>0)
+		{
+			if(Random(1,95)/(div)<30)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+} 
+
+class CPlantCycleExplode:CPlantCycle
+{
+	
+	CPlantCycleExplode(uint time,uint8 water,uint8 shit,uint8 collectCount,uint16 collectPid,bool collectable,uint16 proto){
+		Time=__FullSecond+time;
+		Water=water;
+		Shit=shit;
+		
+		IsCollectable=collectable;
+		CollectCount=collectCount;
+		CollectPid=collectPid;
+		Proto=proto;
+	}
+	
+	bool Release(Item&item){
+		ExplodeEx(GetMap(item.MapId),item.HexX,item.HexY,(4011),1,10,(7),1,0);
+		return true;
+	}
+} 
+
+class CPlantCycleHidden:CPlantCycle
+{
+	
+	uint16 ItemId;
+	
+	CPlantCycleHidden(uint time,uint8 water,uint8 shit,uint8 collectCount,uint16 collectPid,bool collectable,uint16 proto,uint16 itemId){
+		Time=__FullSecond+time;
+		Water=water;
+		Shit=shit;
+		
+		IsCollectable=collectable;
+		CollectCount=collectCount;
+		CollectPid=collectPid;
+		Proto=proto;
+		ItemId=itemId;
+	}
+	
+	bool HideMe(bool hide){
+		Item@item=GetItem(ItemId);
+		if(item is null)return false;
+		
+		bool isFlagSet=((((item.Flags)&((0x00000001)))!=0));
+		
+		if(hide){
+			if(!isFlagSet)(item.Flags=(item.Flags)|((0x00000001)));
+		}else{
+			if(isFlagSet)(item.Flags=((item.Flags)&(~((0x00000001)))));
+		}
+		
+		item.Update();
+		
+		return true;
+	}
+	
+	void Init(){
+		HideMe(true);
+	}
+	
+	bool Release(Item&item){
+		return HideMe(false);
+	}
+}                       
+
+class CPlantCycleDropSeeds:CPlantCycle
+{
+	
+	CPlantCycleDropSeeds(uint time,uint8 water,uint8 shit,uint8 collectCount,uint16 collectPid,bool collectable,uint16 proto){
+		Time=__FullSecond+time;
+		Water=water;
+		Shit=shit;
+		IsCollectable=collectable;
+		CollectCount=collectCount;
+		CollectPid=collectPid;
+		Proto=proto;
+	}
+	
+	bool Release(Item&item){
+		
+		Map@map=GetMap(item.MapId);
+		if(map is null)return false;
+		
+		uint8 len=Random(1,5);
+		uint16 hexX=0,hexY=0,mapX=0,mapY=0;
+		
+		for(uint i=0;i<len;++i){
+			
+			hexX=Random(item.HexX-2,item.HexX+2);
+			hexY=Random(item.HexY-2,item.HexY+2);
+			
+			map.GetEntireCoords(255,0,mapX,mapY);
+			
+			if(hexX<mapX||hexX>=mapX+150||hexY<mapY||hexY>=mapY+150)continue;
+			
+			if(map.GetItems(hexX,hexY,null)>0)continue;
+			
+			Item@seed=map.AddItem(hexX,hexY,CollectPid,1);
+			if(seed is null)continue;
+			
+			seed.Val1=1;
+			
+			seed.SetScript("plant@_InitPlant");
+		} 
+		
+		return true;
+	}
+}
+
+class CPlant
+{
+	uint8 PlantType;
+	uint8 SeedCycle;
+	uint8 Fruits;
+	uint16 BasePid;
+	uint ItemId;
+	uint Time;
+	
+	CPlantCycle@[]Cycles;
+	
+	CPlant()
+	{
+		PlantType=0;
+		BasePid=0;
+		SeedCycle=0;
+	}
+	
+	CPlant(uint itemId,uint time){
+		ItemId=itemId;
+		Time=time;
+		SeedCycle=GetItem(ItemId).Val1;
+		InitCycles();
+	}
+	
+	void CycleInsert(CPlantCycle&cycle){
+		Cycles.insertLast(cycle);
+	}
+	
+	void InitCycles(){
+		Cycles.resize(0);
+	}
+	
+	bool CycleCollectable(){
+		return(SeedCycle-1<Cycles.length()?Cycles[SeedCycle-1].IsCollectable:false);
+	}
+	
+	int Release()
+	{
+		Item@item=GetItem(ItemId);
+		if(item is null){;return-1;}
+		
+		if(item.Accessory!=(2)&&SeedCycle!=0&&item.GetProtoId()!=BasePid+9){
+			Kill(item);
+			return 1;
+		}
+		
+		uint8 lenCyc=Cycles.length();
+		
+		if(SeedCycle<lenCyc){
+			
+			if(Cycles[SeedCycle].Time>__FullSecond){
+				;
+				return 0;
+			}
+			
+			if(Cycles[SeedCycle].CheckWater(item)){
+				
+				if(Cycles[SeedCycle].GetShit()-item.Val5<=0){
+					item.Val2+=Random(0,1);
+				}
+				
+				Cycles[SeedCycle].Release(item); 
+				
+				if(SeedCycle!=0){
+					if(Cycles[SeedCycle].Proto!=Cycles[SeedCycle-1].Proto){
+						item.ChangeProto(Cycles[SeedCycle].Proto);
+					}
+				}
+				
+				SeedCycle++;
+				
+				item.Val1=SeedCycle;
+				
+				if(SeedCycle<lenCyc)Cycles[SeedCycle].Init();
+			}else{
+				SeedCycle=lenCyc-1;
+				Kill(item);
+			}
+			
+		}else{
+			Kill(item);
+			
+		}
+		
+		return 1;
+	}  
+	
+	bool Kill(Item&item)
+	{   
+		
+		(item.Flags=((item.Flags)&(~((0x00000001)))));
+		SeedCycle=Cycles.length()-1;
+		item.ChangeProto(BasePid+9);
+		item.Update();
+		return true;
+	}
+	
+	uint MakeShit(Item&item)
+	{
+		(item.Flags=((item.Flags)&(~((0x00000001)))));
+		item.ChangeProto((1599));
+		item.Update();
+		return 0;
+	}
+	
+	void IncreaseFruits(Item&item)
+	{
+		item.Val6+=1;
+	}
+}
+
+ProtoPlant[]garden;  
+
+bool GardenHour()
+{
+	uint[]removeId={};
+	
+	for(uint i=0,j=garden.length();i<j;++i)
+	{
+		if(garden[i]!is null)
+		{
+			if(garden[i].Release()==-1)
+			{
+				removeId.insertFirst(i);
+				garden[i].RemoveItem();
+			}
+		}
+		
+		else
+		{
+			Log("null garden id "+i);
+			removeId.insertFirst(i);
+		}
+	}
+	
+	for(uint i=0,j=removeId.length();i<j;++i)
+	{
+		if(removeId[i]<j)
+		{
+			garden.removeAt(removeId[i]);
+		}
+	}
+	
+	return true;
+}
+
+ObjectsManager plantMng;
+
+void start(string&in,Handle@)
+{
+	iManagerModule@module=plantMng;
+	iManagerElement@manager=manager_add_module(module,"plants",200);
+	if(@manager is null)
+	return;
+} 
+
+void ModuleInit(string&in,Handle@)
+{
+	EventRoot.SetCallback("Start",start);
+}
+
+class ObjectsManager:iManagerModule,iManager_loop,iManager_time,iManager_world_save
+{
+	
+	bool manager_init()
+	{
+		return true;
+	}
+	
+	bool manager_start(){
+		objectManager.ParseProtoTypes("plant_name",ProtoPlantNames("Pattern"),"./NextDay/");
+		objectManager.ParseProtoTypes("plant_stage",ProtoPlantStage("Pattern"),"./NextDay/");
+		objectManager.ParseProtoTypes("plant",ProtoPlant("Pattern"),"./NextDay/");  
+		
+		_test_content_world(); 
+		
+		GardenInit();
+		return true;
+	}
+	
+	bool global_world_save(){
+		
+		GardenSave();
+		return true;
+	}
+	
+	uint global_loop(){   
+		
+		return uint(-1);
+	}
+	
+	bool global_time(int8 type){
+		if(type==(0x2)){ 
+			
+			GardenHour();
+			
+		}
+		return true;
+	}
+} 
+
+void _InitPlant(Item&item,bool firstTime)
+{  
+	
+	if(firstTime)
+	{
+		
+		item.Val2=1;
+	}
+	
+	uint16 proto=item.GetProtoId();
+	
+	if(item.GetType()!=(15))
+	return;           
+	
+	if(item.Val1==0)
+	{
+		item.SetEvent((5),"_DropPlant"); 
+		
+	}else{
+		ProtoPlant@plant=PlantCreate(item,0);
+		if(plant is null){Log("null plant init");return;}
+		
+		item.SetEvent((4),"_SkillPlant");
+		item.SetEvent((7),"_WalkPlant");
+		item.SetEvent((3),"_OnMePlant");
+		garden.insertLast(plant);
+	}         
+	
+}
+
+ProtoPlant@PlantCreate(Item&item,uint time)
+{
+	
+	uint basePid=item.Proto.Plant_BasePid;
+	Log("proto base pid "+basePid);
+	ProtoPlant@plant=null;
+	
+	string[]names={"corn"}; 
+	
+	for(uint8 i=0,ii=names.length();i<ii;++i)
+	{
+		@plant=cast<ProtoPlant@>(objectManager.ProtoObject["ProtoPlant:"+names[i]]);
+		if(plant is null)continue;
+		Log("plant BP "+plant.BasePid); 
+		
+		if(plant.BasePid==basePid)
+		{
+			
+			string name=""+plant.Name+"_"+item.Id;
+			ProtoPlant@pp=cast<ProtoPlant@>(plant.get_Copy(name));     
+			
+			if(pp is null)
+			{
+				Log("Нулевой пп : "+pp.Name);
+				continue;
+			}
+			
+			pp.ItemId=item.Id;
+			pp.SeedCycle=item.Val1;  
+			
+			Log("\nName "+pp.Name+
+			"\nBasePid "+pp.BasePid+
+			"\nTime "+pp.Time+
+			"\nWater "+pp.Water+
+			"\nPlantType "+pp.PlantType+
+			"\nSeedCycle "+pp.SeedCycle+
+			"\nItemId "+pp.ItemId);  
+			
+			return@pp;
+		}
+		
+	}                  
+	
+	return null;
+	
+} 
+
+ProtoPlant@ProtoPlantCreate(Item&item,uint time){
+	
+	ProtoPlant@plant=null;  
+	
+	uint16 pid=item.GetProtoId();           
+	
+	return plant;
+} 
+
+import void AffectRadiation(Critter&cr,int value)from"radiation";
+import void AffectPoison(Critter&cr,int value)from"poison";
+
+void SeedCycle(Item&item,Critter&cr){
+	for(uint i=0,len=Random(1,item.Val2);i<len;i++){
+		
+		ProtoPlant@plant=GetPlant(item.Id);
+		if(plant is null)continue;
+		
+		Item@pl=cr.AddItem(plant.BasePid,1);
+		pl.Val2=item.Val2+Random(0,1);
+		pl.Val3=item.Val3;
+		pl.SetScript("plant@_InitPlant");
+	}
+	
+	DeleteItem(item);
+}
+
+bool _UsePlant(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	ProtoPlant@plant=GetPlant(item.Id);
+	if((@onCritter!=null)||(@onItem!=null)||(@onScenery!=null)||plant is null)
+	return false;                     
+	
+	return true;
+}
+
+void _DropPlant(Item&item,Critter&cr)
+{
+	Map@map=cr.GetMap();
+	if(map is null)
+	return;
+	
+	if(item.Val1!=0)
+	return;
+	
+	if(map.GetItems(cr.HexX,cr.HexY,null)>1)
+	{
+		if(cr.IsLife())
+		cr.Say((11),"Это тут не прорастет.");
+		return;
+	}
+	
+	item.SetEvent((4),"_SkillPlant");
+	item.SetEvent((7),"_WalkPlant");
+	item.SetEvent((3),"_OnMePlant");
+	uint time=0;
+	if(CheckGard(map,cr.HexX,cr.HexY))
+	{
+		time=((20)*60)/(cr.Skill[(217)]>0?cr.Skill[(217)]:1);
+		if(cr.IsLife())
+		cr.Say((11),"Плод посажен.");
+	}
+	else
+	{
+		time=((2)*86400);
+		if(cr.IsLife())
+		cr.Say((11),"Здесь плод будет проростать очень долго.");
+	}  
+	
+	ProtoPlant@plant=PlantCreate(item,time);
+	if(plant is null){Log("create plant error");return;}
+	
+	garden.insertLast(plant);
+}
+
+bool _SkillPlant(Item&item,Critter&cr,int skill)
+{
+	if(skill<(-1))
+	{
+		return false;
+	}
+	
+	ProtoPlant@plant=GetPlant(item.Id);
+	
+	if(plant is null)
+	{
+		return false;
+	}
+	
+	if(skill==(-1))
+	{ 
+		
+		if(plant.CycleCollectable())
+		{
+			
+			if(item.Val6<=0)
+			{
+				cr.Say((11),"Нечего собирать");return true;
+			}
+			
+			uint8 harvestCount=((((item.Val6*(cr.Skill[(213)]*0.0075)))>(item.Val6))?(item.Val6):((((item.Val6*(cr.Skill[(213)]*0.0075)))<(1))?(1):((item.Val6*(cr.Skill[(213)]*0.0075)))));
+			
+			item.Val6=0;
+			
+			Item@harvest=cr.AddItem(plant.Cycles[plant.SeedCycle].CollectPid,harvestCount);
+			
+			if(harvest is null)
+			{
+				return true;
+			}
+			
+			cr.Say((11),"Вы собрали урожай : "+harvestCount);
+			
+			harvest.Val2=item.Val2+(Random(1,100)>95?1:0);
+			harvest.SetScript("plant@_InitFruit");
+			cr.StatBase[(76)]+=harvestCount*5;
+			
+			return true;
+			
+		}
+		
+		cr.Say((11),"Не время собирать урожай.");
+		
+	}
+	
+	else if(skill==(212))
+	{
+		if(cr.Skill[(217)]>100)
+		{
+			ProtoPlantStage@currentCycle=plant.Cycles[plant.SeedCycle];
+			string msg=("Информация о растении :\nСтадия роста : "+item.Val1+"\\"+(plant.Cycles.length()-1)+"\nПолив : "+item.Val4+"\\"+currentCycle.Water+"\nУдобрения : "+item.Val5+"\\"+currentCycle.Shit+"\nПлодов : "+item.Val6+"\nСелекция : "+item.Val2+"\nСбор : "+(currentCycle.IsCollectable?"да":"нет"));
+			cr.Say((11),msg);
+		}
+		
+		else
+		{
+			cr.Say((11),"Недостаточный навык фермерства.");
+		}
+	}
+	return true;
+}                 
+
+void _WalkPlant(Item&item,Critter&cr,bool entered,uint8 dir)
+{
+	if(entered&&item.Val1>1)
+	{
+		if(Random(1,95)>5)
+		{
+			ProtoPlant@plant=GetPlant(item.Id);
+			plant.Kill(item);
+		}
+	}
+	
+}  
+
+bool _OnMePlant(Item&item,Critter&cr,Item@usedItem)
+{
+	if(usedItem is null)
+	return true;
+	if(item.Val1==0)
+	return true;
+	
+	uint16 pid=usedItem.GetProtoId();
+	
+	ProtoItem@proto=GetProtoItem(pid);
+	if(proto is null)return true;     
+	
+	if(proto.SubDamage!=0){
+		MoveItem(item,0,cr);
+		
+		item.SetEvent((4),"");    
+		
+		return true;
+	}
+	
+	bool erase=false;
+	
+	if(proto.Food_Thrist>0)
+	{
+		item.Val4+=proto.Food_Thrist*0.1;
+		
+		cr.Say((11),"Вы полили растение.");
+		erase=true;
+	}
+	else if(pid==(1599)||pid==(1597)||pid==(1598))
+	{
+		item.Val5+=1;
+		cr.Say((11),"Вы удобрили растение.");
+		
+		erase=true;
+	}
+	else if(pid==(543)&&item.GetProtoId()>=(10109)+3&&item.GetProtoId()<=(10109)+9){ 
+		
+		cr.Say((11),"должно рубить, но не рубит");
+		UseAxeOnTree(cr,item,(1634),true); 
+		
+	}
+	
+	if(erase){
+		do{if(usedItem.GetCount()>(1))
+			usedItem.SetCount(usedItem.GetCount()-(1));else
+			DeleteItem(usedItem);}while(false);
+	}
+	
+	return true;
+}
+
+void _InitFruit(Item&item,bool firstTime){
+	item.SetEvent((4),"e_FruitSkill");
+} 
+
+bool e_FruitSkill(Item&item,Critter&cr,int skill){
+	if(skill==(213)){
+		
+		uint16 basePid=((item.GetProtoId()/10)*10);
+		Item@fruit=cr.AddItem(basePid,item.Val2);
+		
+		if(fruit is null)return true;
+		
+		fruit.Val1=0;
+		fruit.Val2=item.Val2;
+		
+		do{if(item.GetCount()>(1))
+			item.SetCount(item.GetCount()-(1));else
+			DeleteItem(item);}while(false);
+		
+		cr.Say((11),"Вы извлекли семена : "+item.Val2);
+		
+		return true;
+	}
+	
+	return false;
+}
+
+ProtoPlant@GetPlant(uint id)
+{
+	for(uint i=0,j=garden.length();i<j;++i){
+		if(garden[i].ItemId==id){
+			return@garden[i];
+		}
+	}
+	
+	return null;
+}                                                                                                                
+
+void PlantRemoveId(uint id){
+	for(uint i=0,j=garden.length();i<j;++i){
+		if(!(garden[i]is null)&&garden[i].ItemId!=id)continue;
+		
+		garden.removeAt(i);
+		
+	}
+}
+
+void GardenInit(){
+	if(IsAnyData(("garden"))){
+		uint[]data;
+		GetAnyData(("garden"),data);
+		
+		Item@temp;
+		
+		for(uint i=0,j=data.length();i<j;i++){
+			@temp=GetItem(data[i]);
+			if(temp is null)continue;
+			
+			_InitPlant(temp,false);
+		}
+	}
+}
+
+void GardenSave(){
+	uint[]id;
+	for(uint i=0,j=garden.length();i<j;i++){
+		id.insertLast(garden[i].ItemId);
+	}
+	
+	SetAnyData(("garden"),id);
+}                                                                                                                                   
+
+void se(Critter&cr,int set,int itemId,int){
+	Item@item=GetItem(itemId);
+	if(item is null)return;
+	
+	if(set>0){
+		item.SetScript("plant@_InitPlant");
+	}else{
+		item.SetEvent((4),"");
+		item.SetEvent((7),"");
+		item.SetEvent((3),"");
+		item.SetEvent((5),"");
+	}
+}                  
+
+void _test_content_world()
+{
+	
+	string[]plants={"corn","gabbage"};
+	
+	for(uint8 i=0,ii=plants.length();i<ii;++i)
+	{ 
+		
+		ProtoPlant@plant=cast<ProtoPlant@>(objectManager.ProtoObject["ProtoPlant:"+plants[i]]);
+		if(plant is null)continue;
+		
+		Log(" =========="+
+		"\nName : "+plant.Name+
+		"\nBPid : "+plant.BasePid);
+		
+		for(uint8 j=0,jj=plant.Cycles.length();j<jj;++j)
+		{
+			Log("\nStage : "+plant.Cycles[j].Name+"\nProtoDead : "+plant.Cycles[j].ProtoDead);
+		}
+	}
+	
+}              
+

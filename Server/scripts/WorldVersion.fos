@@ -1,0 +1,78 @@
+
+# include "_macros.fos"
+# include "_global_events.fos"
+
+void ModuleInit( string&in, Handle@ )
+{
+    EventRoot.SetCallback( "Start", Start );
+}
+
+class WorldVersionController : iManagerModule, iManager_world_save
+{
+	WorldVersionController()
+	{
+		file version;
+		if( version.open( "save/WorldVersion","r") != -1 )
+		{	
+			string str = "";
+			int memmory = 0;
+			version.readLine ( str );
+			StrToInt( str, memmory );
+			version.close();
+			__StartServerVersion = memmory;
+		}
+		
+		Version = __StartServerVersion;
+	}
+	
+	uint16 GetVersionWorldSave( ::string@ time )
+	{
+		::array< uint > data;
+		if( IsAnyData( "VersionWorldSave" ) && ::GetAnyData( "VersionWorldSave", data ) )
+		{
+			if( valid( time ) )
+				time = "" + data[ 1 ] + "_" + data[ 2 ] + "_" + data[ 3 ] + "_" + data[ 4 ] + "_" + data[ 5 ];
+			return data[ 0 ] % 9999;
+		}
+		return 0;
+	}
+
+	bool SaveWorldNextVersion()
+	{
+		uint16 Year = 0, Month = 0, Day = 0, Hour = 0, Minute = 0, var = 0;
+		GetTime( Year, Month, Day, var, Hour, Minute, var, var );
+		Version = GetVersionWorldSave( null )+1;
+		array< uint > data = { Version, Year, Month, Day, var, Hour, Minute };
+		file version;
+		if( version.open( "save/WorldVersion","w") != -1 )
+		{	
+			version.writeString( "" + data[0] );
+			version.close();
+		}
+		return ::SetAnyData( "VersionWorldSave", data );
+	}
+	
+	bool manager_init() override
+	{
+		return true;
+	}
+	
+	bool manager_start()
+	{
+		return true;
+	}
+	
+    bool global_world_save() override
+	{
+		SaveWorldNextVersion();
+        return true;
+	}
+	
+	uint Version;
+} WorldVersionController WorldManager;
+
+
+void Start( string&in, Handle@ )
+{
+    manager_add_module( WorldManager, "WorldVersion", uint8(-1) );   // чем выше значение приоритета - тем раньше будут вызываться обработчики ивэнтов
+}

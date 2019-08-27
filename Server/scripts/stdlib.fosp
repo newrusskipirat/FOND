@@ -1,0 +1,529 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                    
+
+import void FlushScreen(Critter&cr,bool fadeOut,uint timeMs)from"effects";
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target)from"npc_planes";
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";
+import int NextLevelNeedExp(Critter&cr)from"parameters";         
+
+int RollVsSkill(Critter&cr,uint skillIndex,int bonus)
+{
+	int skVal=cr.Skill[skillIndex];
+	int r=Random(1,100);
+	
+	if(skVal+bonus>=r)
+	{
+		if(Random(1,100)<=(((skVal-r)/10)+cr.StatBase[(14)]))
+		return(3);
+		else
+		return(2);
+	}
+	else
+	{
+		if(Random(1,100)<=(r-skVal)/10)
+		return(0);
+		else
+		return(1);
+	}
+}
+
+bool IsSuccessRvS(int val)
+{
+	return val==(3)||val==(2);
+}
+
+bool IsCriticalRvS(int val)
+{
+	return val==(3)||val==(0);
+}
+
+void HealCritter(Critter&player)
+{
+	if(player.IsDead())
+	player.ToLife();
+	player.StatBase[(72)]=player.Stat[(7)];
+}
+
+bool TransitToLoc(Critter&cr,uint16 locPid,uint mapIndex,uint entranceNum)
+{
+	Location@loc=GetLocationByPid(locPid,0);
+	if(not(@loc!=null))
+	return false;
+	
+	Map@map=loc.GetMapByIndex(mapIndex);
+	if(not(@map!=null))
+	return false;
+	
+	FlushScreen(cr,true,3000);
+	return cr.TransitToMap(map.Id,entranceNum);
+}
+
+bool TransitToMap(Critter&cr,uint16 mapPid,uint entranceNum)
+{
+	Map@map=GetMapByPid(mapPid,0);
+	if(not(@map!=null))
+	return false;
+	
+	FlushScreen(cr,true,3000);
+	return cr.TransitToMap(map.Id,entranceNum);
+}
+
+bool TransitToNewLocation(Critter&cr,uint16 locPid)
+{
+	Critter@[]group={cr};
+	
+	uint locId=CreateLocation(locPid,cr.WorldX,cr.WorldY,group);
+	if(locId==0)
+	return false;
+	
+	Location@loc=GetLocation(locId);
+	loc.Visible=false;
+	loc.GeckVisible=false;
+	loc.AutoGarbage=true;
+	
+	FlushScreen(cr,true,3000);
+	return cr.TransitToMap(loc.GetMapByIndex(0).Id,0);
+}
+
+void InfoMessage(Critter&player,Critter&npc,uint strNum)
+{
+	player.SayMsg((11),(1),(1000000000+(npc.Stat[(104)])*100000+(strNum)));
+}
+
+void NpcMessageNorm(Critter&npc,uint strNum)
+{
+	npc.SayMsg((2),(1),(1000000000+(npc.Stat[(104)])*100000+(strNum)));
+}
+
+void NpcMessageShout(Critter&npc,uint strNum)
+{
+	npc.SayMsg((4),(1),(1000000000+(npc.Stat[(104)])*100000+(strNum)));
+}
+
+void NpcMessageWhisp(Critter&npc,uint strNum)
+{
+	npc.SayMsg((8),(1),(1000000000+(npc.Stat[(104)])*100000+(strNum)));
+}
+
+void NpcMessageEmo(Critter&npc,uint strNum)
+{
+	npc.SayMsg((6),(1),(1000000000+(npc.Stat[(104)])*100000+(strNum)));
+}
+
+void TimeoutSet(Critter&npc,int timeoutNumber,uint gameMinutes)
+{
+	int variable=0;
+	switch(timeoutNumber)
+	{
+		case 0:
+		variable=(6160);
+		break;
+		case 1:
+		variable=(6161);
+		break;
+		case 2:
+		variable=(6162);
+		break;
+		case 3:
+		variable=(6163);
+		break;
+		case 4:
+		variable=(6164);
+		break;
+		case 5:
+		variable=(6165);
+		break;
+		case 6:
+		variable=(6166);
+		break;
+		case 7:
+		variable=(6167);
+		break;
+		case 8:
+		variable=(6168);
+		break;
+	}
+	GameVar@t=GetLocalVar(variable,npc.Id);
+	t=__FullSecond+gameMinutes*60;
+}
+
+void TimeoutSub(Critter&npc,uint gameMinutesSub)
+{
+	GameVar@t=GetLocalVar((6160),npc.Id);
+	t-=gameMinutesSub*60;
+}
+
+void TimeoutAdd(Critter&npc,uint gameMinutesAdd)
+{
+	GameVar@t=GetLocalVar((6160),npc.Id);
+	t+=gameMinutesAdd*60;
+}
+
+void GroupSetVar(Critter&player,uint16 varId,int value)
+{
+	Critter@[]group={player};
+	player.GetFollowGroup((0x0F),group);
+	for(uint i=0,j=group.length();i<j;i++)
+	{
+		GameVar@var=GetLocalVar(varId,group[i].Id);
+		if(not(@var!=null))
+		return;
+		var=value;
+	}
+}
+
+void Warn(Critter&player,int npcRole)
+{
+	if(not player.IsPlayer())
+	return;
+	
+	Critter@npc=GetNearCritterWithRole(player.GetMap(),player.HexX,player.HexY,(10),npcRole);
+	if(not(@npc!=null))
+	return;
+	
+	npc.SayMsg((2),(0),1001);
+}
+
+void DoorControl(Critter&player,uint entireNum,bool toOpen)
+{
+	Map@map=player.GetMap();
+	uint16 x=0,y=0;
+	if((@map!=null)&&map.GetEntireCoords(entireNum,0,x,y))
+	{
+		Item@door=map.GetDoor(x,y);
+		if((@door!=null))
+		{
+			if(toOpen)
+			door.LockerOpen();
+			else
+			door.LockerClose();
+		}
+	}
+}
+
+bool DialogNpc(Critter&player,int role)
+{
+	if(not player.IsPlayer())
+	return false;
+	
+	Critter@npc=GetNearCritterWithRole(player.GetMap(),player.HexX,player.HexY,(10),role);
+	if(not(@npc!=null))
+	return false;
+	
+	player.Wait(0);
+	return RunDialog(player,npc,true);
+}
+
+Critter@GetNearCritterWithRole(Map@map,uint16 hexX,int hexY,uint radius,int role)
+{
+	Critter@[]critters;
+	uint count=map.GetCrittersHex(hexX,hexY,radius,(0x01),critters);
+	uint minDist=10000;
+	Critter@nearCrit=null;
+	for(uint i=0;i<count;i++)
+	{
+		if(critters[i].StatBase[(89)]==role)
+		{
+			uint d=GetDistantion(hexX,hexY,critters[i].HexX,critters[i].HexY);
+			if(d<minDist)
+			{
+				minDist=d;
+				@nearCrit=critters[i];
+			}
+		}
+	}
+	return nearCrit;
+}                                                                                                                               
+

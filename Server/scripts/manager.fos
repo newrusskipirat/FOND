@@ -1,0 +1,599 @@
+// Author: qthree
+// GEM aka Global Event Manager
+
+/*
+   #include "serializator.fos"
+
+
+
+   /*
+   import void SetOnline(Critter& cr, bool online) from "manager";
+   import uint GetAllPlayers(Critter@[]& crs) from "manager";
+   import uint GetPlayers(Critter& cr, uint16 radius, bool square, Critter@[]& crs) from "manager";
+   import uint GetPlayers(uint16 worldX, uint16 worldY, uint16 radius, bool square, Critter@[]& crs) from "manager";
+ */
+
+# include "_macros.fos"
+
+# define         __MANAGER_MODULE__
+# include "_global_events.fos"
+
+# define EV_FLAG          # (flag)      ( ( ( event_flags ) & ( flag ) ) != 0 )
+# define IFACE_SETFLAG    # ( obj, x, iface, flag )          if( cast< iface@ >( obj ) !is null ) { x |= flag; count++; }
+
+# define FOR_ALL          # ( x, i, j )                                      for( uint i = 0, j = x.length(); i < j; i++ )
+# define FOR_ALL          # ( x, i, from, j )                                        for( uint i = from, j = x.length(); i < j; i++ )
+
+// Get From Array, if element is Null than Continue
+# define GFANC                                                   \
+    # ( t, x, y, i )             t@ x = y[ i ]; if( x is null ) \
+        continue;
+
+// Get From Array, if element is Null or Link is null than Continue
+# define GFANCL                                                                      \
+    # ( t, x, y, i, l )         t@ x = y[ i ]; if( (x is null) or ( x.l is null ) ) \
+        continue;
+		
+class ManagerElement : iManagerElement
+{
+    iManagerModule@ Link;
+    uint            Id;
+    string          Name;
+    uint            EventFlags;
+
+    uint            NextLoopCall;
+
+    int8            TimeChangeCall;
+
+    uint8           Priority;
+
+    ManagerElement( uint id, iManagerModule@ link, string & name, uint8 priority )
+    {
+        Id               = id;
+        @Link           = link;
+        Name            = name;
+        Priority       = priority;
+
+        EventFlags  = 0;
+        NextLoopCall = 0;
+        TimeChangeCall = 0;
+    }
+
+    iManagerModule @GetLink()					{ return Link; }
+    uint            	GetId()             		{ return Id; }
+    string&         	GetName()           		{ return Name; }
+    uint&           	GetEventFlags()     	{ return EventFlags; }
+    int8&           	GetTimeChangeCall()	{ return TimeChangeCall; }
+    uint8           	GetPriority()       		{ return Priority; }
+}
+
+ManagerElement@[] Modules;
+
+iManager_critter_init			@[]	CritterInitModules;
+iManager_critter_finish		@[]	CritterFinishModules;
+iManager_critter_idle			@[]	CritterIdleModules;
+iManager_critter_dead			@[]	CritterDeadModules;
+iManager_critter_respawn		@[]	CritterRespawnModules;
+iManager_map_critter_in		@[]	MapCritterInModules;
+iManager_map_critter_out		@[]	MapCritterOutModules;
+iManager_critter_use_skill	@[]	CritterUseSkill;
+
+
+iManager_player_registration@[] PlayerRegistrationModules;
+iManager_player_login@[] PlayerLoginModules;
+
+iManager_world_save@[] WorldSaveModules;
+// Ќе перепиленные:
+iManager_loop@[] LoopModules;
+iManager_time@[] TimeModules;
+
+void MLE( string& str ) // Manager Log Error
+{
+    Log( "MANAGER ERROR: " + str );
+}
+void MLE( ManagerElement& module, string& str ) // Manager Log Error
+{
+    Log( "MANAGER ERROR: module " + module.Name + " (" + module.Id + "): " + str );
+}
+void ML( ManagerElement& module, string& str ) // Manager Log
+{
+    Log( "Manager module " + module.Name + " (" + module.Id + "): " + str );
+}
+
+uint PrepareManager( ManagerElement& module )
+{
+    uint ef = 0, count = 0;
+    iManagerModule @li = module.Link;
+
+    IFACE_SETFLAG( li, ef, iManager_loop,                     	MANAGER_EVENT_LOOP )
+    IFACE_SETFLAG( li, ef, iManager_critter_init,           	MANAGER_EVENT_CRITTER_INIT )
+    IFACE_SETFLAG( li, ef, iManager_critter_finish,         	MANAGER_EVENT_CRITTER_FINISH )
+    IFACE_SETFLAG( li, ef, iManager_critter_idle,            MANAGER_EVENT_CRITTER_IDLE )
+    IFACE_SETFLAG( li, ef, iManager_critter_dead,            MANAGER_EVENT_CRITTER_DEAD )
+	
+    IFACE_SETFLAG( li, ef, iManager_critter_respawn,       	MANAGER_EVENT_CRITTER_RESPAWN )
+    IFACE_SETFLAG( li, ef, iManager_map_critter_in,         	MANAGER_EVENT_MAP_CRITTER_IN )
+    IFACE_SETFLAG( li, ef, iManager_map_critter_out,      	MANAGER_EVENT_MAP_CRITTER_OUT )
+    IFACE_SETFLAG( li, ef, iManager_world_save,        		MANAGER_EVENT_WORLD_SAVE )
+    IFACE_SETFLAG( li, ef, iManager_player_registration,  	MANAGER_EVENT_PLAYER_REGISTRATION )
+    IFACE_SETFLAG( li, ef, iManager_player_login,           	MANAGER_EVENT_PLAYER_LOGIN )
+    IFACE_SETFLAG( li, ef, iManager_time,                     	MANAGER_EVENT_TIME )
+
+    module.EventFlags = ef;
+
+    return count;
+}
+
+// Callbacks
+
+// старт сервера
+uint last_module_id = 0;
+
+ManagerElement @GetManagerByLink( iManagerModule @link )
+{
+	if( @link is null ) return null;
+	
+	for( uint i = 0, iEnd = Modules.length(); i < iEnd; i++ )
+		if( @Modules[i] !is null && @link is @Modules[i].Link )
+			return @Modules[i];
+			
+	return null;
+}
+
+iManagerElement @manager_add_module( iManagerModule @link, string& name, uint8 priority )
+{
+    uint num = Modules.length();
+	bool isLast = true;
+    if( num < 1 )
+        num = 1;
+
+    FOR_ALL( Modules, i, 1, j )
+    {
+        GFANC( ManagerElement, module, Modules, i );
+
+        if( module.Priority < priority )
+        {
+			isLast = i == num;
+            num = i;
+            break;
+        }
+    }
+    if( num > Modules.length() )
+        Modules.resize( num );
+
+    ManagerElement @module = ManagerElement( ++last_module_id, link, name, priority );
+
+	if( module.Link is null )
+		MLE( module, "Null pointer Link!" );
+	else if( PrepareManager( module ) < 1 )
+		MLE( module, " лассу модул€ не назначено ни одного callback-интерфейса." );
+	else
+	{
+		Modules.insertAt( num, @module );
+		
+# define Def_InsertCallback  # ( arr )																				\
+									{ if( isLast ) arr.insertLast( castLink );										\
+									else { bool insert = false;														\
+									for( uint i = 0, iEnd = arr.length(); i < iEnd; i++ )							\
+				{	ManagerElement @imod = GetManagerByLink( cast< iManagerModule@ >( arr[i] ) );			\
+					if( @imod !is null ) { if( imod.Priority < priority ) { arr.insertAt( i, castLink );	\
+					insert = true; break; } } 																			\
+				}	if( !insert ) arr.insertLast( castLink ); } }
+					
+		
+		{
+			iManager_critter_idle @castLink = cast< iManager_critter_idle@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterIdleModules );
+		}
+		{
+			iManager_critter_dead @castLink = cast< iManager_critter_dead@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterDeadModules );
+		}
+		{
+			iManager_critter_respawn @castLink = cast< iManager_critter_respawn@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterRespawnModules );
+		}
+		{
+			iManager_map_critter_in @castLink = cast< iManager_map_critter_in@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( MapCritterInModules );
+		}
+		{
+			iManager_map_critter_out @castLink = cast< iManager_map_critter_out@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( MapCritterOutModules );
+		}
+		{
+			iManager_critter_use_skill @castLink = cast< iManager_critter_use_skill@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterUseSkill );
+		}
+		{
+			iManager_critter_init @castLink = cast< iManager_critter_init@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterInitModules );
+		}
+		{
+			iManager_critter_finish @castLink = cast< iManager_critter_finish@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( CritterFinishModules );
+		}
+		{
+			iManager_world_save @castLink = cast< iManager_world_save@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( WorldSaveModules );
+		}
+		{
+			iManager_player_registration @castLink = cast< iManager_player_registration@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( PlayerRegistrationModules );
+		}
+		{
+			iManager_player_login @castLink = cast< iManager_player_login@ >( link );
+			if( @castLink !is null ) Def_InsertCallback( PlayerLoginModules );
+		}
+		
+	}
+	
+	/*
+	iManager_loop@[] LoopModules;
+	
+	iManager_time@[] TimeModules;
+	*/
+	
+    return module;
+}
+
+bool manager_start()
+{	
+    FOR_ALL( Modules, i, 1, j )
+    {
+        GFANC( ManagerElement, module, Modules, i );
+
+        if( !module.Link.manager_start() )
+            MLE( module, "Init fail!" );
+		else ML( module, "Successfully inited at position " + i );
+    }
+    return true;
+}
+
+bool manager_init()
+{
+    FOR_ALL( Modules, i, 1, j )
+    {
+        GFANC( ManagerElement, module, Modules, i );
+
+		if( !module.Link.manager_init() )
+            MLE( module, "Init fail!" );
+    }
+    return true;
+}
+
+uint  skip_loop = 0;
+
+uint  last_loop_game_minute = 0;
+
+class Time
+{
+    uint16 Second;
+    uint16 Minute;
+    uint16 Hour;
+    uint16 Day;
+    uint16 DayOfWeek;
+    uint16 Month;
+    uint16 Year;
+
+    void GetCurrent()
+    {
+        GetGameTime( __FullSecond, Year, Month, Day, DayOfWeek, Hour, Minute, Second );
+    }
+
+    int8 GetTimeChangeType()
+    {
+        int8 time_change = -1;
+
+        if( __Minute != Minute )
+        {
+            if( __Hour != Hour )
+            {
+                if( __Day != Day )
+                {
+                    if( __Month != Month )
+                    {
+                        if( __Year != Year )
+                        {
+                            time_change = TIME_NEW_YEAR;
+                        }
+                        else
+                            time_change = TIME_NEW_MONTH;
+                    }
+                    else
+                        time_change = TIME_NEW_DAY;
+
+                    if( DayOfWeek == 6 )
+                        time_change |= TIME_NEW_WEEK;
+                }
+                else
+                    time_change = TIME_NEW_HOUR;
+            }
+            else
+                time_change = TIME_NEW_MINUTE;
+        }
+        return time_change;
+    }
+
+    int8 GetTimeZeroType()
+    {
+        int8 time_change = 0;
+
+        if( Second == 0 )
+        {
+            if( Minute == 0 )
+            {
+                if( Hour == 0 )
+                {
+                    if( Day == 0 )
+                    {
+                        if( Month == 0 )
+                        {
+                            time_change = TIME_NEW_YEAR;
+                        }
+                        else
+                            time_change = TIME_NEW_MONTH;
+                    }
+                    else
+                        time_change = TIME_NEW_DAY;
+
+                    if( DayOfWeek == 0 )
+                        time_change |= TIME_NEW_WEEK;
+                }
+                else
+                    time_change = TIME_NEW_HOUR;
+            }
+            else
+                time_change = TIME_NEW_MINUTE;
+        }
+        return time_change;
+    }
+}
+
+Time@ last_loop_time = null;
+
+int8 GetTimeChange()
+{
+    int8 time_change = -1;
+
+    if( @last_loop_time !is null )
+    {
+        time_change = last_loop_time.GetTimeChangeType();
+        if( time_change > 0 )
+            last_loop_time.GetCurrent();
+    }
+    else
+    {
+        @last_loop_time = Time();
+        last_loop_time.GetCurrent();
+
+        time_change = last_loop_time.GetTimeZeroType();
+    }
+
+    return time_change;
+}
+
+uint manager_loop()
+{
+    if( skip_loop != 0 )
+    {
+        uint t = skip_loop;
+        skip_loop = 0;
+
+        if( t > GetTick() )
+            return t - GetTick();
+    }
+
+    uint 	MinimumNext = uint( -1 ),
+			nextTime = 0;
+
+    int8 time_change = GetTimeChange();
+
+    bool time_break = false;
+
+    FOR_ALL( Modules, i, 1, j )
+    {
+        GFANCL( ManagerElement, module, Modules, i, Link );
+
+        if( FLAG( module.EventFlags, MANAGER_EVENT_LOOP ) && module.NextLoopCall < GetTick() )
+        {
+            iManager_loop@ p = cast< iManager_loop@ >( module.Link );
+            nextTime = p.global_loop();
+            if( nextTime < MinimumNext )
+                MinimumNext = nextTime;
+            module.NextLoopCall = GetTick() + nextTime;
+        }
+
+        if( !time_break && FLAG( module.EventFlags, MANAGER_EVENT_TIME ) && ( time_change == 0 || int8( time_change & 0xF ) >= module.TimeChangeCall ) )
+        {
+            iManager_time@ p = cast< iManager_time@ >( module.Link );
+            if( !p.global_time( time_change ) )
+                time_break = true;
+        }
+    }
+
+    if( MinimumNext > 1000 )
+    {
+        skip_loop = GetTick() + MinimumNext;
+        return 1000;
+    }
+    else
+        return MinimumNext;
+}
+
+void manager_critter_init( Critter& critter, bool firstTime )
+{
+    if( critter.IsPlayer() )
+    {
+        Map@ map = critter.GetMap();
+        if( @map is null )	Log( critter.Id + " init" );
+        else					Log( critter.Id + " init on map " + map.Id );
+    }
+
+	for( uint i = 0, iEnd = CritterInitModules.length(); i < iEnd; i++ )
+		if( !CritterInitModules[i].global_critter_init( critter, firstTime ) )
+			break;
+
+    if( critter.IsPlayer() )
+        SetOnline( critter, true );
+}
+
+void manager_critter_finish( Critter& critter, bool toDelete )
+{
+	for( uint i = 0, iEnd = CritterFinishModules.length(); i < iEnd; i++ )
+		if( !CritterFinishModules[i].global_critter_finish( critter, toDelete ) )
+			break;
+
+    if( critter.IsPlayer() )
+        SetOnline( critter, false );
+}
+
+void manager_critter_idle( Critter& critter )
+{
+	for( uint i = 0, iEnd = CritterIdleModules.length(); i < iEnd; i++ )
+		if( !CritterIdleModules[i].global_critter_idle( critter ) )
+			break;
+}
+
+void manager_critter_dead( Critter& critter, Critter@ killer )
+{
+	for( uint i = 0, iEnd = CritterDeadModules.length(); i < iEnd; i++ )
+		if( !CritterDeadModules[i].global_critter_dead( critter, killer ) )
+			break;
+}
+
+void manager_critter_respawn( Critter& critter )
+{
+	for( uint i = 0, iEnd = CritterRespawnModules.length(); i < iEnd; i++ )
+		if( !CritterRespawnModules[i].global_critter_respawn( critter ) )
+			break;
+}
+
+void manager_map_critter_in( Map& map, Critter& critter )
+{
+    if( critter.IsPlayer() && critter.GetAccess() < ACCESS_MODER ) {
+        critter.TimeoutBase[ TO_TRANSFER ] = __FullSecond + ( 15 * __TimeMultiplier );
+		//critter.AddTimeEvent( "cte_Unstoppable", REAL_SECOND(10), CTE_UNSTOPPABLE, 0 );
+		//critter.ParamBase[ MODE_INVULNERABLE ] = 1;
+	}
+
+	for( uint i = 0, iEnd = MapCritterInModules.length(); i < iEnd; i++ )
+		if( !MapCritterInModules[i].global_map_critter_in( map, critter ) )
+			break;
+}
+
+uint cte_Unstoppable( Critter& cr, int identifier, uint& rate ) {
+	cr.ParamBase[ MODE_INVULNERABLE ] = 0;
+	return 0;
+}
+
+void manager_map_critter_out( Map& map, Critter& critter )
+{
+	for( uint i = 0, iEnd = MapCritterOutModules.length(); i < iEnd; i++ )
+		if( !MapCritterOutModules[i].global_map_critter_out( map, critter ) )
+			break;
+}
+
+bool manager_critter_use_skill( Critter& critter, int skill, Critter@ targetCritter, Item@ targetItem, Scenery@ targetScenery )
+{
+	for( uint i = 0, iEnd = CritterUseSkill.length(); i < iEnd; i++ )
+		if( !CritterUseSkill[i].global_critter_use_skill( critter, skill, targetCritter, targetItem, targetScenery ) )
+			return true;
+	return false;
+}
+
+void manager_world_save()
+{
+	for( uint i = 0, iEnd = WorldSaveModules.length(); i < iEnd; i++ )
+		if( !WorldSaveModules[i].global_world_save() )
+			break;
+}
+
+bool manager_player_registration( uint ip, string& name, uint& textMsg, uint& strNum )
+{
+	for( uint i = 0, iEnd = PlayerRegistrationModules.length(); i < iEnd; i++ )
+		if( !PlayerRegistrationModules[i].global_player_registration( ip, name, textMsg, strNum ) )
+			return false;
+	return true;
+}
+
+bool manager_player_login( uint ip, string& name, uint id, uint& textMsg, uint& strNum )
+{
+	for( uint i = 0, iEnd = PlayerLoginModules.length(); i < iEnd; i++ )
+		if( !PlayerLoginModules[i].global_player_login( ip, name, id, textMsg, strNum ) )
+			return false;
+	return true;
+}
+
+uint[] OnlinePlayers;
+
+// import void SetOnline(Critter& cr, bool online) from "manager";
+void SetOnline( Critter& cr, bool online )
+{
+	bool ck = false;
+	for( uint i = 0, j = OnlinePlayers.length(); i < j; i++ )
+	{
+		if( OnlinePlayers[ i ] != cr.Id )
+			continue;
+		if( online )
+		{
+			ck = true;
+			break;
+		}
+		OnlinePlayers.removeAt( i );
+		i--;
+		j--;
+	}
+
+	if( online && !ck )
+		OnlinePlayers.insertLast( cr.Id );
+}
+
+// import uint GetAllPlayers(Critter@[]& crs) from "manager";
+uint GetAllPlayers( Critter@[]& crs )
+{
+	uint len = OnlinePlayers.length();
+	uint j = crs.length();
+	crs.resize( len + j );
+	for( uint i = 0; i < len; i++ )
+	{
+		Critter@ cr = GetCritter( OnlinePlayers[ i ] );
+		if( @cr is null )
+		{
+			OnlinePlayers.removeAt( i );
+			i--;
+			len--;
+			continue;
+		}
+		@crs[ j++ ] = cr;
+	}
+	if( j < crs.length() )
+		crs.resize( j );
+	return j;
+}
+
+// import uint GetPlayers(Critter& cr, uint16 radius, bool square, Critter@[]& crs) from "manager";
+uint GetPlayers( Critter& cr, uint16 radius, bool square, Critter@[]& crs )
+{
+	return GetPlayers( cr.WorldX, cr.WorldY, radius, square, crs );
+}
+
+// import uint GetPlayers(uint16 worldX, uint16 worldY, uint16 radius, bool square, Critter@[]& crs) from "manager";
+uint GetPlayers( uint16 worldX, uint16 worldY, uint16 radius, bool square, Critter@[]& crs )
+{
+	Critter@[] players;
+	uint len = GetAllPlayers( players );
+	for( uint i = 0; i < len; i++ )
+	{
+		int x = players[ i ].WorldX - worldX, y = players[ i ].WorldY - worldY;
+		if( square && ( abs( x ) > radius || abs( y ) > radius ) )
+			continue;                                          // квадартный поиск
+		else if( !square && sqrt( x * x + y * y ) > radius )
+			continue;                                          // радиальный поиск
+		else
+		{
+			crs.insertLast( players[ i ] );
+		}
+	}
+	return crs.length();
+}

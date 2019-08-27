@@ -1,0 +1,3794 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world";                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+
+const uint16[]npc_group_raiders={(337),(338),(339),(340),(341)};
+const uint16[]npc_group_mirelurk={(330)};
+const uint16[]npc_group_radscorp={(319),(320)};
+const uint16[]npc_group_gecko={(316),(317),(327)};
+const uint16[]npc_group_rats={(310),(313),(314),(315)};                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+const int[]TeamsTable=
+{  
+	
+	(5),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(5),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(1),(0),(0),(3),(0),(0),(0),(0),(4),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(3),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(2),(2),(0),(0),(0),(0),(4),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(6),(5),(0),(0),(0),(0),(5),(0),(0),(4),(0),(4),(1),(0),(0),(0),(0),(0),(0),(4),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(4),(4),(3),(1),(1),(1),(1),(0),(0),(5),(0),(0),(0),(0),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(4),(0),(0),(4),(4),(1),(1),(0),(0),(5),(0),(0),(0),(0),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(5),(3),(3),(3),(0),(0),(5),(1),(1),(4),(4),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(4),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(4),(0),(0),(0),(0),(5),(0),(0),(0),(0),(0),(4),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(4),(4),(0),(0),(0),(0),(1),(0),(0),(0),(0),(1),(5),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(4),(0),(0),(0),(0),(5),(1),(0),(0),(0),(1),(4),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(3),(4),(0),(0),(0),(0),(5),(0),(0),(4),(0),(1),(4),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(3),(1),(1),(0),(0),(0),(5),(0),(0),(0),(0),(5),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(1),(1),(1),(0),(0),(0),(1),(1),(1),(1),(1),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(3),(4),(4),(0),(0),(0),(5),(0),(0),(0),(0),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(3),(1),(1),(0),(0),(0),(5),(0),(0),(0),(0),(1),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(3),(3),(3),(0),(0),(0),(5),(0),(0),(0),(0),(0),(4),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(4),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(6),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(1),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),(0),
+	
+};            
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                                                                       
+
+import bool manager_start()from"manager";
+import bool manager_init()from"manager";
+import uint manager_loop()from"manager";
+import void manager_critter_init(Critter&critter,bool firstTime)from"manager";
+import void manager_critter_finish(Critter&critter,bool toDelete)from"manager";
+import void manager_critter_idle(Critter&critter)from"manager";
+import void manager_critter_dead(Critter&critter,Critter@killer)from"manager";
+import void manager_critter_respawn(Critter&critter)from"manager";
+import void manager_map_critter_in(Map&map,Critter&critter)from"manager";
+import void manager_map_critter_out(Map&map,Critter&critter)from"manager";
+import void manager_world_save()from"manager";
+import bool manager_player_registration(uint ip,string&name,uint&textMsg,uint&strNum)from"manager";
+import bool manager_player_login(uint ip,string&name,uint id,uint&textMsg,uint&strNum)from"manager";
+import bool manager_critter_use_skill(Critter&critter,int skill,Critter@targetCritter,Item@targetItem,Scenery@targetScenery)from"manager";                                                               
+
+funcdef uint PROCESS(Critter@,int&,int&,int&);                
+
+import bool RegisterProcess(uint8 type,any func)from"ltp";
+
+import bool StartProcess(Critter&cr,uint8 type,int param0,int param1,int param2,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,int param0,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,uint time)from"ltp";
+
+import bool StopProcess(Critter&cr)from"ltp";
+
+import bool checkTDH(Critter&cr)from"ltp";
+import bool checkTDH(Critter&cr,uint8 type)from"ltp";          
+
+import void InitializeGame()from"config";
+import bool OnUseExplode(Critter&cr,Item&explode,Critter@targetCr,Item@targetItem,Scenery@targetScen,uint timer)from"explode";
+import bool IsStill(Item@item)from"manufact_alco";
+import bool UseStill(Critter@cr,Item@still,int skill,Item@item)from"manufact_alco";
+import bool IsTree(Scenery@scen)from"scenery";
+import bool UseAxeOnTree(Critter@cr,Scenery@tree)from"scenery";
+import bool UseItemOnCar(Critter&cr,Item&car,Item&item)from"car";
+import bool UseSkillOnCar(Critter&cr,Item&car,int skill)from"car";
+
+import void DropPoison(Critter&cr)from"poison";
+import void DropParalysis(Critter&cr,int value)from"paralysis";
+import void AffectParalysis(Critter&cr,int value)from"paralysis";
+import void DropParalysisInstant(Critter&cr)from"paralysis";
+import void DropRadiation(Critter&cr)from"radiation";
+import void SetHair(Critter&cr)from"hair";
+import void RestartHair(Critter&cr)from"hair";
+import void HairCut(Critter&cr,Critter&onCr)from"hair";
+import void Shave(Critter&cr,Critter&onCr)from"hair";
+
+import void CombatAttack(Critter&cr,Critter@target,ProtoItem&weapon,uint8 weaponMode,ProtoItem@ammo,uint16 hexX,uint16 hexY)from"combat";
+import bool TryRepairItem(Critter&cr,Item&item)from"repair";
+import bool TryDisassembleItem(Critter&cr,Item&item)from"repair";
+import bool WantedSignSet(Item&wantedSign,string&name,uint cost)from"wanted";
+import bool IsReadableBook(uint16 pid)from"books";
+import void TryReadBook(Critter&cr,Item&book)from"books";
+import void UseDrug(Critter&cr,Item&drug)from"drugs";
+import void UseDrugOn(Critter&cr,Critter@onCr,Item&drug)from"drugs";
+import bool UseGeiger(Critter&cr,Item&geiger)from"geiger";
+import bool UseItemOnGeiger(Critter&cr,Item&geiger,Item&item)from"geiger";
+import bool UseSkillOnGeiger(Critter&cr,Item&geiger,int skill)from"geiger";
+
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target)from"npc_planes";
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target,int minHp)from"npc_planes";
+import bool UseSkillOnLocker(Critter&cr,Item&locker,int skill)from"lockers";
+import bool UseItemOnLocker(Critter&cr,Item&locker,Item&item)from"lockers";
+import bool PerkCheck(Critter&cr,uint perk)from"perks";
+import void CritterGenerate(Critter&cr)from"parameters";
+
+import int GetDeteriorationProcent(Item&item)from"repair";
+import void SetDeterioration(Item&item,int deteriorationProcent)from"repair";
+import void NpcProcessLevel(Critter&npc)from"parameters";
+
+import void EditRadioSettings(Critter&player,Item&radio)from"radio";
+
+import bool e_Repair(Item&item,Critter&cr,Item@usedItem)from"adv_items";
+
+import void skin(Critter&cr,int crType)from"skins";
+
+import void qmap_critter_in(uint mapId,Critter&cr)from"qmap";
+import void qmap_critter_out(uint mapId,Critter&cr)from"qmap";
+import void qmap_save_all()from"qmap";
+import void qmap_load_all()from"qmap";
+
+import bool UseShovel(Critter&cr,Item&item)from"farm";
+import void ApplyMutation(Critter&cr)from"morphes";
+
+import bool unlock(Critter&cr,Critter&targetCr,uint16 pid)from"handcuffs";
+import void ChangeCritterSpeed(Critter&cr)from"speed";
+
+import int AddNewCritterHistoryBase(Critter&cr)from"history_menu"; 
+
+import bool e_InitSkinningUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)from"mob";
+
+import string SetupAidLeX(uint8 aidValue)from"item";
+
+import void CheckFaction(Critter&cr,bool join)from"factions";
+
+import bool IsHaveBlade(uint16 pid)from"repair";
+
+import void ProccessFirstAidSkill(Critter&cr,Critter&targetCr)from"heal";
+import void ProccessDoctorSkill(Critter&cr,Critter&targetCr)from"heal";
+import bool __Bandage(Critter&cr,Critter@targetCr)from"heal";
+
+import void InitCrimsonCaravans()from"crimson_caravans";
+import void SaveCaravans()from"crimson_caravans";
+import void Log_Steal(Critter&player,int target,int item,int succes,string@param3,int[]@param4)from"gm";
+import void Log_Lockpick(Critter&player,int lock,int force,int succes,string@param3,int[]@param4)from"gm";
+
+import void ProccessFood(Critter&cr,Item&item)from"item";
+
+import void InitTiles()from"cimp";
+
+import bool LighterOnFire(Critter&cr,Item&lighter,Scenery&fire)from"cooking";
+import bool UseCookingStuff(Scenery&scen,Critter&cr)from"cooking";
+import bool CanCook(Scenery@fire)from"cooking";
+
+import bool IsDoorAutomatic(Item&door,bool&isPower)from"interactive_obj";   
+
+void init()
+{
+	PrepareEventSystem();
+	InitializeGame();
+	EventRoot.ScanCallback("Init","ModuleInit");
+	EventRoot.Run("Init");
+	manager_init();
+}  
+
+bool start()
+{   
+	
+	SetSendParameter((71),true);
+	SetSendParameter((70),true);
+	SetSendParameter((81),true);
+	SetSendParameter((100),true);
+	
+	SetSendParameter((9),true);
+	SetSendParameter((86),true);
+	
+	SetSendParameter((5),true);
+	
+	SetSendParameter((7),true);
+	SetSendParameter((72),true);
+	
+	SetSendParameter((0),true);
+	SetSendParameter((380),true);
+	
+	SetSendParameter((238),true);
+	
+	SetSendParameter((2),true);
+	
+	SetSendParameter((3),true);
+	
+	SetSendParameter((502),true);
+	SetSendParameter((503),true);
+	SetSendParameter((504),true);
+	SetSendParameter((505),true);
+	SetSendParameter((506),true);
+	
+	SetSendParameter(-(1),true,"fonline_tnf.dll@allowSlot_Hand1");
+	SetSendParameter(-(3),true);
+	
+	SetSendParameter((512),true);
+	SetSendParameter((511),true);
+	SetSendParameter((532),true);
+	SetSendParameter((528),true);
+	SetSendParameter((541),true);  
+	
+	uint fromLayer=(150)+(0);
+	uint toLayer=(150)+(15);
+	for(uint i=fromLayer;i<=toLayer;i++)
+	SetSendParameter(i,true); 
+	
+	SetSendParameter((115),true);
+	
+	SetSendParameter((104),true);
+	
+	SetSendParameter((102),true);
+	
+	SetSendParameter((116),true);
+	
+	SetSendParameter((117),true);
+	SetSendParameter((118),true);
+	
+	SetSendParameter((215),true);
+	
+	SetSendParameter((703),true);
+	
+	SetSendParameter((67),true);
+	
+	SetSendParameter((700),true);    
+	
+	int8[]mask0={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0};
+	
+	int8[]mask1={0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	
+	int8[]mask2={0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0};
+	
+	int8[]mask3={-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0};
+	
+	int8[]mask4={-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0};
+	SetItemDataMask((0),mask0);
+	SetItemDataMask((1),mask1);
+	SetItemDataMask((2),mask2);
+	SetItemDataMask((3),mask3);
+	SetItemDataMask((4),mask4);
+	
+	SetParameterChangeBehaviour((112),"_giveHair");
+	
+	EventRoot.Run("Start"); 
+	
+	qmap_load_all();
+	
+	InitCrimsonCaravans();
+	InitTiles(); 
+	
+	if(!manager_start())
+	return false;
+	
+	Item@[]itemsDelete(0);
+	GetAllItems(1626,itemsDelete);
+	GetAllItems(1630,itemsDelete);
+	GetAllItems(1633,itemsDelete);
+	GetAllItems(1639,itemsDelete);
+	DeleteItems(itemsDelete);
+	return true;
+}         
+
+void get_start_time(uint16&multiplier,uint16&year,uint16&month,uint16&day,uint16&hour,uint16&minute)
+{
+	multiplier=4;
+	year=2260;
+	month=5;
+	day=14;
+	hour=1;
+	minute=0;
+}  
+
+void finish()
+{
+	EventRoot.Run("Finish");
+	ClearEventSystem();
+}   
+
+uint loop()
+{
+	return manager_loop();
+}  
+
+void critter_attack(Critter&cr,Critter&target,ProtoItem&weapon,uint8 weaponMode,ProtoItem@ammo)
+{
+	
+	cr.TimeoutBase[(249)]=__FullSecond+((1)*__TimeMultiplier*60);
+	CombatAttack(cr,target,weapon,weaponMode,ammo,0,0);
+}  
+
+void critter_attacked(Critter&cr,Critter&attacker)
+{
+	attacker.StatBase[(185)]=cr.Id;
+	if(cr.IsPlayer())
+	return;
+	else
+	AddAttackPlane(cr,0,attacker); 
+	
+	uint helpers=0;
+	uint maxHelpers=10-attacker.Stat[(3)];
+	maxHelpers=(((maxHelpers)>(8))?(8):(((maxHelpers)<(2))?(2):(maxHelpers)));
+	
+	Critter@[]critters;
+	for(uint i=0,j=cr.GetCritters(true,(0x03)|(0x20),critters);i<j;i++)
+	{
+		NpcPlane@plane=critters[i].GetCurPlane();
+		if((@plane!=null)&&plane.Type==(1)&&plane.Attack_TargId==attacker.Id)
+		{
+			helpers++;
+			if(helpers>=maxHelpers)
+			return;
+			@critters[i]=null;
+		}
+	}
+	
+	int crHpProc=cr.Stat[(72)]*100/cr.Stat[(7)];
+	uint teamId=cr.Stat[(106)],
+	attackerTeamId=attacker.Stat[(106)];
+	for(uint i=0,j=critters.length();i<j;i++)
+	{
+		Critter@someCr=critters[i];
+		if(not(@someCr!=null))
+		continue;
+		
+		uint someCrTeamId=someCr.Stat[(106)];
+		if(attackerTeamId==someCrTeamId)
+		continue;
+		
+		int teamParity=(TeamsTable[(((someCrTeamId)<38?(someCrTeamId):0)*38+((teamId)<38?(teamId):0))]);
+		switch(teamParity)
+		{
+			case(0):
+			continue;
+			case(1):
+			break;
+			case(2):
+			if(someCr.IsCurPlane((1)))
+			continue;
+			break;
+			case(3):
+			if(crHpProc>=10)
+			continue;
+			break;
+			case(4):
+			if(crHpProc>=30)
+			continue;
+			break;
+			case(5):
+			if(crHpProc>=50)
+			continue;
+			break;
+			case(6):
+			if(not cr.IsDead())
+			continue;
+			break;
+			case(7):
+			if(attacker.IsNpc()||cr.Stat[(3)]<5||cr.Stat[(80)]<0)
+			continue;
+			break;
+			default:
+			continue;
+		}
+		
+		AddAttackPlane(someCr,0,attacker);
+		helpers++;
+		if(helpers>=maxHelpers)
+		break;
+	}
+}  
+
+bool critter_stealing(Critter&cr,Critter&thief,Item&item,uint count)
+{
+	if(cr.Stat[(182)]!=0)
+	return true;
+	
+	thief.TimeoutBase[(249)]=__FullSecond+((1)*__TimeMultiplier*60);
+	
+	if(cr.IsDead()||cr.Timeout[(238)]>0||thief.Timeout[(238)]>0)
+	{
+		thief.StatBase[(108)]=0;
+		thief.StatBase[(109)]=0;
+		return false;
+	}
+	
+	if(cr.Mode[(514)]!=0||thief.Mode[(514)]!=0)
+	{
+		thief.Say((11),"No PvP.");
+		return false;
+	}
+	
+	Item@[]items;
+	Item@[]items0;
+	
+	uint itemscount=cr.GetItems((1),items);
+	uint itemscount0=cr.GetItems((2),items0);
+	
+	bool success=false;
+	
+	if(itemscount>0)
+	{
+		Item@hand=items[0];
+		if((@hand!=null)){
+			int pid=hand.GetProtoId();
+			if(pid==(690)||pid==(694)||pid==(1537))
+			return true;
+		}
+	}
+	if(itemscount0>0)
+	{
+		Item@hand=items0[0];
+		if((@hand!=null)){
+			int pid=hand.GetProtoId();
+			if(pid==(690)||pid==(694)||pid==(1537))
+			return true;
+		}
+	}
+	
+	if(cr.IsKnockout())
+	{
+		
+		if(itemscount>0)
+		{
+			Item@hand=items[0];
+			if((@hand!=null)){
+				int pid=hand.GetProtoId();
+				if(pid!=(690)&&pid!=(694)&&pid!=(1537))
+				cr.MoveItem(items[0].Id,itemscount,(0));
+			}
+		}
+		if(itemscount0>0)
+		{
+			Item@hand=items0[0];
+			if((@hand!=null)){
+				int pid=hand.GetProtoId();
+				if(pid!=(690)&&pid!=(694)&&pid!=(1537))
+				cr.MoveItem(items0[0].Id,itemscount0,(0));
+			}
+		}
+		
+		return true;
+	}
+	
+	int dir1=cr.Dir;
+	int dir2=thief.Dir;
+	int kDir=(((dir1)>(dir2))?(dir1):(dir2))-(((dir1)<(dir2))?(dir1):(dir2));
+	if(kDir>3)
+	kDir=6-kDir;
+	
+	int steal=thief.Skill[(210)];
+	if(steal<=0)
+	steal=1;
+	int size=item.Proto.Volume;
+	if(size<=0)
+	size=1; 
+	
+	if(thief.Perk[(338)]!=0)
+	{
+		kDir=0;
+		size=1;
+	} 
+	
+	int kCount=count/steal;
+	if(kCount<=0)
+	kCount=1; 
+	
+	uint lastStealCrId=thief.Stat[(108)];
+	uint stealCount=thief.Stat[(109)];
+	if(lastStealCrId==cr.Id&&thief.Timeout[(248)]>0)
+	steal-=steal*stealCount*9/100; 
+	
+	int k=(steal-kDir*10)/(size*kCount);
+	k=(((k)>(95))?(95):(((k)<(5))?(5):(k)));
+	success=!(Random(1,100)>k); 
+	
+	if(thief.Perk[(406)]>0&&(item.GetProtoId()==(41)||item.GetProtoId()==(519))&&count<=100)
+	success=true;
+	
+	if(thief.GetAccess()>=(2))
+	success=true;
+	
+	if(success)
+	{
+		Log_Steal(thief,cr.Id,item.GetProtoId(),0,null,null);  
+		
+		if(lastStealCrId==cr.Id&&thief.Timeout[(248)]>0)
+		{
+			stealCount++;
+			if(stealCount>11)
+			stealCount=11;
+			thief.StatBase[(109)]=stealCount;
+		}
+		else
+		{
+			thief.StatBase[(108)]=cr.Id;
+			thief.StatBase[(109)]=0;
+		}
+		
+		if(thief.GetAccess()<(2))
+		thief.TimeoutBase[(248)]=(__FullSecond+((1)*__TimeMultiplier*60));
+		if(cr.IsNpc())
+		{
+			GameVar@stealExpCount=::GetUnicumVar((2011),cr.Id,thief.Id);
+			if(stealExpCount<12)
+			{
+				
+				thief.AddScore((13),1);
+			}
+			stealExpCount=stealExpCount+1;
+		}
+	}
+	else
+	{
+		thief.Action((10),3,null);
+		thief.StatBase[(108)]=0;
+		thief.StatBase[(109)]=0;
+		
+		if(cr.IsNpc())
+		{
+			int thiefHp=thief.Stat[(72)];
+			AddAttackPlane(cr,0,thief,thiefHp<10||Random(1,10)>cr.Stat[(6)]+4||cr.Stat[(3)]<3?__DeadHitPoints:Random(thiefHp/4,thiefHp/2));
+		}
+	}
+	
+	return success;
+} 
+
+void GrabOrLeave(Critter&cr,uint id){
+	cr.Wait(1000);
+	if(cr.GetTimeEvents((16),null,null,null)>0){
+		if(id!=uint(cr.Other[(855)])){
+			cr.Say((5),"отпускает верёвку");
+		}else{
+			cr.Say((5),"отвязывает верёвку");
+		}
+		cr.EraseTimeEvents((16));
+		cr.OtherBase[(855)]=0;
+	}else{
+		cr.Say((5),"привязывает верёвку");
+		cr.AddTimeEvent("cte_RopeDrag",((12)*__TimeMultiplier),(16),id);
+		cr.OtherBase[(855)]=id;
+	}
+}
+
+void e_GenerateBlocker(Item&item,Critter&cr)
+{
+	uint16 x=0,y=0;
+	Map@map=item.GetMapPosition(x,y);
+	if((@map!=null))
+	{
+		map.AddItem(x,y,(820),1);
+	}
+}
+
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";
+import bool SetTrapOnItem(Critter&cr,Item&trap,Item&onItem)from"trap"; 
+
+bool critter_use_item(Critter&cr,Item&item,Critter@targetCr,Item@targetItem,Scenery@targetScen,uint param)
+{
+	bool isPlayer=cr.IsPlayer();
+	uint16 pid=item.GetProtoId();
+	bool useOnSelf=(@targetCr is null&&@targetItem is null&&@targetScen is null);
+	
+	if((@targetItem!=null)&&SetTrapOnItem(cr,item,targetItem))
+	return true;
+	
+	bool isKnife=(pid==(236)||pid==(517)||pid==(4)||pid==(319)||pid==(522)||pid==(1418)||pid==(1419)); 
+	
+	if(pid==(543)){
+		
+		if(cr.CountItem((289))>0&&(@targetCr!=null)&&!targetCr.IsPlayer()&&!targetCr.IsLife()){
+			cr.Say((5),"Убирает останки");
+			DeleteNpc(targetCr);
+			return true;
+		}
+		
+		if((@targetScen!=null)&&IsTree(targetScen)&&UseAxeOnTree(cr,targetScen))return true;
+		
+		if((@targetItem!=null)&&cr.GetAccess()>=(2)&&cr.CountItem((6))>0&&(targetItem.GetType()>0&&targetItem.GetType()<(8))){
+			cr.Say((5),"Ломает");
+			DeleteItem(targetItem);
+			return true;
+		}
+	}
+	
+	if((@targetItem!=null)&&cr.GetAccess()>=(2)&&pid==(308)
+	&&(targetItem.GetType()==(9)||targetItem.GetType()==(8))){
+		cr.Say((5),"Поднимает");
+		uint16 HexX=targetItem.HexX;
+		uint16 HexY=targetItem.HexY;
+		MoveItem(targetItem,1,cr);
+		Map@map=cr.GetMap();
+		Item@[]blocker;
+		if(map.GetItems(HexX,HexY,blocker)>0){
+			cr.Say((6),"кряхтит");
+			for(uint i=0;i<blocker.length();i++){
+				if((@blocker[i]!=null)&&blocker[i].GetProtoId()==(820))
+				DeleteItem(blocker[i]);
+			}
+		}
+		if(targetItem.GetType()==(8))
+		targetItem.SetEvent((5),"e_GenerateBlocker");
+		return true;
+	}
+	
+	if((@targetItem!=null)){
+		
+		if(targetItem.GetProtoId()==(211)){
+			if(pid==(127)){
+				GrabOrLeave(cr,targetItem.Id);
+				return true;
+			}
+			if(pid==(289)){
+				cr.Say((5),"закапывает");
+				DeleteItem(targetItem);
+				return true;
+			}
+		}
+		
+		if(pid==(127)&&cr.CountItem((308))>0&&(cr.Stat[(77)]+int(cr.Stat[(4)]*0.5)>12)){
+			if(cr.GetAccess()>=(2)&&targetItem.GetType()!=(9)&&targetItem.GetType()!=(8)){
+				GrabOrLeave(cr,targetItem.Id);
+				return true;
+			}
+			bool isClear=targetItem.Val0==0&&targetItem.Val1==0&&targetItem.Val2==0;
+			if(!isClear||(((targetItem.LockerCondition)&((0x02)))!=0)){
+				cr.Say((11),"Сначала отоприте и снимите замок.");
+				return true;
+			}
+			GrabOrLeave(cr,targetItem.Id);
+			return true;
+		}
+	} 
+	
+	if(isKnife){
+		Critter@actor=(@targetCr!=null)?@targetCr:@cr;
+		if(actor.IsPlayer()&&(actor.GetTimeEvents((16),null,null,null)>0)&&actor.ParamBase[(855)]!=0){
+			actor.EraseTimeEvents((16));
+			actor.ParamBase[(855)]=0;
+			cr.Say((11),"Вы отрезали верёвку, которую тянули.");
+			if(actor.Id!=cr.Id)actor.Say((11),"Кто-то отрезал верёвку, которую вы тянули за собой!");
+			return true;
+		}
+	}
+	
+	if((@targetItem!=null)&&targetItem.GetProtoId()==(286)){
+		return e_Repair(targetItem,cr,item);
+	}
+	
+	if(@targetItem!is null&&targetItem.GetType()==(9))
+	cr.StatBase[(131)]=targetItem.Id;
+	
+	if(pid==(1321)&&(useOnSelf||@targetCr!is null))
+	{
+		if(__Bandage(cr,(@targetCr!is null)?targetCr:cr))
+		do{if(item.GetCount()>(1))
+			item.SetCount(item.GetCount()-(1));else
+			DeleteItem(item);}while(false);
+		return false;
+	}
+	
+	if(pid==(383)){
+		if((@targetItem!=null)){
+			cr.Say((11),"Что в этом предмете особенного?");
+			cr.StatBase[(131)]=targetItem.Id;
+			cr.StatBase[(130)]=targetItem.Accessory;
+			ShowInputBoxScreen(cr,"main@unsafe_MakeDescLex#Описание:",0,(0x00000001));
+			return true;
+		}
+		if((@targetCr!=null)){
+			cr.Say((11),"Вам необходимо больше инструментов для того, что бы наколоть татуху.");
+			return true;
+		}
+		cr.Say((11),"Похоже, вы без понятия, что с этим можно делать.");
+		return true;
+	}
+	
+	if(pid==(59)){
+		if(useOnSelf){
+			Map@map=cr.GetMap();
+			Item@light=map.GetItem(cr.HexX,cr.HexY,1305);
+			if((@light!=null)){
+				cr.Say((11),"Вы настроили электропитание источника света.");
+				light.Val2=item.Val0;
+				return true;
+				
+			}
+		}          
+		
+	} 
+	
+	if(@targetCr!is null&&targetCr.Stat[(182)]!=0&&(targetCr.Id!=cr.Id))
+	{
+		if(unlock(cr,targetCr,pid))
+		return true;
+	}
+	
+	if(cr.IsPlayer()&&useOnSelf&&item.GetType()==(8))
+	{
+		cr.StatBase[(130)]=item.Id;
+		cr.ShowContainer(null,item,(3));
+		return true;
+	}
+	
+	if(@targetCr!is null&&targetCr.Quest[(703)]==(3)&&pid==(127)&&!targetCr.IsLife())
+	{
+		Map@map=cr.GetMap();
+		uint16 mapPid=map.GetProtoId();
+		if(mapPid==18||mapPid==19)
+		{
+			Map@prison=GetMapByPid(19,0);
+			bool noVacancy=true;
+			uint8 counter=0;
+			uint8 cellIndex=0;
+			uint16 X=0,Y=0;
+			while(counter<18)
+			{
+				if(prison.GetData(counter)==0)
+				{
+					cellIndex=counter;
+					noVacancy=false;
+					counter=18;
+				}
+				counter++;
+			}
+			if(!noVacancy)
+			{
+				prison.GetEntireCoords(113,cellIndex,X,Y);
+				targetCr.TransitToMap(prison.Id,X,Y,Random(0,5));
+				prison.SetData(cellIndex,targetCr.Id);
+				cr.SayMsg((11),(3),12740);
+				targetCr.SayMsg((11),(3),12742);
+				if(targetCr.IsKnockout())
+				DeleteItem(item);
+			}
+			else
+			{
+				cr.SayMsg((11),(3),12741);
+			}
+			return true;
+		}
+		return false;
+	}
+	
+	if(pid==(888)&&@targetItem!is null&&(targetItem.GetType()==(9)||targetItem.GetType()==(8)))
+	{
+		cr.ShowScreen((4),item.Id,"main@showBunch");
+		return true;
+	}   
+	
+	if(useOnSelf&&pid==(334))
+	{
+		cr.SayMsg((11),(3),12909);
+		AffectParalysis(cr,50);
+		cr.DeleteItem((334),1);
+		cr.AddItem((318),1);
+		return true;
+	}
+	if((@targetCr!=null)&&pid==(334))
+	{
+		targetCr.SayMsg((11),(3),12910);
+		AffectParalysis(targetCr,50);
+		cr.DeleteItem((334),1);
+		cr.AddItem((318),1);
+		return true;
+	} 
+	
+	if(useOnSelf&&pid==(680))
+	{
+		if(cr.Stat[(180)]!=0||cr.Stat[(73)]!=0)
+		{
+			DropPoison(cr);
+			DropParalysis(cr,50);
+			cr.DeleteItem((680),1);
+			cr.AddItem((318),1);
+			return true;
+		}
+		else
+		{
+			cr.DeleteItem((680),1);
+			cr.AddItem((318),1);
+			return false;
+		}
+	}
+	
+	if((@targetCr!=null)&&pid==(680))
+	{
+		if(targetCr.Stat[(180)]!=0||targetCr.Stat[(73)]!=0)
+		{
+			DropPoison(targetCr);
+			DropParalysis(targetCr,50);
+			cr.DeleteItem((680),1);
+			cr.AddItem((318),1);
+			return true;
+		}
+		else
+		{
+			cr.DeleteItem((680),1);
+			cr.AddItem((318),1);
+			return false;
+		}
+		
+	}  
+	
+	if(pid==(597))
+	{
+		if(useOnSelf)
+		HairCut(cr,cr);
+		else
+		HairCut(cr,targetCr);
+		return true;
+	}
+	
+	if(pid==(598))
+	{
+		if(useOnSelf)
+		Shave(cr,cr);
+		else
+		Shave(cr,targetCr);
+		return true;
+	}
+	
+	if(isKnife)
+	{
+		Map@map=cr.GetMap();
+		if(useOnSelf)
+		{
+			@targetItem=map.GetItem(cr.HexX,cr.HexY,(1524));
+			if((@targetItem!=null))
+			DeleteItem(targetItem);
+		}
+		else
+		{
+			if((@targetCr!=null))
+			{
+				@targetItem=map.GetItem(targetCr.HexX,targetCr.HexY,(1524));
+				if((@targetItem!=null))
+				DeleteItem(targetItem);
+				e_InitSkinningUse(item,cr,targetCr,null,null);
+			}
+		}
+		return true;
+	}      
+	
+	if((((item.Flags)&((0x40000000)))!=0)&&useOnSelf)
+	{
+		if(isPlayer)
+		EditRadioSettings(cr,item);
+		return true;
+	} 
+	
+	if(useOnSelf&&IsReadableBook(pid))
+	{
+		TryReadBook(cr,item);
+		return true;
+	} 
+	
+	if(OnUseExplode(cr,item,targetCr,targetItem,targetScen,param))
+	return true; 
+	
+	if((@targetItem!=null)&&targetItem.GetType()==(13)&&UseItemOnCar(cr,targetItem,item))
+	return true; 
+	
+	if(isPlayer&&IsStill(targetItem)&&UseStill(cr,targetItem,-1,item))
+	return true;
+	
+	int ItemType=item.GetType();
+	if(ItemType==(2)||ItemType==(16))
+	{
+		if(!useOnSelf&&pid==(1436)){
+			cr.Say((11),"Хорошая попытка, но.. нет.");
+			return true;
+		}
+		
+		Critter@critter=useOnSelf?@cr:@targetCr;
+		ChangeCritterSpeed(critter);
+		
+		switch(pid)
+		{
+			case(40):critter.SayMsg((6),(3),10310);break;
+			case(48):critter.SayMsg((6),(3),10311);break;
+			case(49):critter.SayMsg((6),(3),10312);break;
+			case(53):critter.SayMsg((6),(3),10313);break;
+			case(87):critter.SayMsg((6),(3),10316);break;
+			case(109):critter.SayMsg((6),(3),10319);break;
+			case(110):critter.SayMsg((6),(3),10320);break;
+			case(144):critter.SayMsg((6),(3),10323);break;
+			case(259):
+			critter.SayMsg((6),(3),10324);
+			cr.AddItem((416),1);
+			break;
+			case(260):critter.SayMsg((6),(3),10325);break;
+			case(273):
+			if(Random(1,100)<50)
+			cr.AddItem((439),2);
+			else
+			cr.AddItem((572),1);
+			critter.SayMsg((6),(3),10326);
+			break;
+			
+			case(1551):critter.Say((6),"Ест мёртвую крысу");break;
+			case(1552):critter.Say((6),"Ест сырое гекконье мясо");break;
+			case(1554):critter.Say((6),"Ест жаренную крысу");break;
+			case(1555):critter.Say((6),"Ест жаренное мясо геккона");break;
+			case(1559):critter.Say((6),"Ест странное блюдо");break;
+			case(1557):critter.Say((6),"Ест кукурузную лепёшку");break;
+			case(1560):critter.Say((6),"Ест салат");break;
+			case(1556):critter.Say((6),"Ест жаренную рыбу");break;
+			case(1627):critter.Say((6),"Пьёт воду из бутылки");break;
+			case(533):critter.Say((6),"Пьёт воду из баклашки");break;
+			case(1553):critter.Say((6),"Ест жаренное мясо");break;
+			case(1436):critter.Say((6),"Упорол грибочков");break;
+			case(71):critter.SayMsg((6),(3),10314);break;
+			case(81):critter.SayMsg((6),(3),10315);break;
+			case(103):critter.SayMsg((6),(3),10317);break;
+			case(106):critter.SayMsg((6),(3),10318);break;
+			case(124):critter.SayMsg((6),(3),10321);break;
+			case(125):critter.SayMsg((6),(3),10322);break;
+			case(310):critter.SayMsg((6),(3),10327);break;
+			case(311):critter.SayMsg((6),(3),10328);break;
+			case(378):critter.SayMsg((6),(3),10329);break;
+			case(469):critter.SayMsg((6),(3),10330);break;
+			case(284):critter.SayMsg((6),(3),10331);break;
+			case(539):critter.SayMsg((6),(3),10331);break;
+			case(1440):critter.SayMsg((6),(3),10331);break;
+			default:critter.Say((6),"Что-то "+(ItemType==(2)?"принимает":"ест")+" ["+pid+"]");break;
+		} 
+		
+		UseDrugOn(cr,(useOnSelf?@cr:@targetCr),item);
+		ProccessFood(critter,item);
+		return true;
+	} 
+	
+	if(pid==(325))
+	{
+		cr.SayMsg((6),(0),(500),"$result"+Random(1,6));
+		return true;
+	}
+	if(pid==(326))
+	{
+		cr.SayMsg((6),(0),(500),"$result"+uint((item.Id%6)+1));
+		return true;
+	} 
+	
+	if(pid==(328))
+	{
+		cr.SayMsg((6),(0),Random(1,2)==1?(510):(511));
+		return true;
+	} 
+	
+	if(pid==(317)&&cr.Stat[(71)]==(1))
+	{
+		cr.SayMsg((6),(0),(520));
+		return true;
+	} 
+	
+	if(pid==(541)&&cr.CountItem((101))>0)
+	{
+		cr.SayMsg((6),(0),(530));
+		item.Val0++;
+		if(item.Val0>10){
+			item.Val0=0;
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+		}
+		return true;
+	} 
+	
+	if(pid==(329))
+	{
+		cr.Say((6),"вкалывает сыворотку");
+		ApplyMutation(cr);
+		cr.DeleteItem((329),1);
+		cr.AddItem((318),1);
+		return true;
+	} 
+	
+	bool power=false;
+	if((pid==(20)||pid==(297))&&!(targetItem is null)&&targetItem.GetType()==(9)&&IsDoorAutomatic(targetItem,power))
+	{
+		if(!power)
+		{
+			if(cr.Stat[(0)]>7)
+			{
+				if(Random(1,100)>85)
+				{
+					if(!(((targetItem.LockerCondition)&((0x01)))!=0))
+					targetItem.LockerOpen();
+					else
+					cr.Say((11),"Закрыть дверь ломом не выйдет.");
+				}
+				else
+				{
+					cr.Say((11),"Дверь не поддалась.");
+				}
+			}
+			else
+			{
+				cr.Say((11),"У вас недостаточно сил для этого.");
+			}
+		}
+		else
+		cr.Say((11),"Сейчас дверь удерживает электромагнитный замок. Попробуйте отключить питание.");
+		
+		return true;
+	}
+	
+	if((pid==(20)||pid==(75))&&@targetItem!=null)
+	{
+		uint8 itemType=targetItem.GetType();
+		if((itemType==(9)||itemType==(8))&&targetItem.Val0!=0&&((targetItem.LockerCondition&(0x01))!=0))
+		{
+			
+			uint16 pid_locker=0;
+			
+			switch(targetItem.Val0)
+			{
+				case 1:
+				pid_locker=(1317);
+				break;
+				case 2:
+				pid_locker=(1318);
+				break;
+				case 3:
+				pid_locker=(1319);
+				break;
+				default:
+				break;
+			}
+			if(pid_locker!=0)
+			{
+				if(pid==(75))
+				{
+					
+					Item@locker=cr.AddItem(pid_locker,1);
+					locker.Val0=targetItem.LockerComplexity-50;
+					locker.Update();
+					
+				}
+				
+				if(pid==(20))
+				{
+					switch(pid_locker)
+					{
+						case(1317):
+						pid_locker=3;
+						break;
+						case(1318):
+						pid_locker=6;
+						break;
+						case(1319):
+						pid_locker=10;
+						break;
+						default:
+						pid_locker=1;
+						break;
+					}
+					cr.AddItem((475),Random(1,pid_locker));
+				}
+			}
+			
+			Log_Lockpick(cr,targetItem.LockerId,1,0,null,null);
+			
+			targetItem.Val0=0;
+			targetItem.Val1=0;
+			targetItem.LockerComplexity=0;
+			targetItem.LockerId=0;
+			targetItem.LockerCondition=(0x01);
+			targetItem.Update();
+			cr.Say((3),"*Ломает замок*");
+			cr.Say((11),"Вы сняли замок.");
+			return true;
+		}
+	} 
+	
+	if(pid==(52))
+	{
+		if(useOnSelf&&UseGeiger(cr,item))
+		return true;
+		if((@targetCr!=null))
+		{
+			cr.SayMsg((11),(3),10353,"$rem"+targetCr.Stat[(74)]);
+			return true;
+		}
+	}
+	if((@targetItem!=null)&&targetItem.GetProtoId()==(52)&&UseItemOnGeiger(cr,targetItem,item))
+	return true; 
+	
+	if(pid==(289)&&useOnSelf&&UseShovel(cr,item))
+	return true;
+	
+	if((@targetItem!=null)&&(targetItem.GetType()==(9)||targetItem.GetType()==(8))&&UseItemOnLocker(cr,targetItem,item))return true;
+	
+	return false;
+}    
+
+bool critter_use_skill(Critter&cr,int skill,Critter@targetCr,Item@targetItem,Scenery@targetScen)
+{
+	
+	bool isPlayer=cr.IsPlayer();
+	bool onSelf=((!(@targetCr!=null))&&(!(@targetItem!=null))&&(!(@targetScen!=null)));
+	
+	bool isAidKitScience=(@targetItem!=null&&(targetItem.GetProtoId()==(47)||targetItem.GetProtoId()==(91))&&skill==(212));
+	
+	if((skill==(213))&&(@targetScen!=null)&&!(@targetItem!=null)){
+		if(cr.Timeout[(232)]>0){cr.Say((11),"Вы слишком устали, дайте отдых рукам.");return true;}
+		
+		Map@map=cr.GetMap();
+		if(!(@map!=null))return false;
+		Item@holder=map.GetItem(cr.HexX,cr.HexY,(909));
+		if(!(@holder!=null)){
+			Item@hand=cr.GetItem(0,(1));
+			cr.RunClientScript("client_main@Harvesting",targetScen.ProtoId,(@hand!=null)?hand.GetProtoId():0,0,null,null);
+		}
+		else{
+			cr.Say((11),"Тут всё уже переворошили до вас.");
+		}
+		return true;
+	}
+	
+	if((skill==(213))&&((@targetItem!=null)&&targetItem.Accessory!=(1))){
+		if(cr.Timeout[(232)]>0){cr.Say((11),"Вы слишком устали, дайте отдых рукам.");return true;}
+		Item@hand=cr.GetItem(0,(1));
+		cr.RunClientScript("client_main@Dismantling",targetItem.GetProtoId(),(@hand!=null)?hand.GetProtoId():0,0,null,null);
+		return true;
+	}     
+	
+	if(skill==(212)&&(@targetItem!=null)&&targetItem.GetProtoId()>=(1527)&&targetItem.GetProtoId()<=(1530)){
+		targetItem.Val0=0;
+		cr.Say((11),"Вы подготовили документ к перезаписи. Теперь на нём снова можно будет писать.");
+		if(cr.StatBase[(4)]<7){
+			targetItem.SetLexems(null);
+			targetItem.Update();
+		}
+	}
+	
+	if(onSelf&&(skill==(213)||skill==(212)||skill==(211))){
+		Map@map=cr.GetMap();
+		uint16 HexX=cr.HexX,HexY=cr.HexY;
+		Item@light=map.GetItem(HexX,HexY,1305);
+		if(!(@light!=null)){
+			map.MoveHexByDir(HexX,HexY,cr.Dir,1);
+			@light=map.GetItem(HexX,HexY,1305);
+		}
+		if((@light!=null)){
+			if(skill==(213)){
+				if(light.Val0==0){
+					cr.Say((11),"Вы включили свет.");
+					light.Val0=1;
+				}else{
+					cr.Say((11),"Вы выключили свет.");
+					light.Val0=0;
+					light.LightIntensity=50;
+					light.LightDistance=1;
+					light.Update();
+				}
+			}
+			if(skill==(212)){
+				if(light.Val0==0){
+					cr.Say((11),"Вы успешно демонтируете источник света.");
+					MoveItem(light,1,cr);
+				}else{
+					cr.Say((11),"Сначала выключите источник света, прежде чем демонтировать его отсюда!");
+				}
+			}
+			if(skill==(211)){
+				light.Val1++;
+				if(light.Val1>5)light.Val1=1;
+				light.LightDistance=light.Val1;
+				cr.Say((11),"Вы крутите регулятор яркости источника света: ["+light.Val1+"/5]");
+			}
+			light.Update();
+			return true;
+		}
+	}
+	
+	if((@targetItem!=null)&&targetItem.GetType()==(13)&&UseSkillOnCar(cr,targetItem,skill))
+	return true; 
+	
+	if((@targetItem!=null)&&targetItem.GetProtoId()==(52)&&UseSkillOnGeiger(cr,targetItem,skill))
+	return true; 
+	
+	if((@targetItem!=null)&&(targetItem.GetType()==(9)||(targetItem.GetType()==(8)&&!isAidKitScience))&&UseSkillOnLocker(cr,targetItem,skill))
+	return true;
+	
+	switch(skill)
+	{
+		case(-1):
+		{
+			if(!(targetScen is null)&&CanCook(targetScen))
+			{
+				return UseCookingStuff(targetScen,cr);
+			} 
+			
+			if((@targetScen!=null))
+			{
+				cr.SayMsg((11),(3),(10202));
+				return true;
+			} 
+			
+			if(isPlayer&&IsStill(targetItem)&&UseStill(cr,targetItem,-1,null))
+			return true; 
+			
+			if((@targetItem!=null)&&targetItem.GetProtoId()==(3228)&&WantedSignSet(targetItem,cr.Name,Random(1000,2000)))
+			return true;
+			
+			if((@targetItem!=null)&&targetItem.GetProtoId()==(545)&&OnUseExplode(cr,targetItem,null,null,null,0))
+			return true; 
+			
+			if((@targetItem!=null))
+			{
+				Item@item=targetItem;
+				if(not(((item.Flags)&((0x08000000)))!=0))
+				{
+					cr.SayMsg((11),(3),(10202));
+					break;
+				}
+				
+				int freeWeight=cr.Stat[(11)]-cr.ItemsWeight();
+				if(freeWeight>=int(item.Proto.Weight*item.GetCount()))
+				{
+					
+					MoveItem(item,0,cr);
+				}
+				else
+				{
+					
+					if(item.IsStackable()&&freeWeight>=int(item.Proto.Weight))
+					MoveItem(item,freeWeight/item.Proto.Weight,cr);
+					
+					else
+					cr.SayMsg((11),(3),(425));
+				}
+				ChangeCritterSpeed(cr);
+				return true;
+			}
+		}
+		break;
+		
+		case(-2):
+		if(cr.Stat[(130)]!=0)
+		{
+			Item@cont=GetItem(cr.Stat[(130)]);
+			if(@cont!=null&&cont.Accessory==(1)&&cont.CritId==cr.Id)
+			{
+				uint16 targetPid=targetItem.GetProtoId();
+				if(cont.GetProtoId()==(47))
+				{
+					bool isAidSupply=(targetPid==(40)||
+					targetPid==(273)||
+					targetPid==(1321)||
+					targetPid==(572)||
+					targetPid==(1322)||
+					targetPid==(125));
+					if(!isAidSupply)
+					{
+						cr.Say((11),"Это нельзя положить в аптечку.");
+						return true;
+					}
+				}
+				else if(cont.GetProtoId()==(91))
+				{
+					bool isDocSupply=(targetPid==(75)||
+					targetPid==(1323)||
+					targetPid==(297)||
+					targetPid==(1324)||
+					targetPid==(1322)||
+					targetPid==(125)||
+					targetPid==(922)||
+					targetPid==(1325)||
+					targetPid==(1326)||
+					targetPid==(1320));
+					if(!isDocSupply)
+					{
+						cr.Say((11),"Это нельзя положить в сумку доктора.");
+						return true;
+					}
+					if(!isDocSupply)
+					{
+						cr.Say((11),"Это нельзя положить в сумку доктора.");
+						return true;
+					}
+				}
+				else if(cont.GetProtoId()==(888))
+				{
+					if(targetItem.GetType()!=(7))
+					{
+						cr.Say((11),"Это нельзя прицепить на связку ключей.");
+						return true;
+					}
+				}
+				
+				cr.StatBase[(43)]-=int(targetItem.Proto.Weight*cr.GetItemTransferCount());
+				ChangeCritterSpeed(cr);
+				
+			}
+		}
+		break; 
+		
+		case(-3):
+		if(targetItem.Accessory==(3)&&targetItem.ContainerId!=0)
+		{
+			Item@cont=GetItem(targetItem.ContainerId);
+			if(@cont!=null&&cont.Accessory==(1)&&cont.CritId==cr.Id)
+			{
+				cr.StatBase[(43)]+=int(targetItem.Proto.Weight*cr.GetItemTransferCount());
+				ChangeCritterSpeed(cr);
+			}
+		}
+		break;
+		
+		case(-4):
+		cr.Say((5),"выгребает всё что может");
+		if(targetItem.Accessory==(1)&&targetItem.CritId==cr.Id)
+		{
+			
+			int contWeight=0;
+			Item@[]items;
+			for(uint i=0,iEnd=targetItem.GetItems(uint(-1),items);i<iEnd;i++)
+			{
+				if(@items[i]is null)
+				continue;
+				
+				contWeight+=int(items[i].Proto.Weight*items[i].GetCount());
+			}
+			
+			cr.StatBase[(43)]+=contWeight;
+			ChangeCritterSpeed(cr);      
+			
+		}
+		
+		break;
+		
+		case(-5):
+		cr.Action((10),0,null);
+		cr.ShowContainer(targetCr,null,(4));
+		return true;
+		
+		case(-6):
+		cr.Action((10),2,null);
+		if((cr.Timeout[(238)]==0&&targetCr.Timeout[(238)]==0)&&
+		(targetCr.IsPlayer()||(targetCr.IsNoPlanes()&&targetCr.GetTalkedPlayers(null)==0)))
+		targetCr.MoveToDir(cr.Dir);
+		return true;
+		
+		case(212):
+		{
+			
+			if(isPlayer&&IsStill(targetItem)&&UseStill(cr,targetItem,skill,null))
+			return true;
+			if(((@targetCr!=null))&&(targetCr.Stat[(182)]!=0)||(cr.Stat[(182)]!=0))
+			{
+				if(((@targetCr!=null))&&(targetCr.Stat[(182)]!=0))
+				{
+					uint KeyNumber=(targetCr.Stat[(182)]>>16)&0x3FFF;
+					cr.SayMsg((11),(3),12954,"$number"+KeyNumber);
+				}
+				if((cr.Stat[(182)]!=0)&&(onSelf))
+				{
+					uint KeyNumber=(cr.Stat[(182)]>>16)&0x3FFF;
+					cr.SayMsg((11),(3),12954,"$number"+KeyNumber);
+				}
+				return true;
+			} 
+			
+			if((@targetItem!=null)&&(((targetItem.Flags)&((0x40000000)))!=0)&&targetItem.Accessory==(1)&&targetItem.CritId==cr.Id)
+			{
+				if(isPlayer)
+				EditRadioSettings(cr,targetItem);
+				return true;
+			}
+			
+			if((@targetItem!=null)&&(targetItem.GetProtoId()==(47)||targetItem.GetProtoId()==(91)))
+			{
+				cr.RunClientScript("client_screen_firstais@ShowScreen",targetItem.Id,targetItem.Val4,targetItem.GetProtoId()==(47)?0:1,"",null);
+				return true;
+			}
+			
+			if((@targetItem!=null)&&targetItem.Accessory==(1))
+			{
+				if(TryDisassembleItem(cr,targetItem))
+				return true;
+			}
+		}
+		break;
+		
+		case(213):
+		{
+			
+			if(isPlayer&&IsStill(targetItem)&&UseStill(cr,targetItem,skill,null))
+			return true; 
+			
+			if(onSelf)
+			@targetCr=cr;
+			string str="Износ - ";
+			
+			if((@targetCr!=null)&&targetCr.Stat[(67)]==(10))
+			{
+				if(targetCr.Stat[(72)]>=targetCr.Stat[(7)]&&targetCr.Damage[(502)]==0&&targetCr.Damage[(503)]==0&&targetCr.Damage[(504)]==0&&targetCr.Damage[(505)]==0&&targetCr.Damage[(506)]==0&&targetCr.IsLife())
+				{
+					cr.SayMsg((11),(3),12762);
+				}
+				if(cr.Timeout[(232)]>0)
+				{
+					cr.SayMsg((11),(3),3401);
+					return true;
+				}
+				if(targetCr.IsLife()&&targetCr.Stat[(72)]<targetCr.Stat[(7)])
+				{
+					int roll=Random(1,cr.Skill[(213)]);
+					targetCr.StatBase[(72)]+=roll;
+					cr.SayMsg((11),(3),12750);
+					
+				}
+				
+				if(targetCr.Damage[(502)]==1)
+				{
+					if(cr.Skill[(213)]+Random(0,60)>150)
+					{
+						targetCr.DamageBase[(502)]=0;
+						cr.SayMsg((11),(3),12752);
+					}
+					else
+					cr.SayMsg((11),(3),12753);
+				}
+				
+				if(targetCr.Damage[(503)]==1)
+				{
+					if(cr.Skill[(213)]+Random(0,60)>150)
+					{
+						targetCr.DamageBase[(503)]=0;
+						cr.SayMsg((11),(3),12754);
+					}
+					else
+					cr.SayMsg((11),(3),12755);
+				}
+				
+				if(targetCr.Damage[(504)]==1)
+				{
+					if(cr.Skill[(213)]+Random(0,60)>150)
+					{
+						targetCr.DamageBase[(504)]=0;
+						cr.SayMsg((11),(3),12756);
+					}
+					else
+					cr.SayMsg((11),(3),12757);
+				}
+				
+				if(targetCr.Damage[(505)]==1)
+				{
+					if(cr.Skill[(213)]+Random(0,60)>150)
+					{
+						targetCr.DamageBase[(505)]=0;
+						cr.SayMsg((11),(3),12758);
+					}
+					else
+					cr.SayMsg((11),(3),12759);
+				}
+				
+				if(targetCr.Damage[(506)]==1)
+				{
+					if(cr.Skill[(213)]+Random(0,60)>150)
+					{
+						targetCr.DamageBase[(506)]=0;
+						cr.SayMsg((11),(3),12760);
+					}
+					else
+					cr.SayMsg((11),(3),12761);
+				}
+				
+				if(targetCr.IsDead())
+				{
+					if((cr.Skill[(213)]+Random(0,60))>150)
+					{
+						targetCr.ToLife();
+						cr.SayMsg((11),(3),12750);
+						
+					}
+					else
+					cr.SayMsg((11),(3),12751);
+				}
+				cr.TimeoutBase[(232)]=(__FullSecond+((20)*__TimeMultiplier));
+				return true;
+			}
+			if((@targetItem!=null)&&targetItem.Accessory==(1)&&targetItem.IsDeteriorable())
+			{
+				if(IsHaveBlade(targetItem.GetProtoId()))
+				{
+					Item@activeHand=cr.GetItem(0,(1));
+					if(@activeHand==null&&activeHand.GetProtoId()!=(278))
+					{
+						cr.Say((11),"Для заточки лезвия нужен кремень в руке.");
+						return true;
+					}
+					if(!ltp_sharp_inited)
+					ltp_sharp_init();
+					StartProcess(cr,(36),targetItem.Id,0,0,10);
+					return true;
+				}
+				else if(TryRepairItem(cr,targetItem))
+				return true;
+			}
+		}
+		break;
+		
+		case(208):
+		{
+			if(cr.GetAccess()>=(2))
+			{
+				cr.ParamBase[(701)]=(((1-cr.ParamBase[(701)])>(1))?(1):(((1-cr.ParamBase[(701)])<(0))?(0):(1-cr.ParamBase[(701)])));
+				cr.ModeBase[(510)]=cr.ParamBase[(701)];
+				cr.Say((11),"Режим суперневидимости "+(cr.ParamBase[(701)]==1?"в":"вы")+"ключен.");
+				cr.PerkBase[(316)]=1;
+			}else{
+				if(cr.Timeout[(238)]>0){
+					cr.Say((6),"блок");
+					cr.StatBase[(186)]=1;
+				}else{
+					cr.TimeoutBase[(238)]=__FullSecond+((15)*__TimeMultiplier);
+					cr.Say((5),"встаёт в боевую стойку");
+					cr.StatBase[(186)]=1;
+				}
+			}
+			return true;
+		}
+		
+		case(210):
+		{
+			if((@targetItem!=null))
+			{
+				cr.SayMsg((11),(3),(10202));
+			}
+			else if((@targetCr!=null))
+			{
+				if(targetCr.Stat[(182)]!=0)
+				{
+					cr.ShowContainer(targetCr,null,(5));
+				}
+				else
+				{
+					
+					if(targetCr.IsDead())
+					{
+						cr.Action((10),0,null);
+						cr.ShowContainer(targetCr,null,(4));
+					}
+					
+					else
+					{
+						if(isPlayer&&cr.Timeout[(235)]>0&&cr.GetAccess()<(2))
+						cr.SayMsg((11),(3),(3401));
+						else
+						{
+							
+							cr.ShowContainer(targetCr,null,(5));
+							if(cr.GetAccess()<(2))
+							cr.TimeoutBase[(235)]=(__FullSecond+((1)*__TimeMultiplier*60));
+							cr.StatBase[(108)]=0;
+							cr.StatBase[(109)]=0;
+						}
+					}
+				}
+			}
+			else
+			{
+				cr.SayMsg((11),(3),(10202));
+			}
+			return true;
+		}
+		
+		case(206):
+		{
+			if((@targetItem!=null)||(@targetScen!=null))
+			{
+				cr.SayMsg((11),(3),(10202));
+				break;
+			}
+			
+			if(not(@targetCr!=null))
+			@targetCr=cr;
+			bool is_self=(targetCr.Id==cr.Id); 
+			
+			if(targetCr.Stat[(67)]==(10))
+			{
+				cr.SayMsg((11),(3),(10202));
+				break;
+			}
+			
+			if(targetCr.IsDead())
+			{
+				cr.SayMsg((11),(3),(3400));
+				break;
+			}
+			
+			if(isPlayer&&cr.Timeout[(230)]>0)
+			{
+				cr.SayMsg((11),(3),(3401));
+				break;
+			} 
+			
+			ProccessFirstAidSkill(cr,targetCr);
+			return true;
+		}
+		
+		case(207):
+		{
+			if((@targetItem!=null)||(@targetScen!=null))
+			{
+				cr.SayMsg((11),(3),(10202));
+				break;
+			}
+			
+			if(not(@targetCr!=null))
+			@targetCr=cr;
+			bool is_self=(targetCr.Id==cr.Id);
+			
+			if(targetCr.Stat[(67)]==(10))
+			{
+				cr.SayMsg((11),(3),(10202));
+				break;
+			}
+			
+			if(isPlayer&&cr.Timeout[(231)]>0)
+			{
+				cr.SayMsg((11),(3),(3401));
+				break;
+			}
+			
+			if(targetCr.IsDead())
+			{            
+				
+				targetCr.TimeoutBase[(241)]=__FullSecond+targetCr.Timeout[(241)]+cr.Skill[(207)]*__TimeMultiplier;
+				cr.TimeoutBase[(231)]=__FullSecond+((60)*__TimeMultiplier);
+				cr.Say((11),"Вы как можете - поддерживаете последние крупицы жизни в умирающем теле.");
+				cr.Say((5),"пытается отсрочить смерть");
+				return true;
+			} 
+			
+			ProccessDoctorSkill(cr,targetCr);
+			return true;
+		}
+		
+		case(209):
+		{
+			if((((@targetCr!=null))&&(targetCr.Stat[(182)]!=0))||((onSelf)&&(cr.Stat[(182)]!=0)))
+			{
+				if(cr.Timeout[(234)]>0)
+				{
+					cr.SayMsg((11),(3),3401);
+				}
+				else
+				{
+					if((@targetCr!=null)&&((targetCr.Stat[(182)]>>29)&0x1)==0)
+					{
+						cr.TimeoutBase[(234)]=(__FullSecond+((30)*__TimeMultiplier));
+						if((cr.Skill[(209)]+Random(0,150))>300-Random(0,50))
+						{
+							Item@[]items;
+							uint8 nohome=(targetCr.Stat[(182)]>>30)&0x1;
+							int16 xp=(Random(60,400)-cr.Skill[(209)]);
+							
+							if(targetCr.IsNpc())
+							{
+								targetCr.ModeBase[(517)]=nohome;
+							}   
+							
+							targetCr.DeleteItem((694),2);
+							targetCr.DeleteItem((692),2);
+							targetCr.StatBase[(182)]=0;
+							cr.SayMsg((11),(3),12953);     
+							
+						}
+						else
+						cr.SayMsg((11),(3),12944);
+					}
+					
+					if(onSelf)
+					{
+						cr.TimeoutBase[(234)]=(__FullSecond+((30)*__TimeMultiplier));
+						if((cr.Skill[(209)]+Random(0,150))>300-Random(0,50))
+						{
+							uint16 xp=(Random(60,400)-cr.Skill[(209)]);
+							cr.DeleteItem((692),2);
+							
+							cr.DeleteItem((694),2);
+							cr.StatBase[(182)]=0;
+							cr.SayMsg((11),(3),12953);   
+							
+						}
+						else
+						cr.SayMsg((11),(3),12944);
+					}
+				}
+				return true;
+			}
+		}
+		break;
+		case(211):
+		{
+			if((@targetCr!=null)){
+				if(cr.Timeout[(235)]>0&&cr.GetAccess()<(2)){
+					if(!targetCr.IsDead())targetCr.Say((5),"Сопротивляется");
+					cr.Say((5),"Пытается что-то отобрать");
+					cr.Say((11),"Вы слишком устали, что бы успешно отобрать вещь.");
+					return true;
+				}
+				bool CanResist=true;
+				
+				Item@[]items;
+				Item@[]items0;
+				uint itemscount=cr.GetItems((1),items);
+				uint itemscount0=cr.GetItems((2),items0);
+				
+				if(itemscount>0)
+				{
+					Item@hand=items[0];
+					if((@hand!=null)){
+						int pid=hand.GetProtoId();
+						if(pid==(690)||pid==(694)||pid==(1537))
+						CanResist=false;
+						else
+						cr.MoveItem(items[0].Id,itemscount,(0));
+					}
+				}
+				if(itemscount0>0)
+				{
+					Item@hand=items0[0];
+					if((@hand!=null)){
+						int pid=hand.GetProtoId();
+						if(pid==(690)||pid==(694)||pid==(1537))
+						CanResist=false;
+						else
+						cr.MoveItem(items0[0].Id,itemscount0,(0));
+					}
+				}
+				
+				if(targetCr.IsKnockout()||targetCr.IsDead()||targetCr.Stat[(182)]!=0||!CanResist||cr.GetAccess()>=(2)){
+					bool LootedRucksack=false;
+					Item@[]RuckSacks;
+					targetCr.GetItems(-1,RuckSacks);
+					for(uint i=0,iEnd=RuckSacks.length();i<iEnd;i++)
+					{
+						int pid=RuckSacks[i].GetProtoId();
+						bool isBag=(pid==(46));
+						bool isPack=(pid==(90));
+						if(isBag||isPack){
+							if(cr.GetAccess()<(2)){
+								cr.Say((5),"Снимает "+(isPack?"рюкзак":"сумку"));
+								MoveItem(RuckSacks[i],1,cr.GetMap(),cr.HexX,cr.HexY);
+								targetCr.Say((11),"Вы не в силах сопротивляться, пока у вас отбирают "+(isPack?"рюкзак":"сумку")+".");
+								cr.TimeoutBase[(235)]=__FullSecond+((15)*__TimeMultiplier);
+							}else{
+								MoveItem(RuckSacks[i],1,cr);
+								cr.Say((11),"Вы забрали "+(isPack?"рюкзак":"сумку")+" у игрока.");
+							}
+							LootedRucksack=true;
+							break;
+						}
+					}
+					if(!LootedRucksack){
+						cr.Say((5),"пытается снять броню");
+						cr.Say((11),"Вы снимаете с цели всё что можете.");
+						targetCr.Say((11),"Вашу броню пытаются снять!");
+						if(uint(cr.Stat[(108)])==targetCr.Id){
+							cr.TimeoutBase[(235)]=__FullSecond+((15)*__TimeMultiplier);
+							cr.StatBase[(109)]++;
+							TryToTakeArmor(cr,targetCr);
+						}else{
+							if(cr.GetAccess()>=(2)){
+								cr.Say((5)," + ");
+								cr.StatBase[(109)]=7;
+								TryToTakeArmor(cr,targetCr);
+							}
+							cr.StatBase[(109)]=0;
+							cr.StatBase[(108)]=targetCr.Id;
+						}
+					}
+				}
+			}
+			
+			if((@targetItem!=null))
+			{
+				uint16 pid=targetItem.GetProtoId();
+				if((pid==(206)||pid==(209)||pid==(545)))
+				return OnUseExplode(cr,targetItem,null,null,null,0);
+			}
+			return true;
+		}
+		
+		default:
+		{
+			cr.SayMsg((11),(3),(10202));
+		}
+		break;
+	}
+	return manager_critter_use_skill(cr,skill,targetCr,targetItem,targetScen);
+}                
+
+bool ltp_reload_inited=false;
+
+void ltp_reload_init()
+{
+	PROCESS@___pfunc=@process_reload;any ___pany;___pany.store(@___pfunc);RegisterProcess((32),___pany);
+	ltp_reload_inited=true;
+}
+
+uint process_reload(Critter@cr,int&param0,int&param1,int&param2)
+{
+	if(param0==-1&&(cr is null)){param0=int((32));return(0xF035BCF3);} 
+	
+	Item@weapon=GetItem(param0);
+	if(@weapon==null)
+	return 0;
+	
+	Item@ammo;
+	if(param1!=0)
+	@ammo=GetItem(param1); 
+	
+	if(not(@ammo!=null)||(weapon.AmmoCount>0&&weapon.AmmoPid!=ammo.GetProtoId()))
+	{
+		if(weapon.AmmoPid!=0)
+		{
+			Item@existAmmo=cr.GetItem(weapon.AmmoPid,-1);
+			if(not(@existAmmo!=null))
+			cr.AddItem(weapon.AmmoPid,weapon.AmmoCount);
+			else
+			existAmmo.SetCount(existAmmo.GetCount()+(weapon.AmmoCount));
+		}
+		weapon.AmmoCount=0;
+	}
+	
+	if((@ammo!=null))
+	{
+		uint count=(((ammo.GetCount())<(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount))?(ammo.GetCount()):(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount));
+		weapon.AmmoCount+=count;
+		weapon.AmmoPid=ammo.GetProtoId();
+		do{if(ammo.GetCount()>(count))
+			ammo.SetCount(ammo.GetCount()-(count));else
+			DeleteItem(ammo);}while(false);
+	}
+	
+	weapon.Update();
+	
+	return 0;
+}  
+
+void critter_reload_weapon(Critter&cr,Item&weapon,Item@ammo)
+{
+	
+	if(weapon.Proto.Weapon_Caliber==0)
+	{
+		if(weapon.GetProtoId()==(390))
+		{
+			if(((__Hour)>=22||(__Hour)<=6))
+			cr.SayMsg((11),(3),(10240));
+			else
+			{
+				weapon.AmmoCount=weapon.Proto.Weapon_MaxAmmoCount;
+				weapon.Update();
+			}
+		}
+		else if(weapon.GetProtoId()==(596))
+		{
+			weapon.AmmoCount=weapon.Proto.Weapon_MaxAmmoCount;
+			weapon.Update();      
+			
+		}
+		
+		return;
+	}      
+	
+	if(cr.IsPlayer())
+	{
+		if(cr.GetTimeEvents((10),null,null,null)>0)cr.EraseTimeEvents((10));
+		
+		uint16 weapPid=weapon.GetProtoId(),skill=1,reloadBaseTime=0;
+		
+		switch(weapPid)
+		{
+			
+			case(122):
+			case(8):
+			case(22):
+			case(18):
+			case(404):
+			case(241):
+			case(388):
+			case(1407):
+			case(1412):
+			reloadBaseTime=(2000);
+			skill=cr.Skill[(200)];
+			break;
+			
+			case(10):
+			case(287):
+			case(23):
+			case(405):
+			case(143):
+			case(351):
+			case(161):
+			case(162):
+			reloadBaseTime=(6000);
+			skill=cr.Skill[(200)];
+			break;
+			
+			case(1040):
+			case(313):
+			case(1406):
+			case(1408):
+			reloadBaseTime=(500);
+			skill=cr.Skill[(200)];
+			break;
+			
+			case(1037):
+			case(300):
+			case(1405):
+			case(385):
+			case(94):
+			case(242):
+			case(1039):
+			case(299):
+			case(1403):
+			case(1409):
+			reloadBaseTime=(1000);
+			skill=cr.Skill[(200)];
+			break;
+			
+			case(1422):
+			case(9):
+			case(296):
+			case(332):
+			case(1402):
+			case(578):
+			reloadBaseTime=(6000);
+			skill=cr.Skill[(200)];
+			break;
+			
+			case(11):
+			case(594):
+			case(1401):
+			case(1400):
+			case(1415):
+			case(1416):
+			reloadBaseTime=(10000);
+			skill=cr.Skill[(201)];
+			break;
+			case(1410):
+			reloadBaseTime=(500);
+			skill=cr.Skill[(201)];
+			break;
+			case(1036):
+			reloadBaseTime=(1000);
+			skill=cr.Skill[(201)];
+			break;
+			
+			case(16):
+			case(402):
+			case(1520):
+			reloadBaseTime=(4000);
+			skill=cr.Skill[(202)];
+			break;
+			
+			case(1404):
+			case(600):
+			reloadBaseTime=(8000);
+			skill=cr.Skill[(202)];
+			break;
+			default:
+			reloadBaseTime=(10000);
+			skill=cr.Skill[(200)];
+			break;
+		}
+		
+		if(not(@ammo!=null)||(weapon.AmmoCount>0&&weapon.AmmoPid!=ammo.GetProtoId()))
+		{
+			if(weapon.AmmoPid!=0)
+			{
+				Item@existAmmo=cr.GetItem(weapon.AmmoPid,-1);
+				if(not(@existAmmo!=null))
+				cr.AddItem(weapon.AmmoPid,weapon.AmmoCount);
+				else
+				existAmmo.SetCount(existAmmo.GetCount()+(weapon.AmmoCount));
+			}
+			weapon.AmmoCount=0;
+			weapon.Update();
+			return;
+		}
+		
+		bool fasterReload=cr.ModeBase[(540)]==3;
+		int reloadTime=((6000)+reloadBaseTime);
+		reloadTime-=((cr.StatBase[(5)]*200)+(skill*20));
+		reloadTime=(((reloadTime)>(10000))?(10000):(((reloadTime)<(1000))?(1000):(reloadTime)));
+		if(fasterReload&&reloadBaseTime!=(500))reloadTime/=2;
+		if((@ammo!=null))weapon.Val1=ammo.Id;
+		else{weapon.Val1=0;return;}
+		if(reloadBaseTime==(1000)||(reloadBaseTime==(500)&&!fasterReload))
+		cr.AddTimeEvent("cte_slowReload_one",reloadTime*__TimeMultiplier*0.001,(10),weapon.Id);
+		else cr.AddTimeEvent("cte_slowReload",reloadTime*__TimeMultiplier*0.001,(10),weapon.Id);
+		cr.ModeBase[(540)]=fasterReload?3:2;
+		weapon.SetEvent((6),"e_ReloadInterrupt");
+	}
+	else
+	{
+		
+		if(not(@ammo!=null)||(weapon.AmmoCount>0&&weapon.AmmoPid!=ammo.GetProtoId()))
+		{
+			if(weapon.AmmoPid!=0)
+			{
+				Item@existAmmo=cr.GetItem(weapon.AmmoPid,-1);
+				if(not(@existAmmo!=null))
+				cr.AddItem(weapon.AmmoPid,weapon.AmmoCount);
+				else
+				existAmmo.SetCount(existAmmo.GetCount()+(weapon.AmmoCount));
+			}
+			weapon.AmmoCount=0;
+		} 
+		
+		if((@ammo!=null))
+		{
+			uint count=(((ammo.GetCount())<(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount))?(ammo.GetCount()):(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount));
+			weapon.AmmoCount+=count;
+			weapon.AmmoPid=ammo.GetProtoId();
+			do{if(ammo.GetCount()>(count))
+				ammo.SetCount(ammo.GetCount()-(count));else
+				DeleteItem(ammo);}while(false);
+		}
+		
+		weapon.Update();
+		
+	}
+}
+
+void e_ReloadInterrupt(Item&item,Critter&crit,uint8 fromSlot)
+{
+	if(fromSlot==(1))
+	{
+		ChangeCritterSpeed(crit);
+		crit.EraseTimeEvents((10));
+		item.SetEvent((6),null);
+	}
+}
+
+uint StopReloading(Critter&cr){
+	ChangeCritterSpeed(cr);
+	cr.ModeBase[(540)]=0;
+	return 0;
+}
+
+uint cte_slowReload_one(Critter&cr,int identifier,uint&rate)
+{
+	
+	Item@weapon=cr.GetItemById(rate);
+	if(!(@weapon!=null)||(weapon.Id!=cr.GetItem(0,(1)).Id)||weapon.AmmoCount>=weapon.Proto.Weapon_MaxAmmoCount)return StopReloading(cr);
+	
+	Item@ammo;
+	if(weapon.Val1>0)@ammo=cr.GetItemById(weapon.Val1);
+	
+	if(!(@ammo!=null))return StopReloading(cr);
+	
+	if((@ammo!=null))
+	{
+		weapon.AmmoCount++;
+		weapon.AmmoPid=ammo.GetProtoId();
+		do{if(ammo.GetCount()>(1))
+			ammo.SetCount(ammo.GetCount()-(1));else
+			DeleteItem(ammo);}while(false);
+	}
+	weapon.Update();
+	
+	if(weapon.AmmoCount>=weapon.Proto.Weapon_MaxAmmoCount)return StopReloading(cr);
+	return((cr.ModeBase[(540)]==3?1:2)*__TimeMultiplier);
+}
+
+uint cte_slowReload(Critter&cr,int identifier,uint&rate)
+{
+	Item@weapon=cr.GetItemById(rate);
+	if(!(@weapon!=null)||(weapon.Id!=cr.GetItem(0,(1)).Id))return StopReloading(cr);
+	
+	Item@ammo;
+	if(weapon.Val1>0)@ammo=cr.GetItemById(weapon.Val1);
+	
+	if((@ammo!=null))
+	{
+		uint count=(((ammo.GetCount())<(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount))?(ammo.GetCount()):(weapon.Proto.Weapon_MaxAmmoCount-weapon.AmmoCount));
+		weapon.AmmoCount+=count;
+		weapon.AmmoPid=ammo.GetProtoId();
+		do{if(ammo.GetCount()>(count))
+			ammo.SetCount(ammo.GetCount()-(count));else
+			DeleteItem(ammo);}while(false);
+	}
+	weapon.Update();
+	return StopReloading(cr);
+}   
+
+void critter_init(Critter&cr,bool firstTime)
+{
+	if(firstTime)
+	{
+		if(cr.IsPlayer())
+		{
+			AddNewCritterHistoryBase(cr);
+			GameVar@TotalPlayers=GetGlobalVar((4));
+			if(uint(TotalPlayers.GetValue())<cr.Id)
+			TotalPlayers=cr.Id;
+			
+			uint traits=0;
+			for(uint i=(__TraitBegin);i<=(__TraitEnd);i++)
+			{
+				if(cr.TraitBase[i]!=0&&traits<2)
+				{
+					cr.TraitBase[i]=1;
+					traits++;
+				}
+				else
+				cr.TraitBase[i]=0;
+			}
+			
+			if(cr.StatBase[(71)]<0||cr.StatBase[(71)]>1)
+			cr.StatBase[(71)]=0;
+			if(cr.StatBase[(70)]<14||cr.StatBase[(70)]>80)
+			cr.StatBase[(70)]=25;
+			for(uint i=(0);i<=(6);i++)
+			cr.StatBase[i]=(((cr.StatBase[i])>(10))?(10):(((cr.StatBase[i])<(1))?(1):(cr.StatBase[i])));
+			
+			if((cr.StatBase[(0)]+cr.StatBase[(1)]+cr.StatBase[(2)]+
+			cr.StatBase[(3)]+cr.StatBase[(4)]+cr.StatBase[(5)]+cr.StatBase[(6)])!=__StartSpecialPoints)
+			{
+				for(uint i=(0);i<=(6);i++)
+				cr.StatBase[i]=5;
+			}
+			
+			cr.StatBase[(28)]=500;                           
+			
+			cr.ChangeCrType(cr.Stat[(71)]==(0)?((62)):((61)));
+			cr.StatBase[(112)]=cr.CrType;
+			
+		}
+		
+		if(cr.TagSkill[(226)]<int((__SkillBegin))||cr.TagSkill[(226)]>int((__SkillEnd)))
+		cr.TagSkillBase[(226)]=0;
+		if(cr.TagSkill[(227)]<int((__SkillBegin))||cr.TagSkill[(227)]>int((__SkillEnd)))
+		cr.TagSkillBase[(227)]=0;
+		if(cr.TagSkill[(228)]<int((__SkillBegin))||cr.TagSkill[(228)]>int((__SkillEnd)))
+		cr.TagSkillBase[(228)]=0;
+		if(cr.TagSkill[(226)]==cr.TagSkill[(227)])
+		cr.TagSkillBase[(226)]=0;
+		if(cr.TagSkill[(227)]==cr.TagSkill[(228)])
+		cr.TagSkillBase[(227)]=0;
+		if(cr.TagSkill[(228)]==cr.TagSkill[(226)])
+		cr.TagSkillBase[(228)]=0;
+		
+		CritterGenerate(cr);
+		cr.StatBase[(72)]=cr.Stat[(7)];
+		cr.StatBase[(75)]=cr.Stat[(8)]*100;
+		
+		for(uint i=(__ReputationBegin);i<=(__ReputationEnd);i++)cr.ReputationBase[i]=int(0x80000000);
+		
+		if(cr.IsPlayer())
+		{
+			for(uint i=(0);i<=(6);i++)
+			cr.StatBase[i]=(((cr.StatBase[i])>(10))?(10):(((cr.StatBase[i])<(1))?(1):(cr.StatBase[i])));
+			
+			cr.StatBase[(85)]=100;
+			cr.StatBase[(82)]=0;
+			cr.StatBase[(83)]=0;
+			cr.StatBase[(106)]=1;
+			cr.StatBase[(69)]=(1); 
+			
+			skin(cr,cr.StatBase[(67)]);
+			cr.StatBase[(67)]=0;
+			
+		}
+		else
+		{
+			cr.ChangeCrType(cr.StatBase[(112)]);
+			if(cr.Stat[(77)]!=0)
+			NpcProcessLevel(cr);
+		}
+	}
+	else
+	{
+		if(cr.IsPlayer())
+		{
+			CheckFaction(cr,true);
+			cr.StatBase[(137)]=0;
+		}    
+		
+		Item@armor=cr.GetItem(0,(3));
+		if(cr.Stat[(112)]==0)
+		cr.StatBase[(112)]=(cr.Stat[(71)]==(0)?((62)):((61)));
+		if(not(@armor!=null))
+		{
+			uint crType=cr.Stat[(112)];
+			if(crType==0)
+			crType=(cr.Stat[(71)]==(0)?((62)):((61)));
+			cr.StatBase[(112)]=crType;
+			if(cr.CrType!=crType)
+			cr.ChangeCrType(crType);
+		}
+		
+		if(cr.IsPlayer())RestartHair(cr); 
+		
+		if(not(@armor!=null)&&cr.Stat[(114)]!=0)
+		{
+			switch(cr.Stat[(114)])
+			{
+				case(1):
+				cr.StatBase[(32)]-=3;
+				cr.StatBase[(62)]-=30;
+				break;
+				case(2):
+				cr.StatBase[(62)]-=20;
+				break;
+				case(3):
+				cr.StatBase[(32)]-=4;
+				cr.StatBase[(62)]-=60;
+				break;
+				case(4):
+				cr.StatBase[(32)]-=4;
+				cr.StatBase[(62)]-=75;
+				break;
+				case(5):
+				cr.StatBase[(35)]-=1;
+				break;
+				default:
+				break;
+			}
+			cr.StatBase[(114)]=0;
+		} 
+		
+		for(uint i=(__TimeoutBegin);i<=(__TimeoutEnd);i++)
+		if(i!=(238)&&cr.Timeout[i]>int((((5)*__TimeMultiplier*3600))))
+		cr.TimeoutBase[i]=__FullSecond; 
+		
+		cr.EraseTimeEvents(0);
+	}
+	
+	cr.SetEvent((17),"_NewStealingWarnings");
+	
+	if(cr.IsPlayer()&&cr.StatBase[(139)]<100)
+	{
+		cr.StatBase[(139)]=100;
+	}
+	
+	ChangeCritterSpeed(cr);
+	
+	manager_critter_init(cr,firstTime);
+}
+
+void _NewStealingWarnings(Critter&cr,Critter&thief,bool success,Item&item,uint count)
+{
+	if(!success)return;
+	if(thief.GetAccess()>=(2))return;
+	int quality=thief.Skill[(210)];
+	int difficulty=cr.Skill[(210)];
+	bool isMasterMe=cr.Perk[(406)]>0;
+	bool isMasterHe=thief.Perk[(406)]>0;
+	if((!isMasterHe&&(isMasterMe||Random(1,100)<=difficulty))||
+	(Random(1,100)<=100-(quality-difficulty)))cr.Say((11),"Кто-то шарит у вас в карманах!");
+}  
+
+void critter_finish(Critter&cr,bool toDelete)
+{
+	if(cr.IsPlayer())
+	{
+		CheckFaction(cr,false);
+		cr.StatBase[(137)]=0;
+	}
+	if(toDelete&&cr.Stat[(113)]!=0)
+	{
+		Item@block=::GetItem(cr.Stat[(113)]);
+		if((@block!=null))
+		DeleteItem(block);
+		cr.StatBase[(113)]=0;
+	} 
+	
+	manager_critter_finish(cr,toDelete);
+}  
+
+void critter_idle(Critter&cr)
+{
+	int test=Random(0,cr.Skill[(208)]);
+	if(cr.IsRuning&&cr.IsBusy())
+	{
+		string sound="шум";
+		uint[]loud_armors={
+			(2),(380),(240),(17),(381),(239),(547)
+		};
+		
+		Item@armor=cr.GetItem(0,(3));
+		if(cr.Stat[(112)]==(10)||((@armor!=null)&&loud_armors.find(armor.GetProtoId())!=-1))
+		sound="звяк";            
+		
+	} 
+	
+	if(cr.Timeout[(244)]==0&&!cr.IsDead())
+	{
+		if(cr.Mode[(526)]==0&&cr.Timeout[(238)]==0&&cr.StatBase[(72)]<cr.Stat[(7)])
+		{
+			int healing=cr.Stat[(13)];
+			if(cr.IsPlayer()&&cr.StatBase[(128)]<50)
+			healing=(((healing-cr.Stat[(13)]*(100-cr.StatBase[(128)])/100)>(healing))?(healing):(((healing-cr.Stat[(13)]*(100-cr.StatBase[(128)])/100)<(0))?(0):(healing-cr.Stat[(13)]*(100-cr.StatBase[(128)])/100)));
+			cr.StatBase[(72)]+=healing;
+			if(cr.StatBase[(72)]>cr.Stat[(7)])
+			cr.StatBase[(72)]=cr.Stat[(7)];
+		}
+		
+		cr.TimeoutBase[(244)]=(__FullSecond+((2)*__TimeMultiplier*60));
+	}
+	
+	if(cr.IsPlayer())
+	{
+		if(cr.StatBase[(190)]<(cr.StatBase[(72)]+50))cr.StatBase[(190)]++;
+		
+		GameVar@weariness=GetLocalVar((9960),cr.Id);
+		if(weariness>5)
+		{
+			float rest=(cr.StatBase[(128)]+cr.StatBase[(127)])/200;
+			float health=cr.StatBase[(72)]/cr.Stat[(7)];
+			weariness.opAddAssign(-(((6*rest*health)>(5))?(5):(((6*rest*health)<(1))?(1):(6*rest*health))));
+			if(weariness<1){
+				weariness.opAssign(1);
+				cr.Say((11),"Вы полностью отдохнули от занятий и готовы приступить к обучению со свежей головой.");
+			}
+		}  
+		
+		if(cr.Stat[(95)]>0)
+		cr.StatBase[(95)]-=1;
+		
+		if(uint(cr.Stat[(189)])==0)
+		{
+			Map@map=cr.GetMap();
+			if(!(map is null))
+			{
+				qmap_critter_in(map.Id,cr);
+			}
+		}
+	}
+	ChangeCritterSpeed(cr);
+	manager_critter_idle(cr);
+}     
+
+void critter_dead(Critter&cr,Critter@killer)
+{
+	if(killer!is null&&killer.IsPlayer())
+	{
+		
+	}
+	Map@map=cr.GetMap();
+	if(!(@map!=null))
+	{
+		
+	}
+	
+	if(cr.IsNpc())
+	cr.DropPlanes();
+	if((@map!=null)&&cr.Mode[(528)]!=0)
+	{
+		Item@blocker=map.AddItem(cr.HexX,cr.HexY,(820),1);
+		if((@blocker!=null))
+		cr.StatBase[(113)]=blocker.Id;
+	}
+	
+	if(!(killer is null)&&cr.IsNpc())
+	{
+		killer.TimeoutBase[(237)]+=((30)*__TimeMultiplier);
+	}
+	
+	manager_critter_dead(cr,killer);
+}  
+
+void critter_respawn(Critter&cr)
+{
+	cr.TimeoutBase[(241)]=0;
+	if(cr.CrType==115)
+	{
+		uint body=cr.Stat[(112)];
+		if(body==0)
+		body=(cr.Stat[(71)]==(0)?((62)):((61)));
+		cr.ChangeCrType(body);
+	}
+	else if(cr.CrType==81)
+	{
+		Item@weapon=cr.AddItem((596),1);
+		cr.MoveItem(weapon.Id,1,(1));
+		weapon.Update();
+	}
+	else if(cr.CrType==51||cr.CrType==60||cr.CrType==100)
+	{
+		Item@weapon=cr.AddItem((595),1);
+		cr.MoveItem(weapon.Id,1,(1));
+		weapon.Update();
+	}
+	
+	if(cr.Stat[(180)]!=0)
+	DropParalysisInstant(cr);
+	if(cr.Stat[(73)]!=0)
+	DropPoison(cr);
+	if(cr.Stat[(74)]!=0)
+	DropRadiation(cr);
+	
+	if(cr.Stat[(113)]!=0)
+	{
+		Item@block=::GetItem(cr.Stat[(113)]);
+		if((@block!=null))
+		DeleteItem(block);
+		cr.StatBase[(113)]=0;
+	}
+	
+	manager_critter_respawn(cr);
+}    
+
+void map_critter_in(Map&map,Critter&cr)
+{
+	if(cr.IsPlayer())
+	{
+		qmap_critter_in(map.Id,cr);
+		
+		uint16 locPid=map.GetLocation().GetProtoId();
+		if((LocIsCity((locPid))))
+		{
+			GameVar@lastCityVar=GetLocalVar((3050),cr.Id);
+			if(lastCityVar is null)
+			return;
+			lastCityVar=locPid;
+		}
+	}  
+	
+	manager_map_critter_in(map,cr);
+}  
+
+void map_critter_out(Map&map,Critter&cr)
+{
+	if(cr.IsPlayer())
+	{
+		qmap_critter_out(map.Id,cr);
+	}
+	
+	manager_map_critter_out(map,cr);
+}   
+
+void karma_voting(Critter&crFrom,Critter&crTo,bool valUp)
+{
+	
+	crTo.StatBase[(100)]+=(valUp?int(5):-10);
+	crFrom.TimeoutBase[(242)]=__FullSecond+((4)*__TimeMultiplier*3600);                                   
+	
+}     
+
+bool check_look(Map&map,Critter&cr,Critter&opponent)
+{
+	if(cr.IsNpc()&&opponent.IsNpc()&&cr.Stat[(67)]!=0&&opponent.Stat[(67)]!=0&&cr.Merc[(800)]==0&&opponent.Merc[(800)]==0)
+	{
+		return false;
+	}
+	
+	if(map.GetProtoId()==(400)&&opponent.IsPlayer()&&cr.IsPlayer()&&cr.GetAccess()<(2))
+	return false;
+	
+	uint16 hexX=cr.HexX,hexY=cr.HexY,oppHexX=opponent.HexX,oppHexY=opponent.HexY;
+	
+	uint dist=GetDistantion(hexX,hexY,oppHexX,oppHexY);
+	
+	if(opponent.Quest[(701)]!=0&&(opponent.Quest[(701)]-1)<int(dist)&&(!(cr.IsPlayer())||cr.IsPlayer()&&cr.GetAccess()<(2)))
+	return false;
+	if(opponent.Quest[(701)]>int(dist)||cr.Quest[(702)]>=int(dist))
+	return true;
+	
+	uint maxView=cr.Stat[(1)]*5,
+	maxHear=cr.Stat[(1)]*1.5;
+	
+	bool isView=true,isHear=true,isRunOpp=opponent.IsRuning,isRunCr=cr.IsRuning;
+	
+	int8 startDir=GetDirection(hexX,hexY,oppHexX,oppHexY);
+	
+	int8 lookDir=abs(startDir-cr.Dir);
+	if(lookDir>3)
+	lookDir=6-lookDir;
+	
+	switch(lookDir)
+	{
+		case 0:
+		maxView*=1;
+		break;
+		case 1:
+		maxView*=0.7;
+		break;
+		case 2:
+		maxView*=0.5;
+		break;
+		case 3:
+		maxView*=0;
+		break;
+		default:
+		Log("look dir error!");
+		return false;
+	}  
+	
+	maxView+=cr.Param[(101)];
+	
+	uint16 wallHexX=oppHexX,wallHexY=oppHexY;
+	
+	map.GetHexCoord(hexX,hexY,wallHexX,wallHexY,0.0f,maxView);
+	uint walldist=GetDistantion(hexX,hexY,wallHexX,wallHexY);
+	
+	bool isOutWall=dist>walldist;
+	
+	if(isOutWall)
+	{
+		isView=false;
+		maxHear*=0.5;
+	}
+	
+	if(dist>maxView)
+	isView=false;
+	
+	if(dist>maxHear)
+	isHear=false;
+	
+	return(!isView&&!isHear?false:true);
+}
+
+void chlook(Critter&player,int p0,int p1,int p2)
+{
+	Map@map=player.GetMap();
+	if(map is null)
+	{
+		player.Say((11),"map is null");
+		return;
+	}
+	Critter@cr=map.GetCritter(p0);
+	if(cr is null)
+	{
+		player.Say((11),"opponent is null");
+		return;
+	}
+	bool result=check_look(map,player,cr);
+	if(result)
+	player.Say((11),"I can see it!");
+	else
+	player.Say((11),"Oh no! Where is it?");
+}   
+
+const uint max_distance_trap_vision=4;
+
+bool check_trap_look(Map&map,Critter&cr,Item&trap)
+{
+	if(cr.IsPlayer()&&trap.GetProtoId()==10002)
+	return cr.GetAccess()!=0;
+	
+	uint16 crX=cr.HexX,crY=cr.HexY,
+	trapX=trap.HexX,trapY=trap.HexY;
+	
+	uint dist=GetDistantion(crX,crY,trapX,trapY);
+	if(dist<max_distance_trap_vision)
+	{
+		int percep=cr.Stat[(1)]-6;  
+		
+		if(percep>0)
+		percep=++percep*0.5+1;
+		
+		int hour=map.GetTime();
+		if(hour==-1)hour=__Hour;
+		else hour/=60;
+		
+		if(hour<9||hour>17)
+		percep-=(hour>=21||hour<5)?2:1;
+		if(percep<1)percep=1;
+		
+		if(dist<=uint(percep))
+		return true;
+	}
+	return false;
+}    
+
+uint item_cost(Item&item,Critter&cr,Critter&npc,bool sell)
+{
+	uint8 itemType=item.GetType();
+	uint16 pid=item.GetProtoId();
+	float cost=GetProtoItem(pid).Cost;
+	
+	if(pid==(41)||pid==(519))
+	return 1;
+	
+	if(sell){
+		if(pid==(1438))return 0;
+	}
+	
+	if(!item.IsStackable()&&(itemType==(1)||itemType==(3)))
+	{
+		uint8 brokenCount=item.BrokenCount;
+		uint8 brokenFlags=item.BrokenFlags;
+		
+		if((((brokenFlags)&((0x08)))!=0)||(((brokenFlags)&((0x0F)))!=0))
+		cost*=0.01;
+		else if((((brokenFlags)&((0x04)))!=0))
+		cost/=3;
+		else if((((brokenFlags)&((0x02)))!=0))
+		cost/=2;
+		else if((((brokenFlags)&((0x01)))!=0))
+		cost/=1.4;
+		else if(brokenCount>0)
+		cost*=brokenCount!=100?brokenCount*0.01:0.01;
+		
+		if(itemType==(3))
+		{
+			cost+=GetProtoItem(item.AmmoPid).Cost*item.AmmoCount;
+		}
+	}
+	
+	float MarkUp=(100-(cr.SkillBase[(215)]-npc.SkillBase[(215)]))*0.01;
+	if(MarkUp<0)MarkUp=0;
+	if(MarkUp>2)MarkUp=2;
+	MarkUp=sell?cost*(1/pow(3,MarkUp)):cost*pow(3,MarkUp);
+	return(((MarkUp)>(999999))?(999999):(((MarkUp)<(1))?(1):(MarkUp)));    
+	
+}   
+
+bool items_barter(Item@[]&saleItems,uint[]&saleItemsCount,Item@[]&buyItems,uint[]&buyItemsCount,Critter&player,Critter&npc)
+{
+	if(npc.Mode[(535)]>0)
+	{
+		for(uint i=0,j=saleItems.length();i<j;i++)
+		{
+			Item@item=saleItems[i];
+			if((@item!=null)&&(item.GetProtoId()!=(41)&&item.GetProtoId()!=(519)))
+			{
+				npc.SayMsg((12),(3),(497));
+				return false;
+			}
+		}
+	}
+	GameVar@loan=GetUnicumVar((6110),player.Id,npc.Id);
+	if(loan==1)
+	{
+		return false;
+	}
+	
+	ChangeCritterSpeed(player);
+	ChangeCritterSpeed(npc);
+	
+	return true;
+}   
+
+void items_crafted(Item@[]&items,uint[]&itemsCount,Item@[]&resources,Critter&crafter)
+{
+	ChangeCritterSpeed(crafter);
+	
+	int maxDeterioration=0;
+	for(uint i=0,j=resources.length();i<j;i++)
+	{
+		Item@item=resources[i];
+		int deterioration=GetDeteriorationProcent(item);
+		if(deterioration>maxDeterioration)
+		maxDeterioration=deterioration;
+	}
+	
+	for(uint i=0,j=items.length();i<j;i++)
+	{
+		
+		Item@item=items[i];
+		if(item.GetType()==(3)&&item.Proto.Weapon_MaxAmmoCount>0)
+		{
+			item.AmmoCount=0;
+			item.Update();
+		} 
+		
+		SetDeterioration(item,maxDeterioration);
+	}
+	
+	uint16 itemsZiroPid=items[0].GetProtoId();
+	
+	if(itemsZiroPid==(1317)||itemsZiroPid==(1318)||itemsZiroPid==(1319))
+	{
+		
+		items[0].Val0=((((crafter.SkillBase[(213)]/3)+(crafter.SkillBase[(209)]/2))>0)?((crafter.SkillBase[(213)]/3)+(crafter.SkillBase[(209)]/2)):-((crafter.SkillBase[(213)]/3)+(crafter.SkillBase[(209)]/2)));
+		return; 
+		
+	}       
+	
+	switch(itemsZiroPid)
+	{
+		case(927):
+		{
+			items[0].Val6=2;
+			items[0].Val5=(3);
+			items[0].Val4=crafter.SkillBase[(211)]/5;
+			items[0].Val3=crafter.SkillBase[(211)]/15;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(925):
+		{
+			items[0].Val6=4;
+			items[0].Val5=(5);
+			items[0].Val4=crafter.SkillBase[(211)]/5;
+			items[0].Val3=crafter.SkillBase[(211)]/15;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(835):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=crafter.SkillBase[(211)]/10;
+			items[0].Val3=crafter.SkillBase[(211)]/20;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(929):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=2;
+			items[0].Val3=1;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(932):
+		{
+			items[0].Val6=4;
+			items[0].Val5=(1);
+			items[0].Val4=crafter.SkillBase[(211)]/20;
+			items[0].Val3=crafter.SkillBase[(211)]/30;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(931):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=crafter.SkillBase[(211)]/10;
+			items[0].Val3=crafter.SkillBase[(211)]/20;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(928):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=crafter.SkillBase[(211)]/20;
+			items[0].Val3=crafter.SkillBase[(211)]/30;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(926):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=1;
+			items[0].Val3=0;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+		case(930):
+		{
+			items[0].Val6=0;
+			items[0].Val5=(1);
+			items[0].Val4=crafter.SkillBase[(211)]/10;
+			items[0].Val3=crafter.SkillBase[(211)]/20;
+			items[0].Val1=crafter.Id;
+			return;
+		}
+		
+	}
+	
+}  
+
+void player_levelup(Critter&player,uint skillIndex,uint skillUp,uint perkIndex)
+{      
+	
+	if(skillIndex>=(__SkillBegin)&&skillIndex<=(__SkillEnd))
+	{
+		for(;skillUp!=0;skillUp--)
+		{
+			int skillVal=player.SkillBase[skillIndex];
+			if(skillVal>=(__SkillMaxValue))
+			break;
+			
+			int needPoints=1;
+			if(skillVal>__SkillModAdd6)
+			needPoints=6;
+			else if(skillVal>__SkillModAdd5)
+			needPoints=5;
+			else if(skillVal>__SkillModAdd4)
+			needPoints=4;
+			else if(skillVal>__SkillModAdd3)
+			needPoints=3;
+			else if(skillVal>__SkillModAdd2)
+			needPoints=2;
+			
+			if(player.StatBase[(78)]<needPoints)
+			break;
+			
+			skillVal++;
+			
+			player.SkillBase[skillIndex]=skillVal;
+			player.StatBase[(78)]-=needPoints;
+		}
+	}
+	else
+	{
+		if(perkIndex>=(__PerkBegin)&&perkIndex<=(__PerkEnd))
+		{
+			if(PerkCheck(player,perkIndex))
+			{
+				player.PerkBase[perkIndex]++;
+				player.StatBase[(79)]--;
+			}
+		}
+		
+		if(perkIndex>=880&&perkIndex<=999)
+		{
+			if(PerkCheck(player,perkIndex))
+			{
+				player.StatBase[perkIndex]++;
+				player.StatBase[(79)]--;
+			}
+		}
+	}
+	
+	player.StatBase[(85)]=player.Stat[(77)]*100;
+}   
+
+void turn_based_begin(Map&map)
+{
+	
+	if(map.TurnBasedRound>0)
+	{
+		uint[]crittersIds;
+		map.GetTurnBasedSequence(crittersIds);
+		
+		bool continueBattle=false;
+		if(crittersIds.length()>=2)
+		{
+			for(uint i=0,j=crittersIds.length();i<j;i++)
+			{
+				Critter@cr=::GetCritter(crittersIds[i]);
+				if(!(not(@cr!=null)||cr.IsDead()||
+				(cr.IsNpc()&&cr.GetPlanes((1),null)==0)||
+				(cr.IsPlayer()&&(cr.Mode[(515)]!=0||cr.Stat[(72)]<1))))
+				{
+					continueBattle=true;
+					break;
+				}
+			}
+		}
+		
+		if(not continueBattle)
+		map.EndTurnBased();
+	}
+} 
+
+void turn_based_end(Map&map)
+{
+	
+} 
+
+void turn_based_process(Map&map,Critter&cr,bool beginTurn)
+{
+	if(beginTurn)
+	{
+		cr.StatBase[(88)]=cr.Stat[(87)];
+		cr.StatBase[(86)]=0;
+	}
+	else
+	{
+		bool hthEvade=false;
+		if(cr.Perk[(394)]!=0)
+		{
+			
+			Item@hand1=cr.GetItem(0,(1));
+			Item@hand2=cr.GetItem(0,(2));
+			if((not(@hand1!=null)||hand1.GetType()!=(3)||not hand1.Weapon_IsHtHAttack(0))&&
+			(not(@hand1!=null)||hand1.GetType()!=(3)||not hand1.Weapon_IsHtHAttack(0)))
+			{
+				hthEvade=true;
+			}
+		}
+		
+		cr.StatBase[(86)]=cr.Stat[(75)]*(hthEvade?2:1);
+		if(cr.Stat[(86)]<0)
+		cr.StatBase[(86)]=0;
+		if(hthEvade&&cr.Skill[(203)]>0)
+		cr.StatBase[(86)]+=cr.Skill[(203)]/12;
+		cr.StatBase[(88)]=0;
+	}
+} 
+
+void turn_based_sequence(Map&map,Critter@[]&critters,Critter@firstTurnCrit)
+{
+	
+	if((@firstTurnCrit!=null)&&(firstTurnCrit.IsDead()||firstTurnCrit.Stat[(75)]<=0))
+	@firstTurnCrit=null; 
+	
+	SequenceCritter[]sequenceCritters;
+	for(uint i=0,j=critters.length();i<j;i++)
+	{
+		Critter@cr=critters[i];
+		if((@firstTurnCrit!=null)&&firstTurnCrit.Id==cr.Id)
+		continue;
+		if(cr.IsDead())
+		continue;
+		sequenceCritters.resize(sequenceCritters.length()+1);
+		@sequenceCritters.last().critter=cr;
+	} 
+	
+	SequenceCritterRandom=Random(0,1);
+	sequenceCritters.sortDesc(); 
+	
+	critters.resize(0);
+	if((@firstTurnCrit!=null))
+	critters.insertLast(firstTurnCrit);
+	for(uint i=0,j=sequenceCritters.length();i<j;i++)
+	critters.insertLast(sequenceCritters[i].critter);
+} 
+
+int SequenceCritterRandom=0;
+class SequenceCritter
+{
+	Critter@critter;
+	int opCmp(SequenceCritter&in other)
+	{
+		bool result;
+		Critter@cr1=critter;
+		Critter@cr2=other.critter;
+		int seq1=cr1.Stat[(12)];
+		int seq2=cr2.Stat[(12)];
+		if(seq1==seq2)
+		{
+			int ag1=cr1.Stat[(5)];
+			int ag2=cr2.Stat[(5)];
+			if(ag1==ag2)
+			{
+				int lk1=cr1.Stat[(6)];
+				int lk2=cr2.Stat[(6)];
+				if(lk1==lk2)
+				{
+					if(SequenceCritterRandom==0)
+					result=cr1.Id>cr2.Id;
+					else
+					result=cr1.Id<cr2.Id;
+				}
+				else
+				result=lk1>lk2;
+			}
+			else
+			result=ag1>ag2;
+		}
+		else
+		result=seq1>seq2;
+		return result?int(1):int(-1);
+	}
+}  
+
+void world_save(uint currentIndex,uint[]&deleteIndexes)
+{
+	
+	if(currentIndex==1)
+	{
+		deleteIndexes.resize(5);
+		for(uint i=0;i<5;i++)
+		deleteIndexes[i]=9999-i;
+	}
+	else if(currentIndex>4)
+	{
+		deleteIndexes.resize(1);
+		deleteIndexes[0]=currentIndex-5;
+	}
+	
+	SaveCaravans();
+	
+	qmap_save_all();
+	
+	manager_world_save();
+}
+
+uint8 NpcCount(Critter@[]&group)
+{
+	uint8 x=0;
+	for(uint i=0,len=group.length();i<len;i++)
+	{
+		if(group[i]is null or group[i].IsPlayer())
+		continue;
+		x++;
+	}
+	return x;
+} 
+
+bool player_registration(uint ip,string&name,uint&textMsg,uint&strNum)
+{
+	return manager_player_registration(ip,name,textMsg,strNum);
+}  
+
+bool player_login(uint ip,string&name,uint id,uint&textMsg,uint&strNum)
+{
+	if(!manager_player_login(ip,name,id,textMsg,strNum))
+	return false;
+	
+	Critter@cr=GetCritter(id);
+	
+	if(!(cr is null))
+	{
+		cr.StatBase[(189)]=0;
+		CreateTimeEvent(__FullSecond+((100)*__TimeMultiplier/1000),"e_player_after_login",id,false);     
+		
+	}
+	
+	return true;
+}
+
+uint e_player_after_login(uint[]@values)
+{
+	if((values is null)||values.length()<1)
+	{
+		Log("there isn't id in values");
+		return 0;
+	}
+	
+	uint id=values[0];
+	
+	Critter@cr=GetCritter(id);
+	
+	if(cr is null)
+	{
+		Log("can't get player "+id);
+		return 0;
+	}
+	
+	Map@map=cr.GetMap();
+	
+	if(!(map is null)&&uint(cr.Stat[(189)])==0)
+	{
+		qmap_critter_in(map.Id,cr);
+	}
+	
+	return 0;
+}       
+
+void ExpBarTimer(Critter&cr,uint8 time)
+{
+	uint[]rates; 
+	
+	int16 tempMultiplier=cr.StatBase[(124)]++;
+	cr.StatBase[(124)]=(((cr.StatBase[(124)])>((5)))?((5)):(((cr.StatBase[(124)])<(1))?(1):(cr.StatBase[(124)])));
+	
+	if(cr.GetTimeEvents((30),null,null,rates)>0)
+	{
+		
+		return;
+	} 
+	
+	cr.StatBase[(125)]=((time)<<8)|(time);
+	cr.AddTimeEvent("cte_ExpBar",((100)*__TimeMultiplier/1000),(30),time);
+}
+
+void ExpBarSetTime(int&time,uint8 newTime,bool set)
+{
+	uint8 allTime=(time)&0xFF;   
+	
+	time=((set?newTime:allTime)<<8)|(newTime);
+}
+
+uint cte_ExpBar(Critter&cr,int identifier,uint&rate)
+{
+	
+	int16 tempRate=rate;
+	rate=(((tempRate--)>(255))?(255):(((tempRate--)<(0))?(0):(tempRate--)));
+	
+	uint8 allTime=(cr.StatBase[(125)])&0xFF;
+	
+	cr.StatBase[(125)]=((rate)<<8)|(allTime);
+	
+	if(rate<=0)
+	{
+		cr.StatBase[(124)]=1;
+		cr.StatBase[(125)]=0;
+		return 0;
+	}
+	return((1000)*__TimeMultiplier/1000);
+}                           
+
+void SetStartCrTimeEvent(Critter&cr,string func,uint time,int identifier,uint rate)
+{
+	if(cr.GetTimeEvents(identifier,null,null,null)>0)
+	{
+		cr.Say((11),"erase");
+		cr.EraseTimeEvents(identifier);
+	}
+	
+	cr.AddTimeEvent(func,time,identifier,rate);
+	
+}  
+
+bool player_getaccess(Critter&player,int access,string&password)
+{
+	Log("Access changed for player "+player.Name+", from "+player.GetAccess()+" to "+access+".");
+	player.StatBase[(137)]=access;
+	return true;
+}
+
+bool player_allowcommand(Critter@player,string@adminPanel,uint8 command)
+{
+	if((@adminPanel!=null))
+	return true;
+	
+	switch(command)
+	{
+		
+		case(35):
+		case(34):
+		case(1):
+		case(11):
+		case(2):
+		return true;
+		
+		case(36):
+		case(10):
+		case(8):
+		if(player.GetAccess()>=(1))
+		return true;
+		break;
+		
+		case(12):
+		case(14):
+		case(16):
+		case(15):
+		case(33):
+		case(30):
+		case(4):
+		case(7):
+		case(3):
+		case(6):
+		case(5):
+		case(9):
+		case(31):
+		if(player.GetAccess()>=(2))
+		return true;
+		break;
+		
+		case(27):
+		case(22):
+		case(24):
+		case(18):
+		case(37):
+		case(19):
+		case(29):
+		case(26):
+		case(21):
+		case(23):
+		case(17):
+		case(28):
+		case(25):
+		case(20):
+		case(32):
+		if(player.GetAccess()==(3))
+		return true;
+		break;
+		
+		default:
+		player.Say((11),"Unknown command.");
+		return false;
+	}
+	
+	player.Say((11),"Access denied.");
+	return false;
+}
+
+void _giveHair(Critter&cr,uint index,int oldValue)
+{
+	SetHair(cr);
+}
+
+bool ltp_sharp_inited=false;
+
+void ltp_sharp_init()
+{
+	PROCESS@___pfunc=@process_sharp;any ___pany;___pany.store(@___pfunc);RegisterProcess((36),___pany);
+	ltp_sharp_inited=true;
+}
+
+uint process_sharp(Critter@cr,int&param0,int&param1,int&param2)
+{
+	if(param0==-1&&(cr is null)){param0=int((36));return(0xF035BCF3);}
+	Item@item=GetItem(param0);
+	if(@item==null)
+	return 0;
+	int8 det=GetDeteriorationProcent(item);
+	det-=Random(1,cr.Stat[(0)]);
+	det=(((det)>(100))?(100):(((det)<(0))?(0):(det)));
+	SetDeterioration(item,det);
+	
+	cr.Say((11),"Вы точите лезвия.");
+	return det>0?3*1000:0;
+}
+
+void ShowInputBoxScreen(Critter&cr,string funcName,uint16 textLength,uint8 flags)
+{
+	cr.RunClientScript("client_screen_inputbox@ShowInputBox",int(textLength),int(flags),0,funcName,null);
+}
+
+void showBunch(Critter&cr,uint answerI,string&answerS)
+{
+	Item@item=GetItem(answerI);
+	Item@locker=GetItem(cr.StatBase[(131)]);
+	if(item is null||locker is null)
+	return;
+	
+	UseItemOnLocker(cr,locker,item);
+}
+
+void unsafe_DKP(Critter&cr,int drugPid,int,int,string@,int[]@){
+	
+	Item@drug=cr.GetItem(drugPid,-1);
+	if(!(drug is null)){
+		if(cr.StatBase[(75)]>=2){
+			cr.StatBase[(75)]-=2;
+			
+			critter_use_item(cr,drug,null,null,null,0);
+		}
+	}
+}
+
+void unsafe_MakeDescLex(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	MakeDescLex(player,0,param3);
+}
+
+void unsafe_ShowFullPopupInfo(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	Map@map=player.GetMap();
+	if(!(@map!=null))return;
+	Item@target=map.GetItem(param0);
+	if(!(@target!=null))return;
+	int id=target.Val0;
+	player.Say((11),param3+" ["+(id!=0?GetPlayerName(id)+", id "+id:"ZERO ERROR")+"]");
+	if(target.Val1==1)
+	map.SetText(player.HexX,player.HexY,(uint((0xFF<<24)|(((0xFF)&0xFF)<<16)|(((0x00)&0xFF)<<8)|((0xFF)&0xFF))),param3);
+}
+
+void unsafe_ShowPopup(Critter&player,int itemID,int param1,int param2,string@text,int[]@param4)
+{
+	Map@map=player.GetMap();
+	if(!(@map!=null))return;
+	Item@target=map.GetItem(itemID);
+	if(!(@target!=null))return;
+	if(GetDistantion(target.HexX,target.HexY,player.HexX,player.HexY)>0){
+		DeleteItem(target);
+		return;
+	}
+	if(target.Val1==1)
+	map.SetText(player.HexX,player.HexY,(uint((0xFF<<24)|(((0xFF)&0xFF)<<16)|(((0x00)&0xFF)<<8)|((0xFF)&0xFF))),text);
+	else
+	player.Say((11),text);
+}
+
+void MakeDescLex(Critter&player,uint answerI,string&answerS){
+	if(!(@player!=null))return;
+	int item_id=player.Stat[(131)];
+	int accessory=player.Stat[(130)];
+	Item@target;
+	Map@map=player.GetMap();
+	switch(accessory){
+		case((0)):player.Say((11),"Что-то явно пошло не так!");break;
+		case((1)):@target=player.GetItemById(item_id);break;
+		case((2)):if((@map!=null))@target=map.GetItem(item_id);break;
+		case((3)):player.Say((11),"Сначала достаньте предмет из контейнера!");break;
+		default:player.Say((11),"Что-то пошло не так..");
+	}
+	if(!(@target!=null)){
+		player.Say((11),"Предмет не найден!");
+		return;
+	}
+	target.SetLexems(null);
+	if(answerS.length()>1){
+		player.Say((11),"Теперь этот предмет имеет отличительные особенности.");
+		target.SetLexems(answerS);
+	}else{
+		player.Say((11),"Вы сделали так, что бы этот предмет больше ничем не выделялся.");
+	}
+	target.Update();
+}
+
+void unsafe_SayText(Critter&player,int SayType,int param1,int param2,string@text,int[]@param4)
+{
+	player.Say(SayType,text);
+}
+
+void unsafe_Harvesting(Critter&player,int pid,int looted,int param2,string@text,int[]@param4)
+{
+	if(player.GetAccess()>=(2)){}
+	else{
+		Map@map=player.GetMap();
+		if(!(@map!=null))return;
+		Item@holder=map.AddItem(player.HexX,player.HexY,(909),1);
+		uint[]values={holder.Id};
+		CreateTimeEvent(__FullSecond+((Random(5,90))*__TimeMultiplier*60),"e_RefreshLoot",values,false);
+		int time=(11-player.Stat[(6)])*((3)*__TimeMultiplier);
+		player.AddTimeEvent("cte_Tired",time,(14),0);
+		player.TimeoutBase[(232)]=__FullSecond+time;
+	}
+	if(looted==1)
+	player.AddItem(pid,1);
+}
+
+uint cte_Tired(Critter&cr,int identifier,uint&rate)
+{
+	string[]text={"отдохнули","готовы работать дальше","дали отдых рукам","слегка передохнули","чувствуете прилив сил","можете продолжать"};
+	cr.Say((11),"Вы "+text[Random(0,text.length()-1)]+".");
+	return 0;
+}
+
+uint e_RefreshLoot(uint[]@values)
+{
+	Item@holder=GetItem(values[0]);
+	if((@holder!=null))DeleteItem(holder);
+	return 0;
+}
+
+void unsafe_Dismantling(Critter&player,int pidAdd,int pidSub,int looted,string@text,int[]@param4)
+{
+	Item@item=player.GetItem(pidSub,-1);
+	if(!(@item!=null)){
+		Map@map=player.GetMap();
+		if(!(@map!=null)){player.Say((11),"Таким на глобале не занимаются!");return;}
+		@item=map.GetItem(pidSub);
+	}
+	if(!(@item!=null)){
+		player.Say((11),"Предмет для демонтажа не найден! ["+pidSub+"]");
+	}else{
+		if(looted==1)
+		player.AddItem(pidAdd,1);
+		do{if(item.GetCount()>(1))
+			item.SetCount(item.GetCount()-(1));else
+			DeleteItem(item);}while(false);
+		int time=(11-player.Stat[(6)])*((3)*__TimeMultiplier);
+		player.TimeoutBase[(232)]=__FullSecond+time;
+		player.AddTimeEvent("cte_Tired",time,(14),0);
+	}
+}
+
+int[][]armor_delay={
+	{(3),(232),(348),(349),(1469)},
+	{(113),(524),(585),(602)},
+	{(74),(265),(1033)},
+	{(1),(379),(900)},
+	{(2),(380),(240)},
+};
+
+void TryToTakeArmor(Critter&cr,Critter&target){
+	bool success=false;
+	Item@[]armors;
+	uint count=target.GetItems((3),armors);
+	if(count==0||!(@armors[0]!=null))return;
+	int armor=armors[0].GetProtoId();
+	if(armor_delay[0].find(armor)!=-1)return;
+	uint delay=cr.Stat[(109)],
+	i=1,iEnd=armor_delay.length();
+	for(;i<iEnd;i++)
+	if(armor_delay[i].find(armor)!=-1){
+		success=true;
+		break;
+	}
+	if(delay>=6)success=true;
+	if(success&&delay>=i)
+	{
+		MoveItem(armors[0],1,cr);
+		target.Say((11),"С вас сняли броню.");
+		cr.Say((11),"Вы сняли броню с жертвы.");
+	}
+	else cr.Say((11),"Итерация №"+delay+" из "+(i==5?6:i)+".");
+}
+
+uint cte_RopeDrag(Critter&cr,int identifier,uint&rate){
+	
+	Item@target=GetItem(cr.ParamBase[(855)]);
+	
+	if(!(@target!=null)||target.Accessory!=(2)){
+		cr.Say((11),"Похоже, объект куда-то пропал.");
+		cr.ParamBase[(855)]=0;
+		return 0;
+	}
+	
+	bool isBones=target.GetProtoId()==(211);
+	bool isDoor=target.GetType()==(9);
+	bool isContainer=target.GetType()==(8);
+	string name=(isBones?"тело":(isDoor?"дверь":(isContainer?"контейнер":"предмет")));
+	
+	Map@map=cr.GetMap();
+	if(!(@map!=null)){
+		cr.Say((11),"Вы тащите за собой "+name+" по глобалу..");
+		return((20)*__TimeMultiplier);
+	} 
+	
+	uint dist=0;
+	uint16 x=target.HexX,y=target.HexY;
+	float SkillStatTimer=
+	(5-cr.Stat[(0)])*0.5+
+	(5-cr.Stat[(5)])*0.5+
+	(100-cr.Skill[(203)]-cr.Skill[(204)])/50;
+	
+	if(target.MapId!=map.Id){
+		x=cr.HexX;y=cr.HexY;
+		map.MoveHexByDir(x,y,(cr.Dir+3)%6,1);
+		cr.Say((6),"тянет за собой "+name);
+	}else{
+		dist=GetDistantion(target.HexX,target.HexY,cr.HexX,cr.HexY);
+		uint8 dir=GetDirection(target.HexX,target.HexY,cr.HexX,cr.HexY);
+		bool isPushing=(dist<2)&&(((dir+3)%6)==cr.Dir);
+		if(dist==2&&isPushing)
+		return((1+(((4+SkillStatTimer)>(4))?(4):(((4+SkillStatTimer)<(1))?(1):(4+SkillStatTimer))))*__TimeMultiplier);
+		map.MoveHexByDir(x,y,(dist==1&&isPushing)?cr.Dir:dir,1);
+		if(map.IsHexPassed(x,y)){
+			cr.Say((6),(isPushing?"толкает перед собой ":"тянет ")+name);
+		}else{
+			cr.Say((11),"Похоже "+name+" застревает, попробуйте встать иначе, или расчистите путь.");
+			return((2+(((5+SkillStatTimer)>(4))?(4):(((5+SkillStatTimer)<(2))?(2):(5+SkillStatTimer))))*__TimeMultiplier);
+		}
+	}
+	
+	MoveItem(target,1,map,x,y); 
+	
+	if(dist>7){
+		cr.Say((11),"Верёвка оборвалась, "+name+" остаётся позади.");
+		cr.ParamBase[(855)]=0;
+		return 0;
+	}
+	
+	if(dist>uint(3+Random(0,4))){
+		cr.Say((11),"Верёвка натянулась. Не стоит отходить так далеко, или она порвётся.");
+		return((2+(((4+SkillStatTimer)>(4))?(4):(((4+SkillStatTimer)<(1))?(1):(4+SkillStatTimer))))*__TimeMultiplier);
+	}
+	
+	if(isBones)return((1)*__TimeMultiplier);
+	else{
+		cr.Animate(0,(28),null,true,true);
+		cr.Wait(500);
+		return(((((4+SkillStatTimer)>(4))?(4):(((4+SkillStatTimer)<(1))?(1):(4+SkillStatTimer))))*__TimeMultiplier);
+	}
+}
+
+Project@CreateProject(string@name,string@path){return null;}
+Project@get_Project(string@name){return null;}

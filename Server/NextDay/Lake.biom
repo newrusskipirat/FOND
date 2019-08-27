@@ -1,0 +1,23 @@
+Maps:EW = 900-903
+Maps:EW inv = 905-907
+Maps:SW = 940-942 
+Maps:SW inv = 935-937 
+Maps:EN = 945-947 
+Maps:EN inv = 930-932 
+
+Maps:ES = 925-929
+Maps:ES inv = 950-954 
+Maps:SN = 910-914
+Maps:SN inv = 915-919
+Maps:WN = 920-922 
+Maps:WN inv = 955-957
+
+Maps:fill = 900
+
+Flags = Orientation
+Symbol:Parse = L
+Symbol:Client = W
+Symbol:Color = 15 252 240 180
+Speed = 0.0f
+
+Conversion:River = Xriver

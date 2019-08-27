@@ -1,0 +1,1237 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                    
+
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";
+
+import void ChangeStatus(Critter&cr,uint16 status,uint8 value,bool set)from"critter_status";
+import void ChangeCritterSpeed(Critter&cr)from"speed";
+import void UseDrug(Critter&cr,Item&drug)from"drugs";    
+
+void ProccessFirstAidSkill(Critter&cr,Critter&targetCr)
+{      
+	
+	bool isBandaged=(targetCr.GetTimeEvents((41),null,null,null)>0);
+	
+	bool powder=(cr.CountItem((273))>0);
+	bool stim=(cr.CountItem((40))>0); 
+	
+	uint16 statusFlag=targetCr.StatBase[(146)];
+	string state; 
+	
+	if(0.8*targetCr.Stat[(7)]<=targetCr.Stat[(72)])state="хорошее состояние";
+	else if(0.6*targetCr.Stat[(7)]<=targetCr.Stat[(72)])state="удволетворительное состояние";
+	else if(0.4*targetCr.Stat[(7)]<=targetCr.Stat[(72)])state="плохое состояние";
+	else if(0.2*targetCr.Stat[(7)]<=targetCr.Stat[(72)])state="тяжелое состояние";
+	else state="критические состояние";
+	
+	if((((statusFlag)&((0x001)))!=0))state+=", кровотечение";
+	if((((statusFlag)&((0x010)))!=0))
+	{
+		state+=", глубокие раны - необходимо сначала зашить, прежде чем обрабатывать";
+		cr.StatBase[(90)]=targetCr.Id;
+		cr.ShowScreen((2),3,"answer_FIRSTAID_TO_DOCTOR");
+		cr.Say((18),"Результат осмотра: "+state);
+		cr.Say((19+(0)),"ХИРУРГИЯ");
+		if(powder)cr.Say((19+(1)),"исп. порошок");
+		else cr.Say((19+(1)),"нет Порошока");
+		if(stim)cr.Say((19+(2)),"исп. стимпак");
+		else cr.Say((19+(2)),"нет Стимпака");
+		return;
+	}
+	
+	if(isBandaged)
+	{
+		state+=", повязки уже наложены.";
+		cr.StatBase[(90)]=targetCr.Id;
+		cr.ShowScreen((2),3,"answer_FIRSTAID_TO_UNBANDAGE");
+		cr.Say((18),"Результат осмотра: "+state);
+		cr.Say((19+(0)),"Снять повязки");
+		if(powder)cr.Say((19+(1)),"исп. порошок");
+		else cr.Say((19+(1)),"нет Порошока");
+		if(stim)cr.Say((19+(2)),"исп. стимпак");
+		else cr.Say((19+(2)),"нет Стимпака");
+		return;
+	}
+	
+	cr.StatBase[(90)]=targetCr.Id;
+	cr.ShowScreen((2),3,"answer_FIRSTAID_1");
+	cr.Say((18),"Результат осмотра: "+state);
+	
+	if(powder)cr.Say((19+(0)),"исп. Порошок");
+	else cr.Say((19+(0)),"нет Порошока");
+	
+	if(stim)cr.Say((19+(1)),"исп. Стимпак");
+	else cr.Say((19+(1)),"нет Стимпака");
+	
+	cr.Say((19+(2)),"без стимулянта");
+}
+
+void answer_FIRSTAID_1(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool powder=(player.CountItem((273))>0);
+	bool stim=(player.CountItem((40))>0);
+	
+	if(answerI==0)
+	{
+		if(powder)player.StatBase[(91)]=1;
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(stim)player.StatBase[(91)]=2;
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(91)]=0;
+	}
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	
+	player.ShowScreen((2),3,"answer_FIRSTAID_2");
+	player.Say((18),"Применяем антисептик:");
+	
+	if(booze)player.Say((19+(0)),"исп. Самогон");
+	else player.Say((19+(0)),"нет Самогона");
+	
+	if(anti)player.Say((19+(1)),"исп. Антисептик");
+	else player.Say((19+(1)),"нет Антисептика");
+	
+	player.Say((19+(2)),"без обеззараживания");
+}
+
+void answer_FIRSTAID_2(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	
+	if(answerI==0)
+	{
+		if(booze)player.StatBase[(92)]=1;
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(anti)player.StatBase[(92)]=2;
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(92)]=0;
+	}
+	
+	bool rags=(player.CountItem((572))>0);
+	bool bandage=(player.CountItem((1321))>0);
+	
+	player.ShowScreen((2),3,"answer_FIRSTAID_3");
+	player.Say((18),"Материал повязки:");
+	
+	if(rags)player.Say((19+(0)),"исп. тряпки");
+	else player.Say((19+(0)),"нет тряпок");
+	
+	if(bandage)player.Say((19+(1)),"исп. бинт");
+	else player.Say((19+(1)),"нет бинтов");
+	
+	player.Say((19+(2)),"без перевязки");
+}
+
+void answer_FIRSTAID_3(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	int sk=player.Skill[(206)];
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	bool rags=(player.CountItem((572))>0);
+	bool bandage=(player.CountItem((1321))>0);
+	bool powder=(player.CountItem((273))>0);
+	bool stim=(player.CountItem((40))>0);
+	
+	if(answerI==0)
+	{
+		if(rags)
+		{
+			player.StatBase[(93)]=1;
+			player.DeleteItem((572),1);
+		}
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(bandage)
+		{
+			player.StatBase[(93)]=2;
+			player.DeleteItem((1321),1);
+		}
+		else{ProccessFirstAidSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(93)]=0;
+	}
+	
+	if(player.StatBase[(91)]==0&&player.StatBase[(92)]==0&&player.StatBase[(93)]==0)
+	{
+		player.Say((11),"Вы практически ничего не сделали.");
+		return;
+	}
+	
+	if(stim&&player.StatBase[(91)]==2)
+	{
+		Item@item=player.GetItem((40),-1);
+		ItemStimpackUse(targetCr,item,player);
+		sk+=30;
+	}
+	
+	if(powder&&player.StatBase[(91)]==1)
+	{
+		Item@item=player.GetItem((273),-1);
+		ItemPowderUse(targetCr,item,player);
+		sk+=10;
+	}
+	
+	if(player.StatBase[(93)]==0)
+	{
+		player.Say((11),"Без повязки раны быстрее заживать не будут.");
+		return;
+	}
+	
+	int chance=0;
+	
+	if(anti&&player.StatBase[(92)]==2)
+	{
+		player.DeleteItem((1322),1);
+		sk+=30;
+	}
+	else
+	{
+		int16 hpCurrent=targetCr.StatBase[(72)];
+		uint16 hpMax=(targetCr.StatBase[(7)]+targetCr.StatBase[(0)]*4+targetCr.StatBase[(2)]*8);
+		chance=20-(20*hpCurrent/hpMax);
+		chance=(((chance)>(20))?(20):(((chance)<(0))?(0):(chance)));
+	}
+	
+	if(booze&&player.StatBase[(92)]==1){chance*=0.1;sk+=10;player.DeleteItem((125),1);}
+	
+	if(rags&&player.StatBase[(93)]==1){sk+=10;UseBandage(player,targetCr,sk);}
+	else if(bandage&&player.StatBase[(93)]==2){chance*=0.5;sk+=30;UseBandage(player,targetCr,sk);}
+	
+	if(Random(0,100)<chance)ChangeStatus(targetCr,(0x008),0,true);
+	
+}
+
+void answer_FIRSTAID_TO_DOCTOR(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==0)
+	{
+		ProccessDoctorSkill(player,targetCr);
+		return;
+	}
+	if(answerI==1&&(player.CountItem((273))>0))
+	{
+		Item@item=player.GetItem((273),-1);
+		ItemPowderUse(targetCr,item,player);
+	}
+	if(answerI==2&&(player.CountItem((40))>0))
+	{
+		Item@item=player.GetItem((40),-1);
+		ItemStimpackUse(targetCr,item,player);
+	}
+	ProccessFirstAidSkill(player,targetCr);
+}
+
+void answer_FIRSTAID_TO_UNBANDAGE(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==0)
+	{
+		player.Say((11),"Вы сняли бинты.");
+		targetCr.EraseTimeEvents((41));
+	}
+	if(answerI==1&&(player.CountItem((273))>0))
+	{
+		Item@item=null;
+		ItemPowderUse(targetCr,item,player);
+		player.DeleteItem((273),1);
+	}
+	if(answerI==2&&(player.CountItem((40))>0))
+	{
+		Item@item=null;
+		ItemStimpackUse(targetCr,item,player);
+		player.DeleteItem((40),1);
+	}
+	ProccessFirstAidSkill(player,targetCr);
+}
+
+void ProccessDoctorSkill(Critter&cr,Critter&targetCr)
+{
+	cr.StatBase[(90)]=targetCr.Id;
+	uint16 statusFlag=targetCr.StatBase[(146)];
+	string state;
+	
+	if(targetCr.Stat[(72)]>0)state="Есть пульс";
+	else if(targetCr.Stat[(72)]>-30)state="Пульс слабый";
+	else state="Нет пульса";
+	
+	bool damages=false;
+	
+	if(targetCr.Damage[(502)]>0){state+=", повреждены глаза";damages=true;}
+	if(targetCr.Damage[(503)]>0){state+=", повреждена правая рука";damages=true;}
+	if(targetCr.Damage[(504)]>0){state+=", повреждена левая рука";damages=true;}
+	if(targetCr.Damage[(505)]>0){state+=", повреждена правая нога";damages=true;}
+	if(targetCr.Damage[(506)]>0){state+=", повреждена левая нога";damages=true;}
+	if(targetCr.Damage[(500)]>0){state+=", есть признаки отравления";damages=true;}
+	
+	bool knife=(cr.CountItem((4))>0||cr.CountItem((236))>0||cr.CountItem((319))>0);
+	
+	if((((statusFlag)&((0x001)))!=0))state+=", кровотечение";
+	if((((statusFlag)&((0x040)))!=0))
+	{
+		state+=", пуля или осколок в ране, необходимо вынуть перед дальнейшими действиями.";
+		cr.ShowScreen((2),3,"answer_DOCTOR_BULLET");
+		cr.Say((18),""+state);
+		if(cr.CountItem((1323))>0)cr.Say((19+(0)),"щипцами");
+		else cr.Say((19+(0)),"нет шипцов");
+		if(cr.CountItem((75))>0)cr.Say((19+(1)),"мультитулом");
+		else cr.Say((19+(1)),"нет клещей");
+		if(knife)cr.Say((19+(2)),"ножом");
+		else cr.Say((19+(2)),"нет ножа");
+		return;
+	}
+	
+	if((((statusFlag)&((0x010)))!=0))
+	{
+		state+=", сложная рана, необходимо закрыть ее";
+		cr.ShowScreen((2),2,"answer_DOCTOR_HEAVY");
+		cr.Say((18),""+state);
+		if(cr.CountItem((1326))>0&&cr.CountItem((1325))>0)cr.Say((19+(0)),"игла + нитки");
+		else cr.Say((19+(0)),"нет иглы и ниток");
+		if(knife&&cr.CountItem((101))>0)cr.Say((19+(1)),"нож + зажигалка");
+		else cr.Say((19+(1)),"нет ножа и зажигалки");
+		return;
+	}
+	if(damages)
+	{
+		cr.ShowScreen((2),6,"answer_DOCTOR_CRIPPLE");
+		cr.Say((18),""+state+".");
+		
+		if(targetCr.Damage[(502)]>0)cr.Say((19+(0)),"лечить глаза");
+		else cr.Say((19+(0)),"глаза в порядке");
+		if(targetCr.Damage[(503)]>0)cr.Say((19+(1)),"лечить п.руку");
+		else cr.Say((19+(1)),"п.рука в порядке");
+		if(targetCr.Damage[(504)]>0)cr.Say((19+(2)),"лечить л.руку");
+		else cr.Say((19+(2)),"л.рука в порядке");
+		if(targetCr.Damage[(505)]>0)cr.Say((19+(3)),"лечить п.ногу");
+		else cr.Say((19+(3)),"п.нога в порядке");
+		if(targetCr.Damage[(506)]>0)cr.Say((19+(4)),"лечить л.ногу");
+		else cr.Say((19+(4)),"л.нога в порядке");
+		if(targetCr.Damage[(500)]>0)
+		{
+			if(cr.CountItem((49))>0)cr.Say((19+(5)),"дать антидот");
+			else cr.Say((19+(5)),"нет антидота");
+		}
+	}
+	else
+	{
+		cr.ShowScreen((2),1,"answer_DOCTOR_TO_FIRSTAID");
+		cr.Say((18),""+state+", дальше может потребоваться только перевязка.");
+		cr.Say((19+(0)),"перевязка");
+	}
+	return;
+}
+
+void answer_DOCTOR_CRIPPLE(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==5)
+	{
+		if(player.CountItem((49))>0)
+		{
+			player.DeleteItem((49),1);
+			targetCr.StatBase[(73)]=(((targetCr.StatBase[(73)]-50)>(1000))?(1000):(((targetCr.StatBase[(73)]-50)<(0))?(0):(targetCr.StatBase[(73)]-50)));
+		}
+		ProccessDoctorSkill(player,targetCr);
+		return;
+	}
+	else
+	{
+		string state;
+		uint16 damage=answerI+502;
+		player.StatBase[(91)]=damage;
+		
+		uint[]rates;
+		uint8 countTimes=targetCr.GetTimeEvents((42),null,null,rates);
+		if(countTimes>0)
+		{
+			for(uint8 i=0;i<countTimes;i++)
+			{
+				if(rates[i]==damage)
+				{
+					player.Say((11),"Эта часть тела уже лечится.");
+					ProccessDoctorSkill(player,targetCr);
+					return;
+				}
+			}
+		}
+		
+		if(targetCr.DamageBase[damage]==0)
+		{
+			player.Say((11),"Эта часть тела не нуждается в лечении.");
+			ProccessDoctorSkill(player,targetCr);
+			return;
+		}
+		
+		if(answerI==0)
+		{
+			state="Необходимо наложить тугую повязку.";
+			player.ShowScreen((2),2,"answer_DOCTOR_CRIPPLE_EYE");
+			player.Say((18),""+state);
+			if(player.CountItem((572))>0)player.Say((19+(0)),"исп.тряпки");
+			else player.Say((19+(0)),"нет тряпок");
+			if(player.CountItem((1321))>0)player.Say((19+(1)),"исп.бинты");
+			else player.Say((19+(1)),"нет бинтов");
+		}
+		else
+		{
+			state="Необходимо правильно вправить и зафиксировать конечность.";
+			bool plank=(player.CountItem((7))>0)||
+			(player.CountItem((280))>0)||
+			(player.CountItem((320))>0)||
+			(player.CountItem((5))>0)||
+			(player.CountItem((1425))>0)||
+			(player.CountItem((1423))>0)||
+			(player.CountItem((286))>0)||
+			(player.CountItem((1425))>0);
+			player.ShowScreen((2),2,"answer_DOCTOR_CRIPPLE_LIMB");
+			player.Say((18),""+state);
+			if(player.CountItem((1324))>0)player.Say((19+(0)),"мед.шина");
+			else player.Say((19+(0)),"нет шины");
+			if(plank&&player.CountItem((127))>0)player.Say((19+(1)),"веревка+деревяшка");
+			else player.Say((19+(1)),"нет веревки и др.");
+		}
+	}
+}
+
+void answer_DOCTOR_CRIPPLE_EYE(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==0)
+	{
+		if(player.CountItem((572))>0)player.DeleteItem((572),1);
+		else return;
+	}
+	if(answerI==1)
+	{
+		if(player.CountItem((1321))>0)player.DeleteItem((1321),1);
+		else return;
+	}
+	
+	int damage=player.StatBase[(91)];
+	uint docTime=10*(400-answerI*100-player.Skill[(207)]-(targetCr.Stat[(2)]*10));
+	docTime=(((docTime)>(3600))?(3600):(((docTime)<(900))?(900):(docTime)));
+	docTime*=__TimeMultiplier;
+	docTime=10;
+	if(damage>=502&&damage<=506)targetCr.AddTimeEvent("cte_Doc",docTime,(42),damage);
+	else{player.Say((11),"Ошибка, обратитесь к разработчикам.");return;}
+	player.TimeoutBase[(231)]=(__FullSecond+((30)*__TimeMultiplier));
+	player.AddScore((9),1);
+	player.Say((11),"Вы наложили тугую повязку, остается только ждать.");
+}
+
+void answer_DOCTOR_CRIPPLE_LIMB(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==0)
+	{
+		if(player.CountItem((1324))>0)player.DeleteItem((1324),1);
+		else{player.Say((11),"У вас нет медицинской шины.");return;}
+	}
+	if(answerI==1)
+	{
+		bool plank=(player.CountItem((7))>0)||
+		(player.CountItem((280))>0)||
+		(player.CountItem((320))>0)||
+		(player.CountItem((5))>0)||
+		(player.CountItem((1425))>0)||
+		(player.CountItem((1423))>0)||
+		(player.CountItem((286))>0)||
+		(player.CountItem((1425))>0);
+		if(plank&&player.CountItem((127))>0)player.DeleteItem((127),1);
+		else{player.Say((11),"Нужна веревка и какая-нибудь палка или планка.");return;}
+	}
+	
+	int damage=player.StatBase[(91)];
+	uint docTime=10*(400+answerI*100-player.Skill[(207)]-(targetCr.Stat[(2)]*10));
+	docTime=(((docTime)>(3600))?(3600):(((docTime)<(900))?(900):(docTime)));
+	docTime*=__TimeMultiplier;
+	if(damage>=502&&damage<=506)targetCr.AddTimeEvent("cte_Doc",docTime,(42),damage);
+	else{player.Say((11),"Ошибка, обратитесь к разработчикам.");return;}
+	player.TimeoutBase[(231)]=(__FullSecond+((30)*__TimeMultiplier));
+	player.AddScore((9),1);
+	player.Say((11),"Вы зафиксировали конечность, остается только ждать.");
+}
+
+void Prolonged_Doc(Critter&targetCr,uint16 doctime,uint16 damage)
+{
+	if(damage>=502&&damage<=506)targetCr.AddTimeEvent("cte_Doc",doctime,(42),damage);
+}
+
+uint cte_Doc(Critter&cr,int identifier,uint&rate)
+{
+	cr.DamageBase[rate]=0;
+	switch(rate)
+	{
+		case(502):cr.Say((11),"Кажется глазам возвращается чувствительность.");break;
+		case(503):cr.Say((11),"Кажется вы снова можете свободно двигать правой рукой.");break;
+		case(504):cr.Say((11),"Кажется вы снова можете свободно двигать левой рукой.");break;
+		case(505):cr.Say((11),"Кажется вы снова можете свободно двигать правой ногой.");break;
+		case(506):cr.Say((11),"Кажется вы снова можете свободно двигать левой ногой.");break;
+	}
+	ChangeCritterSpeed(cr);
+	return 0;
+}
+
+void answer_DOCTOR_TO_FIRSTAID(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	if(answerI==0)
+	{
+		ProccessFirstAidSkill(player,targetCr);
+	}
+}
+
+void answer_DOCTOR_HEAVY(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	if(answerI==0)
+	{
+		if(player.CountItem((1326))>0&&player.CountItem((1325))>0)player.StatBase[(91)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		bool knife=(player.CountItem((4))>0||player.CountItem((236))>0||player.CountItem((319))>0);
+		if((knife)&&(player.CountItem((101))>0))player.StatBase[(91)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	
+	player.ShowScreen((2),3,"answer_DOCTOR_HEAVY_2");
+	player.Say((18),"Применяем антисептик:");
+	
+	if(booze)player.Say((19+(0)),"исп. Самогон");
+	else player.Say((19+(0)),"нет Самогона");
+	
+	if(anti)player.Say((19+(1)),"исп. Антисептик");
+	else player.Say((19+(1)),"нет Антисептика");
+	
+	player.Say((19+(2)),"без обеззараживания");
+}
+
+void answer_DOCTOR_HEAVY_2(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	bool anest=(player.CountItem((1320))>0);
+	
+	if(answerI==0)
+	{
+		if(booze)player.StatBase[(92)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(player.CountItem((1322))>0)player.StatBase[(92)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(92)]=3;
+	} 
+	
+	player.ShowScreen((2),3,"answer_DOCTOR_HEAVY_3");
+	player.Say((18),"Применяем анестезию:");
+	
+	if(anest)player.Say((19+(0)),"исп. Анестетик");
+	else player.Say((19+(0)),"нет Анестетика");
+	
+	if(booze)player.Say((19+(1)),"исп. Самогон");
+	else player.Say((19+(1)),"нет Самогона");
+	
+	player.Say((19+(2)),"без анестезии");
+}
+
+void answer_DOCTOR_HEAVY_3(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	bool anest=(player.CountItem((1320))>0);
+	
+	if(answerI==0)
+	{
+		if(anest)player.StatBase[(93)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(booze)player.StatBase[(93)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(93)]=3;
+	}
+	
+	int damage=0;
+	uint16 chance=5;
+	uint16 sk=player.Skill[(207)]+30*(2-player.StatBase[(91)]);
+	
+	damage+=2+Random(3,9)*(player.StatBase[(91)]-1)*player.StatBase[(93)];
+	damage+=Random(1,3)*(player.StatBase[(93)]-1);
+	
+	if(player.StatBase[(92)]==1){chance=1;player.DeleteItem((125),1);}
+	else if(player.StatBase[(92)]==2){chance=0;player.DeleteItem((1322),1);}
+	if(chance>Random(0,100))ChangeStatus(targetCr,(0x008),0,true);
+	
+	if(player.StatBase[(93)]==1)player.DeleteItem((1320),1);
+	else if(player.StatBase[(93)]==2&&player.StatBase[(92)]!=1)player.DeleteItem((125),1); 
+	
+	if(targetCr.StatBase[(72)]>damage)targetCr.StatBase[(72)]-=damage;
+	else
+	{
+		damage=(((targetCr.StatBase[(72)])>(100))?(100):(((targetCr.StatBase[(72)])<(1))?(1):(targetCr.StatBase[(72)])));
+		InjureCritter(targetCr,damage+1,(1),0,0);
+	}
+	
+	if(sk>Random(0,100))
+	{
+		ChangeStatus(targetCr,(0x010),0,false);
+		if(player.StatBase[(91)]==1){
+			player.DeleteItem((1325),1);
+			player.Say((11),"Вы зашили рану.");
+		}else player.Say((11),"Вы прижгли рану.");
+	}
+	else player.Say((11),"У вас не вышло закрыть рану.");
+	ProccessDoctorSkill(player,targetCr);
+}
+
+void answer_DOCTOR_BULLET(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	if(answerI==0)
+	{
+		if(player.CountItem((1323))>0)player.StatBase[(91)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(player.CountItem((75))>0)player.StatBase[(91)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		bool knife=(player.CountItem((4))>0||player.CountItem((236))>0||player.CountItem((319))>0);
+		if(knife)player.StatBase[(91)]=3;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	
+	player.ShowScreen((2),3,"answer_DOCTOR_BULLET_2");
+	player.Say((18),"Применяем антисептик:");
+	
+	if(booze)player.Say((19+(0)),"исп. Самогон");
+	else player.Say((19+(0)),"нет Самогона");
+	
+	if(anti)player.Say((19+(1)),"исп. Антисептик");
+	else player.Say((19+(1)),"нет Антисептика");
+	
+	player.Say((19+(2)),"без обеззараживания");
+}
+
+void answer_DOCTOR_BULLET_2(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	bool anest=(player.CountItem((1320))>0);
+	
+	if(answerI==0)
+	{
+		if(booze)player.StatBase[(92)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(player.CountItem((1322))>0)player.StatBase[(92)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(92)]=3;
+	} 
+	
+	player.ShowScreen((2),3,"answer_DOCTOR_BULLET_3");
+	player.Say((18),"Применяем анестезию:");
+	
+	if(anest)player.Say((19+(0)),"исп. Анестетик");
+	else player.Say((19+(0)),"нет Анестетика");
+	
+	if(booze)player.Say((19+(1)),"исп. Самогон");
+	else player.Say((19+(1)),"нет Самогона");
+	
+	player.Say((19+(2)),"без анестезии");
+}
+
+void answer_DOCTOR_BULLET_3(Critter&player,uint answerI,string&answerS)
+{
+	Critter@targetCr=GetCritter(player.Stat[(90)]);
+	if(targetCr is null)
+	return;
+	
+	bool booze=(player.CountItem((125))>0);
+	bool anti=(player.CountItem((1322))>0);
+	bool anest=(player.CountItem((1320))>0);
+	
+	if(answerI==0)
+	{
+		if(anest)player.StatBase[(93)]=1;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==1)
+	{
+		if(booze)player.StatBase[(93)]=2;
+		else{ProccessDoctorSkill(player,targetCr);return;}
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(93)]=3;
+	}
+	
+	int damage=0;
+	uint16 chance=5;
+	uint16 sk=player.Skill[(207)]+30*(3-player.StatBase[(91)]);
+	
+	damage+=Random(1,5)*player.StatBase[(91)];
+	damage+=Random(1,5)*(player.StatBase[(93)]-1);
+	
+	if(player.StatBase[(92)]==1){chance=1;player.DeleteItem((125),1);}
+	else if(player.StatBase[(92)]==2){chance=0;player.DeleteItem((1322),1);}
+	if(chance>Random(0,100))ChangeStatus(targetCr,(0x008),0,true);
+	
+	if(player.StatBase[(93)]==1)player.DeleteItem((1320),1);
+	else if(player.StatBase[(93)]==2&&player.StatBase[(92)]!=1)player.DeleteItem((125),1);
+	
+	if(targetCr.StatBase[(72)]>damage)targetCr.StatBase[(72)]-=damage;
+	else
+	{
+		damage=(((targetCr.StatBase[(72)])>(100))?(100):(((targetCr.StatBase[(72)])<(1))?(1):(targetCr.StatBase[(72)])));
+		InjureCritter(targetCr,damage,(1),0,0);
+	}
+	
+	if(sk>Random(0,150))
+	{
+		ChangeStatus(targetCr,(0x040),0,false);
+		player.Say((11),"Вы вытащили пулю из раны.");
+	}
+	else player.Say((11),"У вас не вышло извлечь пулю.");
+	ProccessDoctorSkill(player,targetCr);
+}
+
+bool ItemStimpackUse(Critter&cr,Item&item,Critter&doc)
+{
+	return UseHealingAgent(cr,item,doc);
+}
+
+bool ItemPowderUse(Critter&cr,Item&item,Critter&doc)
+{
+	return UseHealingAgent(cr,item,doc);
+}
+
+bool isHealingAgent(Item&item)
+{
+	switch(item.GetProtoId())
+	{
+		case(273):
+		case(40):
+		case(144):
+		case(525):
+		return true;
+		default:return false;
+	}
+	return false;
+}
+
+bool UseHealingAgent(Critter&cr,Item&item,Critter&doc)
+{
+	if(cr.IsNpc())return true;
+	
+	uint16 PID=item.GetProtoId();
+	uint HealingDose=0;
+	switch(PID)
+	{
+		case((273)):HealingDose=1;break;
+		case((40)):HealingDose=3;cr.StatBase[(147)]*=0.75;break;
+		case((144)):HealingDose=5;cr.StatBase[(147)]*=0.66;break;
+		case((525)):HealingDose=10;cr.StatBase[(147)]*=0.5;break;
+		default:return true;
+	}
+	
+	int DoseTreshold=(cr.Stat[(2)]+cr.Stat[(0)])
+	*(1+cr.Trait[(562)]);
+	int HealingEfficiency=(((DoseTreshold*2-cr.StatBase[(148)])>(DoseTreshold*2))?(DoseTreshold*2):(((DoseTreshold*2-cr.StatBase[(148)])<(0))?(0):(DoseTreshold*2-cr.StatBase[(148)])));
+	if(HealingEfficiency<=DoseTreshold)
+	{
+		if(Random(0,95)>100+cr.Stat[(6)]*10+HealingEfficiency*5)
+		{
+			cr.ToDead(Random(0,1)>0?(102):(103),null);
+			cr.Say((11),"Вы умерли от передозировки.");
+		}
+		else
+		{
+			cr.ToKnockout((((Random(0,1)==1))?(82):(83)),(((Random(0,1)==1))?(86):(87)),(((Random(0,1)==1))?(88):(89)),cr.StatBase[(148)],cr.HexX,cr.HexY);
+			cr.Say((11),"У Вас передозировка.");
+		}
+	}
+	
+	int HealingValue=(10*HealingDose*HealingEfficiency/(DoseTreshold*2))
+	*(1+cr.Trait[(561)])
+	*((doc.Skill[(207)]+doc.Skill[(206)])/100)
+	+(cr.Stat[(6)]-Random(0,10));
+	if(HealingValue>0){
+		if(cr.ParamBase[(857)]==0)
+		cr.ParamBase[(857)]=HealingValue;
+		else
+		cr.ParamBase[(857)]=(cr.ParamBase[(857)]*2+HealingValue)/3;
+		if(cr.GetTimeEvents((54),null,null,null)>0)
+		cr.EraseTimeEvents((54));
+		cr.AddTimeEvent("cte_HealingAgent",((3)*__TimeMultiplier),(54),10);
+	}
+	
+	item.GetCount()>1?item.SetCount(item.GetCount()-1):DeleteItem(item);
+	cr.StatBase[(148)]+=HealingDose;
+	if(cr.Stat[(148)]<=DoseTreshold/4)
+	cr.Say((11),"Вы чувствуете себя лучше.");
+	else if(cr.Stat[(148)]<=DoseTreshold/3)
+	cr.Say((11),"Вы чувствуете тяжесть в груди.");
+	else if(cr.Stat[(148)]<=DoseTreshold/2)
+	cr.Say((11),"Вам тяжело дышать, сердце колет.");
+	else if(cr.Stat[(148)]<=DoseTreshold*3/4)
+	cr.Say((11),"Вас начинает трясти.");
+	else if(cr.Stat[(148)]<=DoseTreshold)
+	cr.Say((11),"Вас мутит и тошнит.");
+	return true;
+}
+
+uint cte_HealingAgent(Critter&cr,int identifier,uint&rate){
+	cr.ParamBase[(858)]+=cr.ParamBase[(857)]%10;
+	
+	if(rate<=0){
+		cr.ParamBase[(857)]=0;
+		if(cr.ParamBase[(858)]>0)
+		cr.StatBase[(72)]+=cr.ParamBase[(858)]*0.2;
+		cr.ParamBase[(858)]=0;
+		return 0;
+	}
+	if(cr.ParamBase[(858)]>9){
+		cr.StatBase[(72)]+=cr.ParamBase[(858)]*0.1;
+		cr.ParamBase[(858)]=cr.ParamBase[(858)]%10;
+	}
+	cr.StatBase[(72)]+=cr.ParamBase[(857)]*0.1;
+	rate--;
+	return((3)*__TimeMultiplier);
+}
+
+bool __Bandage(Critter&cr,Critter@targetCr)
+{
+	ProccessFirstAidSkill(cr,targetCr);
+	return true;
+}
+
+void Prolonged_heal(Critter&targetCr,uint16 sk)
+{
+	targetCr.AddTimeEvent("cte_Heal",100,(41),sk);
+}
+
+bool UseBandage(Critter&cr,Critter&targetCr,uint16 sk)
+{
+	
+	targetCr.AddTimeEvent("cte_Heal",100,(41),sk);
+	
+	ChangeStatus(targetCr,(0x001),sk*0.5,false);
+	
+	targetCr.Say((11),"Вам наложили повязки.");
+	
+	if((@cr!=null))
+	{
+		if(cr.IsPlayer())
+		{
+			cr.Say((11),"Вы наложили повязку.");
+			cr.TimeoutBase[(230)]=(__FullSecond+((15)*__TimeMultiplier));
+			cr.AddScore((9),1);
+		}
+	}
+	return true;
+}
+
+uint cte_Heal(Critter&cr,int identifier,uint&rate)
+{
+	uint heal=(((Random(1,rate*0.05))>(5))?(5):(((Random(1,rate*0.05))<(1))?(1):(Random(1,rate*0.05))));
+	cr.StatBase[(72)]+=heal*cr.Stat[(13)];
+	cr.Say((11),"Ваши раны заживают.");
+	
+	int16 aidTime=Random(120,300)-rate*0.5;
+	if(aidTime<30)aidTime=30;
+	
+	rate-=heal*cr.Stat[(13)];
+	if(cr.Quest[(703)]==(4))
+	cr.Say((11),"+hp = "+(heal*cr.Stat[(13)])+" , rate = "+rate+" , time = "+aidTime);
+	
+	ChangeCritterSpeed(cr);
+	
+	bool repeat=true;
+	
+	if(cr.Stat[(7)]<=cr.Stat[(72)]||rate<=1)
+	{
+		repeat=false;
+		cr.Say((11),"От повязок больше нет проку.");
+	}
+	return repeat?((aidTime)*__TimeMultiplier):0;
+}

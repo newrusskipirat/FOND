@@ -1,0 +1,1121 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                                                   
+
+shared interface iManagerModule{bool manager_init();
+	bool manager_start();}
+shared interface iManager_loop{uint global_loop();}
+shared interface iManager_critter_init{bool global_critter_init(Critter&critter,bool firstTime);}
+shared interface iManager_critter_finish{bool global_critter_finish(Critter&critter,bool toDelete);}
+shared interface iManager_critter_idle{bool global_critter_idle(Critter&critter);}
+shared interface iManager_critter_dead{bool global_critter_dead(Critter&critter,Critter@killer);}
+shared interface iManager_critter_respawn{bool global_critter_respawn(Critter&critter);}
+shared interface iManager_map_critter_in{bool global_map_critter_in(Map&map,Critter&critter);}
+shared interface iManager_map_critter_out{bool global_map_critter_out(Map&map,Critter&critter);}
+shared interface iManager_world_save{bool global_world_save();}
+shared interface iManager_player_registration{bool global_player_registration(uint ip,string&name,uint&textMsg,uint&strNum);}
+shared interface iManager_player_login{bool global_player_login(uint ip,string&name,uint id,uint&textMsg,uint&strNum);}
+shared interface iManager_time{bool global_time(int8 type);}
+
+shared interface iManager_critter_use_skill{bool global_critter_use_skill(Critter&critter,int skill,Critter@targetCritter,Item@targetItem,Scenery@targetScenery);}
+
+shared interface iManagerElement
+{
+	iManagerModule@GetLink();
+	uint GetId();
+	string&GetName();
+	uint&GetEventFlags();
+	int8&GetTimeChangeCall();
+	uint8 GetPriority();
+}                     
+
+import iManagerElement@manager_add_module(iManagerModule@link,string&name,uint8 priority)from"manager";      
+
+import void DropDrugEffects(Critter&cr)from"drugs";
+import void DropPoison(Critter&cr)from"poison";
+import void DropRadiation(Critter&cr)from"radiation";
+
+import void DontPickItUp(Critter&cr)from"arcade_menu";
+
+import void ArcadeDead(Critter&cr,uint8 time)from"arcade_menu";
+import void StartArcadeMenu(Critter@cr)from"arcade_menu";
+import void ShowHiveButtons(Critter&cr)from"arcade_menu";
+
+import uint GetAllPlayers(Critter@[]&crs)from"manager";
+
+import void Item_SetFrame(Item&item,uint8 frame)from"item";
+
+import void ChangeCritterSpeed(Critter&cr)from"speed";            
+
+bool SwitchGameMode(Critter&cr,int mode)
+{
+	if(cr.Quest[(703)]!=(0))
+	{
+		Log("Невозможно сменить гейммод у "+GetPlayerName(cr.Id)+" ("+cr.Id+")");
+		return false;
+	}
+	if(mode<=(0)||mode>=(5))
+	{
+		Log("Неверный целевой гейммод, "+GetPlayerName(cr.Id)+" ("+cr.Id+")");
+		return false;
+	}
+	
+	cr.QuestBase[(703)]=mode;
+	return true;
+}
+
+bool IsInGame(Critter&cr)
+{
+	return(cr.WorldX<350||cr.WorldY<600);
+}    
+
+void ModuleInit(string&in,Handle@)
+{
+	EventRoot.SetCallback("Start",start);
+}
+
+class Gameplay:iManagerModule,iManager_loop,
+iManager_critter_init,iManager_critter_finish,
+iManager_critter_idle,iManager_critter_dead,iManager_critter_respawn,
+iManager_map_critter_in,iManager_map_critter_out,
+iManager_world_save,iManager_time
+{
+	bool manager_init()
+	{
+		return true;
+	}
+	
+	bool manager_start()
+	{
+		
+		return true;
+	}
+	uint global_loop()
+	{
+		return uint(-1);
+	}
+	bool global_critter_init(Critter&cr,bool firstTime)
+	{
+		if(cr.IsNpc())
+		return true;
+		
+		if(firstTime)
+		{
+			cr.QuestBase[(703)]=(-1);
+			
+			for(uint y=0;y<__GlobalMapHeight;y++)
+			for(uint x=0;x<__GlobalMapWidth;x++)
+			cr.SetFog(x,y,(3));           
+			
+		}
+		
+		if(cr.Quest[(703)]==(-1))
+		{
+			if(TeleportToStart(cr))
+			cr.QuestBase[(703)]=(0);
+			else
+			{
+				cr.Disconnect();
+				return false;
+			}
+		}
+		
+		Map@map=cr.GetMap();
+		
+		if(!IsInGame(cr))
+		{
+			if(cr.Quest[(703)]>(0)&&(map is null))
+			{
+				CreateModeStart(cr);
+			}
+		}
+		else
+		{
+			if(cr.Quest[(703)]==(3))
+			{
+				DontPickItUp(cr);
+				cr.ToDead(0,null);
+			}
+		}
+		
+		AfterLogin(cr);
+		
+		return true;
+	}
+	bool global_critter_finish(Critter&cr,bool toDelete)
+	{
+		return true;
+	}
+	bool global_critter_idle(Critter&cr)
+	{
+		if(cr.IsDead()&&cr.Stat[(84)]>=0&&cr.Timeout[(241)]==0)
+		{
+			if(!RespawnCritter(cr))
+			cr.TimeoutBase[(241)]=__FullSecond+((10)*__TimeMultiplier*60);
+		}
+		if(__Zombies&&!cr.IsDead()&&cr.Stat[(67)]==(29)&&cr.Timeout[(252)]==0)
+		cr.ToDead((102),null);
+		
+		if(!cr.IsDead())
+		ChangeCritterSpeed(cr);
+		
+		return true;
+	}
+	bool global_critter_dead(Critter&cr,Critter@killer)
+	{
+		Map@map=cr.GetMap();
+		if(map is null)
+		{
+			Log("Error! Death map is null");
+			return false;
+		}
+		
+		if(cr.Quest[(703)]==(3))
+		{
+			Item@[]items;
+			if(cr.GetItems(-1,items)!=0)DeleteItems(items);
+		}
+		else
+		{
+			if(@killer!is null&&killer.Quest[(703)]==(3)&&cr.Stat[(67)]<5)
+			{
+				int kBody=killer.Stat[(67)];
+				if(kBody>4&&kBody<10||kBody>10)killer.StatBase[(76)]+=cr.Stat[(77)]*100;
+			}
+			
+			old_drop_stuff_if_bluddy(cr,map);
+		}  
+		
+		int replTime=cr.Stat[(84)];
+		if(cr.Stat[(67)]==(10)&&cr.IsPlayer())
+		replTime=-1;
+		
+		if(replTime<0)
+		{
+			if(cr.Stat[(67)]>0)
+			{
+				
+			}
+			return true;
+		}
+		
+		if(cr.Quest[(703)]==(3))
+		{
+			replTime=((10)*__TimeMultiplier);
+		}
+		else if(replTime==0)
+		{
+			if(cr.IsPlayer())
+			{ 
+				
+				if(cr.Anim2Dead<=(112))
+				replTime=((30)*__TimeMultiplier*60);
+				else
+				replTime=((3)*__TimeMultiplier*60);
+				
+			}
+			else
+			{
+				int team=cr.Stat[(106)];
+				if(team==(38)||team==(39)||team==(40)||team==(41))
+				{
+					replTime=((3)*__TimeMultiplier*3600);
+				}
+				else
+				{
+					replTime=Random(30,60);
+					replTime*=((1)*__TimeMultiplier*60);
+				}
+			}
+		}
+		else
+		{
+			replTime*=((1)*__TimeMultiplier*60);
+		}
+		
+		cr.TimeoutBase[(241)]=__FullSecond+replTime;
+		
+		return true;
+	}
+	
+	bool RespawnCritter(Critter&cr)
+	{
+		Map@dieMap=cr.GetMap();
+		
+		if(@dieMap is null&&cr.StatBase[(703)]!=(3))
+		{
+			
+			Log("Critter #"+cr.Id+" is dead and on global. WTF?");
+			return false;
+		}
+		if(cr.IsNpc())
+		{
+			return respawn_npc(cr,dieMap);
+		}
+		
+		if(cr.Stat[(67)]==(10))
+		return false;
+		
+		int GM=cr.Quest[(703)];
+		
+		if(GM==(3))
+		{
+			Location@loc=GetLocationByPid((94),0);
+			
+			if(@loc is null)
+			{
+				uint locid=CreateLocation((94),525,75,null);
+				@loc=GetLocation(locid);
+				
+				if(not(@loc!=null))
+				{
+					Log("can't create dead loc");
+					return false;
+				}
+			}
+			Map@map=null;
+			@map=loc.GetMapByIndex(0);
+			
+			if(not(@map!=null))
+			{
+				Log("can't get dead map");
+				return false;
+			}
+			
+			if(!cr.TransitToMap(map.Id,0))
+			{
+				cr.TimeoutBase[(241)]=__FullSecond+((1)*__TimeMultiplier*60);
+				return true;
+			}
+		}
+		
+		uint16 hx0=cr.HexX,hy0=cr.HexY,hx=0,hy=0;
+		uint8 condition=cr.Anim2Dead;
+		Map@map=null;
+		
+		if(GM==(2)||GM==(1))
+		{
+			Location@loc=GetLocationByPid((96),0);
+			
+			if(loc is null)
+			{
+				uint locid=CreateLocation((96),cr.WorldX,cr.WorldY,null);
+				@loc=GetLocation(locid);
+				
+				if(not(@loc!=null))
+				{
+					Log("can't create dead loc");
+					return false;
+				}
+			}
+			
+			@map=loc.GetMapByIndex(0);
+			
+			if(not(@map!=null))
+			{
+				Log("can't get dead map");
+				return false;
+			}
+			
+			if(!cr.TransitToMap(map.Id,241))
+			{
+				
+				cr.TimeoutBase[(241)]=__FullSecond+((1)*__TimeMultiplier*60);
+				return true;
+			}
+		}
+		else
+		{
+			@map=@dieMap;
+			hx=cr.HexX;
+			hy=cr.HexY;
+			if(not map.IsHexPassed(hx,hy))
+			{
+				bool founded=false;
+				for(int x=-1;x<=1;x++)
+				{
+					for(int y=-1;y<=1;y++)
+					{
+						if(x==0&&y==0)
+						continue;
+						if((hx%2)==1&&((x==-1&&y==1)||(x==1&&y==1)))
+						continue;
+						if((hx%2)==0&&((x==-1&&y==-1)||(x==1&&y==-1)))
+						continue;
+						
+						if(map.IsHexPassed(hx+x,hy+y))
+						{
+							hx+=x;
+							hy+=y;
+							founded=true;
+							break;
+						}
+					}
+					if(founded)
+					break;
+				}
+				
+				if(not founded)
+				{
+					
+					cr.TimeoutBase[(241)]=__FullSecond+((1)*__TimeMultiplier*60);
+					return true;
+				}
+			}
+			cr.TransitToMap(map.Id,hx,hy,Random(0,5));
+		}
+		
+		if((cr.Mode[(511)]==0&&cr.Mode[(523)]==0))
+		{
+			Item@[]items;
+			cr.GetItems(-1,items);
+			
+			for(uint i=0,j=items.length();i<j;i++)
+			if((((items[i].Flags)&((0x00000001)))!=0))
+			@items[i]=null;
+			
+			Item@skeleton;
+			if(condition<(113))
+			@skeleton=dieMap.AddItem(hx0,hy0,(211),1);
+			if((@skeleton!=null))
+			{
+				skeleton.Val1=cr.Id;
+				MoveItems(items,skeleton,0);
+				uint[]values={dieMap.Id,skeleton.Id};
+				CreateTimeEvent(__FullSecond+((180)*__TimeMultiplier*60),"e_deleteBody",values,true); 
+				
+				Item_SetFrame(skeleton,cr.Dir);
+			}
+			else
+			MoveItems(items,dieMap,hx0,hy0);
+		}
+		
+		cr.ToLife();
+		cr.StatBase[(72)]=cr.Stat[(7)];
+		
+		return true;
+	}
+	
+	bool global_critter_respawn(Critter&cr)
+	{ 
+		
+		return true;
+	}
+	bool global_map_critter_in(Map&map,Critter&cr)
+	{
+		if(cr.IsNpc())return true;
+		map.SetData(0,map.GetData(0)+1);
+		if(cr.Quest[(703)]==(3))
+		{
+			Location@loc=map.GetLocation();
+			int x=0,y=0;
+			x=loc.WorldX*0.1;
+			y=loc.WorldY*0.1;
+			int Wild1=100,Wild2=100,Wild=100;
+			if((((x-7)>0)?(x-7):-(x-7))+(((y-7)>0)?(y-7):-(y-7))<=10)
+			{
+				Wild1=((((x-7)>0)?(x-7):-(x-7))+(((y-7)>0)?(y-7):-(y-7)))*10;
+				Wild1=(((Wild1)>(100))?(100):(((Wild1)<(0))?(0):(Wild1)));
+			}
+			if((((x-17)>0)?(x-17):-(x-17))+(((y-15)>0)?(y-15):-(y-15))<=8)
+			{
+				Wild2=((((x-17)>0)?(x-17):-(x-17))+(((y-15)>0)?(y-15):-(y-15))+2)*10;
+				Wild2=(((Wild2)>(100))?(100):(((Wild2)<(0))?(0):(Wild2)));
+			}
+			Wild=(((Wild)>(Wild1))?(Wild1):(((Wild)<(0))?(0):(Wild)));
+			Wild=(((Wild)>(Wild2))?(Wild2):(((Wild)<(0))?(0):(Wild)));
+			uint8 BonusWild=0;
+			uint16 time=0;
+			uint16 hour=0;
+			GetTime(time,time,time,time,hour,time,time,time);
+			if(7>hour&&hour>22)
+			BonusWild=20;
+			
+			uint8 Wild_delta=cr.Stat[(184)]-(Wild+BonusWild);
+			if(Wild_delta<=0)
+			return true;
+			else if(Wild_delta>=50)
+			cr.ToDead(0,null);
+			else if(Wild_delta>=40)
+			{
+				cr.StatBase[(16)]=cr.StatBase[(16)]*0.6-1;
+				cr.StatBase[(23)]=cr.StatBase[(23)]*0.6-1;
+				cr.StatBase[(10)]=cr.StatBase[(10)]*0.6-1;
+				cr.StatBase[(72)]=cr.StatBase[(72)]*0.5;
+				cr.StatBase[(7)]=cr.StatBase[(7)]*0.6-5;
+			}
+			else if(Wild_delta>=30)
+			{
+				cr.StatBase[(16)]=cr.StatBase[(16)]*0.7-1;
+				cr.StatBase[(23)]=cr.StatBase[(23)]*0.7-1;
+				cr.StatBase[(10)]=cr.StatBase[(10)]*0.7-1;
+				cr.StatBase[(72)]=cr.StatBase[(72)]*0.7;
+				cr.StatBase[(7)]=cr.StatBase[(7)]*0.7-5;
+			}
+			else if(Wild_delta>=20)
+			{
+				cr.StatBase[(16)]=cr.StatBase[(16)]*0.8-1;
+				cr.StatBase[(23)]=cr.StatBase[(23)]*0.8-1;
+				cr.StatBase[(10)]=cr.StatBase[(10)]*0.8-1;
+				cr.StatBase[(72)]=cr.StatBase[(72)]*0.8;
+				cr.StatBase[(7)]=cr.StatBase[(7)]*0.8-5;
+			}
+			else if(Wild_delta>=10)
+			{
+				cr.StatBase[(16)]=cr.StatBase[(16)]*0.9-1;
+				cr.StatBase[(23)]=cr.StatBase[(23)]*0.9-1;
+				cr.StatBase[(10)]=cr.StatBase[(10)]*0.9-1;
+				cr.StatBase[(72)]=cr.StatBase[(72)]*0.9;
+				cr.StatBase[(7)]=cr.StatBase[(7)]*0.9-5;
+			}
+			return true;
+		}
+		return true;
+	}
+	bool global_map_critter_out(Map&map,Critter&cr)
+	{
+		if(cr.IsNpc())return true;
+		
+		map.SetData(0,map.GetData(0)-1);
+		return true;
+	}
+	bool global_world_save()
+	{
+		return true;
+	}
+	bool global_player_registration(uint ip,string&name,uint&textMsg,uint&strNum)
+	{
+		return true;
+	}
+	bool global_player_login(uint ip,string&name,uint id,uint&textMsg,uint&strNum)
+	{
+		Critter@cr=GetCritter(id);
+		if(cr!is null)
+		AfterLogin(cr);
+		return true;
+	}
+	void AfterLogin(Critter&cr)
+	{
+		cr.AddTimeEvent("cte_ban",2*__TimeMultiplier,0,0);
+		
+		if(cr.Quest[(703)]!=(3)&&cr.Quest[(703)]!=(0))
+		{
+			if(cr.GetTimeEvents((40),null,null,null)==0)
+			cr.AddTimeEvent("cte_IncreaseStudyExp",5*60*__TimeMultiplier,(40),0);
+			
+			if(cr.GetTimeEvents((48),null,null,null)==0)
+			cr.AddTimeEvent("cte_Hunger",((Random(20,40)+cr.Stat[(2)]*5)/(1+cr.Trait[(550)]))*5*__TimeMultiplier,(48),0);
+			
+			if(cr.GetTimeEvents((50),null,null,null)==0)
+			cr.AddTimeEvent("cte_Exp",15*60*__TimeMultiplier,(50),0);
+		}
+		else
+		{
+			cr.EraseTimeEvents((40));
+			cr.EraseTimeEvents((48));
+			cr.EraseTimeEvents((50));
+		}
+	}
+	
+	bool global_time(int8 type)
+	{
+		if(type==(0x2))
+		{
+			
+		}
+		
+		if(type==(0x3))
+		{
+			
+		}
+		return true;
+	}
+}
+
+uint cte_ban(Critter&player,int identifier,uint&rate)
+{
+	if(player.Quest[(703)]==(3))
+	{
+		Map@map=GetMapByPid((402),0);
+		if(!(@map!=null))
+		player.Say((11),"Нет карты аркады, обратитесь к Мастерам.");
+		player.TransitToMap(map.Id,0);
+	}
+	player.RunClientScript("client_main@CheckHardBan",0,0,0,null,null);
+	return 0;
+}
+
+uint cte_IncreaseStudyExp(Critter&cr,int identifier,uint&rate)
+{
+	if(cr.IsDead()||cr.Quest[(703)]==(0))return 5*60*__TimeMultiplier; 
+	
+	uint16 studyExp=cr.StatBase[(138)];
+	uint16 studyExpMax=cr.StatBase[(139)];
+	
+	if(cr.Quest[(703)]!=(1))return 5*60*__TimeMultiplier;
+	
+	if(cr.Stat[(77)]>=12){
+		if(studyExpMax>studyExp){
+			uint16 studyTemp=studyExpMax*5/30;
+			studyTemp=(((studyExp+studyTemp)>(studyExpMax>1000?studyExpMax:1000))?(studyExpMax>1000?studyExpMax:1000):(((studyExp+studyTemp)<(0))?(0):(studyExp+studyTemp)));
+			cr.StatBase[(138)]=studyTemp;
+		}else{
+			if(cr.ParamBase[(856)]==0)
+			cr.Say((11),"Вас переполняют знания, которыми вы хотите поделиться..");
+		}
+	}
+	
+	return 5*60*__TimeMultiplier;
+}
+
+import void AffectPoison(Critter&cr,int value)from"poison";
+
+uint cte_Hunger(Critter&cr,int identifier,uint&rate)
+{
+	if(cr.IsDead()||cr.Quest[(703)]==(0))return((Random(20,40)+cr.Stat[(2)]*5)/(1+cr.Trait[(550)]))*5*__TimeMultiplier;
+	if(cr.IsKnockout()&&cr.GetTimeEvents((51),null,null,null)==0)return((Random(20,40)+cr.Stat[(2)]*5)/(1+cr.Trait[(550)]))*5*__TimeMultiplier;
+	
+	string[]feelings={"легкую усталость","прилив сил","успокоение","свежесть","что-то","себя лучше","себя хуже"};
+	string feeling="";
+	
+	cr.StatBase[(128)]-=Random(0,1)==0?1:0;
+	if(cr.StatBase[(128)]>0){
+		if(cr.StatBase[(128)]<25){
+			feeling+=(feeling==""?"":", ")+"сильный голод";
+		}
+		else if(cr.StatBase[(128)]<50){
+			feeling+=(feeling==""?"":", ")+"голод";
+		}
+		else if(cr.StatBase[(128)]<75){
+			feeling+=(feeling==""?"":", ")+"легкий голод";
+		}
+	}
+	else{
+		feeling+=(feeling==""?"":", ")+"нестерпимый голод";
+	}
+	
+	cr.StatBase[(127)]-=Random(0,1)==0?1:0;
+	if(cr.StatBase[(127)]>0){
+		if(cr.StatBase[(127)]<25){
+			feeling+=(feeling==""?"":", ")+"сильную жажду";
+		}
+		else if(cr.StatBase[(127)]<50){
+			feeling+=(feeling==""?"":", ")+"жажду";
+		}
+		else if(cr.StatBase[(127)]<75){
+			feeling+=(feeling==""?"":", ")+"легкую жажду";
+		}
+	}
+	else{
+		feeling+=(feeling==""?"":", ")+"невыносимую жажду";
+	}
+	
+	if(cr.StatBase[(148)]>0)
+	{
+		cr.StatBase[(148)]-=1;
+		int DoseTreshold=(cr.Stat[(2)]+cr.Stat[(0)])
+		*(1+cr.Trait[(562)]);
+		if(cr.StatBase[(148)]<=DoseTreshold/4)
+		feeling+=(feeling==""?"":", ")+"усталость";
+		else if(cr.StatBase[(148)]<=DoseTreshold/3)
+		feeling+=(feeling==""?"":", ")+"слабость";
+		else if(cr.StatBase[(148)]<=DoseTreshold/2)
+		feeling+=(feeling==""?"":", ")+"ломоту в теле";
+		else if(cr.StatBase[(148)]<=DoseTreshold*3/4)
+		feeling+=(feeling==""?"":", ")+"боль в груди";
+		else if(cr.StatBase[(148)]<=DoseTreshold)
+		feeling+=(feeling==""?"":", ")+"сильную головную боль";
+	}
+	
+	uint8 toxicLevel=cr.StatBase[(147)];
+	if(toxicLevel>=cr.Stat[(2)]*10){
+		cr.ToDead(Random(0,1)==0?(102):(103),null); 
+		
+		cr.Say((11),"Вы умерли от заражения крови.");
+		return((Random(20,40)+cr.Stat[(2)]*5)/(1+cr.Trait[(550)]))*5*__TimeMultiplier;
+	}else if(toxicLevel>=cr.Stat[(2)]*8){
+		feeling+=(feeling==""?"":", ")+"себя ужасно, вас лихорадит";
+	}else if(toxicLevel>=cr.Stat[(2)]*5){
+		feeling+=(feeling==""?"":", ")+"себя плохо, вам тяжело дышать";
+	}else if(toxicLevel>=cr.Stat[(2)]*2){
+		feeling+=(feeling==""?"":", ")+"жар";
+	}else if(toxicLevel>0){
+		feeling+=(feeling==""?"":", ")+"затруднённое дыхание";
+	}
+	
+	if(cr.StatBase[(147)]>=10){
+		cr.StatBase[(147)]+=cr.StatBase[(147)]/10;
+		AffectPoison(cr,Random(toxicLevel/10,toxicLevel/5));
+	}
+	
+	if(feeling=="")feeling=feelings[Random(0,feelings.length()-1)];
+	
+	if(cr.ParamBase[(856)]==0)
+	cr.Say((11),"Вы чувствуете "+feeling+".");
+	
+	return((Random(20,40)+cr.Stat[(2)]*5)/(1+cr.Trait[(550)]))*5*__TimeMultiplier;
+}
+
+uint cte_Exp(Critter&cr,int identifier,uint&rate)
+{
+	if(cr.Quest[(703)]==(3)||cr.Quest[(703)]==(0))return 15*60*__TimeMultiplier;
+	
+	if(!cr.IsKnockout())
+	{      
+		
+		cr.StatBase[(76)]+=250*(1+cr.AddictionBase[(475)]);
+	}
+	return 15*60*__TimeMultiplier;
+}
+
+Gameplay gameplay;
+
+void start(string&in,Handle@)
+{
+	iManagerModule@module=gameplay;
+	iManagerElement@manager=manager_add_module(module,"Gameplay",40);
+	if(manager is null)
+	return; 
+	
+} 
+
+bool CreateModeStart(Critter&cr)
+{
+	return TeleportToStart(cr);
+} 
+
+bool TeleportToStart(Critter&cr)
+{
+	Location@loc=GetLocationByPid((90),0);
+	Map@start=loc.GetMapByIndex(0);
+	
+	if((@start!=null)&&cr.TransitToMap(start.Id,0))
+	{
+		cr.SetEvent((23),"map_start@_Start_Player_drop");
+		cr.SetEvent((15),"map_start@_Start_Player_attack");
+		cr.SetEvent((2),"map_start@_Start_Player_dead");           
+		
+		cr.AddTimeEvent("cte_ban",2*__TimeMultiplier,0,0);
+		return true;
+	}
+	Log("Transit to start error! PlayerId: "+cr.Id);
+	return false;
+} 
+
+bool respawn_npc(Critter&cr,Map@map)
+{
+	if(not(@map!=null))
+	{
+		DeleteNpc(cr);
+		return true;
+	}
+	
+	uint16 hx=cr.HexX,
+	hy=cr.HexY;
+	
+	if(not map.IsHexPassed(hx,hy))
+	{
+		bool founded=false;
+		for(int x=-1;x<=1;x++)
+		{
+			for(int y=-1;y<=1;y++)
+			{
+				if(x==0&&y==0)
+				continue;
+				
+				if(__MapHexagonal)
+				{
+					if((hx%2)==1&&((x==-1&&y==1)||(x==1&&y==1)))
+					continue;
+					if((hx%2)==0&&((x==-1&&y==-1)||(x==1&&y==-1)))
+					continue;
+				}
+				
+				if(map.IsHexPassed(hx+x,hy+y))
+				{
+					hx+=x;
+					hy+=y;
+					founded=true;
+					break;
+				}
+			}
+			if(founded)
+			break;
+		}
+		
+		if(not founded)
+		{
+			
+			cr.TimeoutBase[(241)]=__FullSecond+((1)*__TimeMultiplier*60);
+			return true;
+		}
+	}
+	
+	cr.TransitToMap(map.Id,hx,hy,Random(0,5));
+	cr.ToLife();
+	
+	cr.DropPlanes();
+	cr.ClearEnemyStackNpc();
+	cr.StatBase[(110)]=0;
+	
+	if(cr.Stat[(113)]!=0)
+	{
+		Item@block=::GetItem(cr.Stat[(113)]);
+		if((@block!=null))
+		DeleteItem(block);
+		cr.StatBase[(113)]=0;
+	}
+	
+	cr.DamageBase[(502)]=0;
+	cr.DamageBase[(503)]=0;
+	cr.DamageBase[(504)]=0;
+	cr.DamageBase[(505)]=0;
+	cr.DamageBase[(506)]=0;
+	
+	cr.StatBase[(72)]=cr.Stat[(7)];
+	cr.Stat[(8)]*100;
+	
+	DropPoison(cr);
+	DropRadiation(cr);
+	DropDrugEffects(cr);
+	cr.DropTimers();
+	for(uint i=(__TimeoutBegin);i<=(__TimeoutEnd);i++)
+	if(i!=(242))
+	cr.TimeoutBase[i]=0;
+	
+	return true;
+}   
+
+void old_drop_stuff_if_bluddy(Critter&cr,Map&map)
+{
+	if((cr.Anim2Dead==(114)||cr.Anim2Dead==(117))&&(cr.Mode[(511)]==0&&cr.Mode[(523)]==0))
+	{
+		
+		Item@[]items;
+		cr.GetItems((0),items);
+		cr.GetItems((1),items);
+		cr.GetItems((2),items);
+		
+		for(uint i=0,j=items.length();i<j;i++)
+		{
+			if((((items[i].Flags)&((0x00200000)))!=0))
+			{
+				Item@item=items[i];
+				if((@item!=null))
+				DeleteItem(item);
+				@items[i]=null;
+			}
+			else if((((items[i].Flags)&((0x00000001)))!=0))
+			@items[i]=null;
+		}
+		MoveItems(items,map,cr.HexX,cr.HexY);
+	}
+}
+
+uint e_deleteBody(uint[]@values)
+{
+	Map@map=GetMap(values[0]);
+	Item@item=GetItem(values[1]);
+	if((@item!=null))
+	{
+		Item@[]items;
+		item.GetItems(uint(-1),items);
+		
+		if((@map!=null))MoveItems(items,map,item.HexX,item.HexY);
+		else DeleteItems(items);
+		
+		DeleteItem(item);
+	}
+	return 0;
+}

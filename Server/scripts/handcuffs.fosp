@@ -1,0 +1,2611 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                               
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                        
+
+import bool AddWalkPlane(Critter&npc,uint priority,uint16 hexX,uint16 hexY,uint8 dir,bool run,uint cut)from"npc_planes";
+import void FlushScreen(Critter&cr,uint fromColor,uint toColor,uint timeMs)from"effects";
+import void RestartFactions(Critter&cr,int p0,int p1,int p2)from"factions";
+import void Log_factions(Critter&player,int crId,int mode,int level,string@param3,int[]@param4)from"gm";
+import void ChangeCritterSpeed(Critter&cr)from"speed";
+import void SetDrug(Critter&cr,uint16 drugPid)from"drugs";
+uint papik;
+uint brass;   
+
+uint8 GetDir(Critter@cr,Critter@crit)
+{
+	return GetDirection(cr.HexX,cr.HexY,crit.HexX,crit.HexY);
+}
+
+bool IsNotHuman(Critter&cr)
+{
+	if(cr.StatBase[(67)]<(5)||cr.IsPlayer())
+	return false;
+	else
+	return true;
+}
+
+void _ItemInit(Item&item,bool FirstTime)
+{
+	if(item.Val1==0)
+	item.Val1=Random(1,8191);
+	item.SetLexems("$number"+item.Val1);
+	item.SetEvent((2),"_tie");
+}
+
+void _InitRope(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"_tie");
+} 
+
+void _InitUsedHandcuffs(Item&item,bool firstTime)
+{
+	item.SetEvent((4),"_unlock");
+	item.SetEvent((6),"_hellno1");
+	item.SetEvent((5),"_hellno3");
+}
+
+void _InitHandcuffsKey(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"_release");
+}
+
+bool _tie(Item&item,Critter&crit,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	
+	bool onSelf=(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null));
+	bool isRope=(item.GetProtoId()==(127));
+	if(IsNotHuman(crit)&&!isRope)
+	{
+		crit.SayMsg((11),(3),12952);
+		return true;
+	}
+	
+	if(((@onCritter!=null))&&(IsNotHuman(onCritter))&&!isRope)
+	{
+		crit.SayMsg((11),(3),12951);
+		return true;
+	}
+	
+	if(((@onCritter!=null))&&isRope&&onCritter.IsDead())
+	{
+		if(onCritter.GetTimeEvents((45),null,null,null)>0)
+		{
+			onCritter.EraseTimeEvents((45));
+			crit.Say((11),"Вы отпустили тело");
+			ChangeCritterSpeed(crit);
+			return true;
+		}
+		onCritter.AddTimeEvent("cte_DragAndDrop",1*__TimeMultiplier,(45),crit.Id);
+		crit.ModeBase[(540)]=1;
+		crit.Say((11),"Вы тащите тело");
+		return true;
+	}
+	
+	if(onSelf&&crit.Stat[(182)]==0&&(!IsNotHuman(crit)))
+	{
+		crit.SayMsg((11),(3),!isRope?12943:12990);
+		TieUp(item,crit,crit);
+		return true;
+	}
+	
+	if(((@onCritter!=null))&&(((onCritter.Stat[(182)]>>29)&0x1)!=0)&&(!IsNotHuman(onCritter)))
+	{
+		crit.SayMsg((11),(3),!isRope?12940:12993);
+		return true;
+	}
+	if(((@onCritter!=null))&&(onCritter.Stat[(182)]==0))
+	{
+		if(onCritter.Stat[(72)]<0||onCritter.IsKnockout())
+		{
+			TieUp(item,crit,onCritter);
+			return true;
+		}
+		if(onCritter.Timeout[(238)]!=0||onCritter.IsNpc())
+		{
+			if(onCritter.Stat[(67)]==(5))
+			{
+				TieUp(item,crit,onCritter);
+				return true;
+			}
+			else
+			{
+				if(onCritter.IsNpc())
+				onCritter.AddEnemyInStack(crit.Id);
+				crit.SayMsg((11),(3),!isRope?12949:12989);
+				return true;
+			}
+		}
+		else
+		{
+			ToAsk(item,crit,onCritter);
+			return true;
+		}
+	}
+	return false;
+}
+
+void _hellno1(Item&item,Critter&crit,uint8 fromSlot)
+{
+	if(item.CritSlot!=(1))
+	{
+		crit.SayMsg((11),(3),12945);
+		crit.MoveItem(item.Id,1,item.Val1==0?(1):(2));
+		item.Update();
+	}
+} 
+
+void _hellno2(Item&item,Critter&crit,uint8 fromSlot)
+{
+	if(item.CritSlot!=(2))
+	{
+		crit.SayMsg((11),(3),12945);
+		crit.MoveItem(item.Id,1,(2));
+		item.Update();
+	}
+}
+
+void _hellno3(Item&item,Critter&crit)
+{
+	crit.SayMsg((11),(3),12945);  
+	
+	MoveItem(item,1,crit);
+	crit.MoveItem(item.Id,1,item.Val1==0?(1):(2));
+	item.Update();
+}
+
+void _hellno4(Item&item,Critter&crit)
+{
+	crit.SayMsg((11),(3),12945);
+	MoveItem(item,1,crit);
+	crit.MoveItem(item.Id,1,(2));
+	item.Update();
+}
+
+bool _kickme(Critter&cr,Critter&attacker)
+{
+	uint cuffs=cr.Stat[(182)];
+	uint8 escape=(cuffs>>29)&0x1;
+	if(cr.Stat[(182)]!=0&&escape==0)
+	{
+		cr.ClearEnemyStack();
+		return true;
+	}
+	else
+	return false;
+}
+
+bool _release(Item&item,Critter&crit,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	bool onSelf=(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null));
+	int cuffs_state;
+	int keynum;
+	int nohome;
+	
+	if((@onCritter!=null)&&onCritter.Stat[(182)]!=0)
+	{
+		cuffs_state=onCritter.Stat[(182)];
+		keynum=(cuffs_state>>16)&0x1FFF;
+		nohome=(cuffs_state>>30)&0x1;
+		Item@[]items;
+		
+		if(item.Val1==keynum)
+		{
+			string name;
+			if(onCritter.IsPlayer())
+			name=GetPlayerName(onCritter.Id);
+			else
+			name="жертву";
+			crit.SayMsg((11),(3),12948,"$name"+name);
+			onCritter.SayMsg((11),(3),12946);
+			onCritter.StatBase[(182)]=0;
+			onCritter.GetItems((1),items);
+			onCritter.GetItems((2),items);
+			DeleteItems(items);
+			Item@cuffs=crit.AddItem((690),1);
+			cuffs.Val1=keynum;
+			cuffs.SetLexems("$number"+cuffs.Val1);
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+			if(onCritter.IsNpc())
+			{
+				onCritter.EraseTimeEvents((9));
+				onCritter.StatBase[(517)]=nohome;
+				onCritter.StatBase[(519)]=0;
+			}
+		}
+		return true;
+	}
+	
+	if(onSelf&&crit.Stat[(182)]!=0)
+	{
+		cuffs_state=crit.Stat[(182)];
+		keynum=(cuffs_state>>16)&0x1FFF;
+		nohome=(cuffs_state>>30)&0x1;
+		if(item.Val1==keynum)
+		{
+			crit.SayMsg((11),(3),12947);
+			crit.StatBase[(182)]=0;
+			crit.DeleteItem((692),2);
+			Item@cuffs=crit.AddItem((690),1);
+			cuffs.Val1=keynum;
+			cuffs.SetLexems("$number"+cuffs.Val1);
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+			return true;
+		}
+	}
+	return false;
+}
+
+void TieUp(Item&item,Critter&crit,Critter@onCritter)
+{
+	onCritter.StatBase[(81)]=crit.Id;
+	
+	uint8 follow=1;
+	uint8 escape=0;
+	if(crit.Id!=onCritter.Id)onCritter.StatBase[(182)]=crit.Id|(item.Val1<<16)|(escape<<29)|(onCritter.Mode[(517)]<<30)|(follow<<31);
+	else onCritter.StatBase[(182)]=onCritter.Stat[(182)]|(item.Val1<<16)|(escape<<29)|(onCritter.Mode[(517)]<<30)|(follow<<31);
+	bool handCuffs=(item.GetProtoId()==(690));
+	
+	Item@key;
+	if(handCuffs)
+	{
+		@key=crit.AddItem((691),1);
+		key.Val1=item.Val1;
+		key.SetLexems("$keynum"+key.Val1);
+	}
+	
+	do{if(item.GetCount()>(1))
+		item.SetCount(item.GetCount()-(1));else
+		DeleteItem(item);}while(false);
+	
+	Item@[]items;
+	Item@[]items0;
+	
+	uint itemscount=onCritter.GetItems((1),items);
+	uint itemscount0=onCritter.GetItems((2),items0);
+	
+	if(itemscount>0)
+	{
+		Item@hand=items[0];
+		if((@hand!=null)){
+			int pid=hand.GetProtoId();
+			if(pid!=(690)&&pid!=(694)&&pid!=(1537))
+			onCritter.MoveItem(hand.Id,itemscount,(0));
+		}
+	}
+	if(itemscount0>0)
+	{
+		Item@hand=items0[0];
+		if((@hand!=null)){
+			int pid=hand.GetProtoId();
+			if(pid!=(690)&&pid!=(694)&&pid!=(1537))
+			onCritter.MoveItem(hand.Id,itemscount,(0));
+		}
+	} 
+	
+	Item@usedcuffs1=onCritter.AddItem(handCuffs?(692):(694),1); 
+	
+	onCritter.MoveItem(usedcuffs1.Id,1,(1));
+	
+	usedcuffs1.Val1=1;
+	
+	usedcuffs1.Update();
+	
+	if(crit.Id!=onCritter.Id)
+	{
+		string name;
+		if(onCritter.IsPlayer())
+		name=GetPlayerName(onCritter.Id);
+		else
+		name="жертву";
+		crit.SayMsg((11),(3),handCuffs?12941:12991,"$victim"+name);
+		onCritter.SayMsg((11),(3),handCuffs?12942:12992);
+	}
+	
+	usedcuffs1.SetEvent((4),"_unlock");
+	
+	usedcuffs1.SetEvent((6),"_hellno1");
+	
+	usedcuffs1.SetEvent((5),"_hellno3"); 
+	
+	if(handCuffs)
+	{
+		key.SetEvent((2),"_release");
+	}
+	
+	onCritter.SetEvent((2),"_drop");
+	
+	if(onCritter.IsNpc())
+	{
+		Map@homemap=onCritter.GetMap();
+		onCritter.AddTimeEvent("come_to_daddy",30,(9));
+		onCritter.SetEvent((16),"_kickme");
+		onCritter.SetEvent((3),"_respawn");
+		onCritter.StatBase[(519)]=1;
+		onCritter.ModeBase[(518)]=1;
+		onCritter.ErasePlane(-1,true);
+		onCritter.ClearEnemyStack();
+		onCritter.StatBase[(517)]=1;
+	}
+} 
+
+void _drop(Critter&cr,Critter@killer)
+{
+	if(cr.Stat[(182)]!=0)
+	{
+		cr.StatBase[(182)]=0;
+		cr.DeleteItem((692),2);
+		cr.AddItem((693),1);
+	}
+}     
+
+funcdef uint PROCESS(Critter@,int&,int&,int&);                
+
+import bool RegisterProcess(uint8 type,any func)from"ltp";
+
+import bool StartProcess(Critter&cr,uint8 type,int param0,int param1,int param2,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,int param0,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,uint time)from"ltp";
+
+import bool StopProcess(Critter&cr)from"ltp";
+
+import bool checkTDH(Critter&cr)from"ltp";
+import bool checkTDH(Critter&cr,uint8 type)from"ltp";         
+
+bool ltp_ropecuffs_inited=false;
+void ltp_ropecuffs_init()
+{
+	PROCESS@___pfunc=@process_unlock;any ___pany;___pany.store(@___pfunc);RegisterProcess((34),___pany);
+	ltp_ropecuffs_inited=true;
+}
+
+bool unlock(Critter&cr,Critter&targetCr,uint16 pid)
+{
+	bool isKnife=(pid==(236)||
+	pid==(4)||
+	pid==(517)||
+	pid==(319)||
+	pid==(522));
+	
+	if(!isKnife)
+	return false;
+	
+	if(targetCr.Stat[(182)]==0)
+	return false;
+	
+	targetCr.DeleteItem((694),2);
+	cr.AddItem((127),1);
+	targetCr.StatBase[(182)]=0;
+	targetCr.SayMsg((11),(3),12988);
+	return true;
+}
+
+uint process_unlock(Critter@cr,int&param0,int&param1,int&param2)
+{
+	if(cr.Stat[(182)]==0)return 0;
+	
+	if(param0==-1&&(cr is null)){param0=int((34));return(0xF035BCF3);}
+	
+	if(param0==0)
+	cr.TimeoutBase[(234)]=(__FullSecond+((30)*__TimeMultiplier));
+	cr.DeleteItem(param0==0?(692):(694),2);
+	cr.AddItem(param0==0?(693):(127),1);
+	cr.StatBase[(182)]=0;
+	if(cr.IsPlayer())
+	cr.SayMsg((11),(3),param0==0?12947:12988);
+	
+	return 0;
+}
+
+bool _unlock(Item&item,Critter&critter,int skill)
+{
+	if(!ltp_ropecuffs_inited)
+	ltp_ropecuffs_init();
+	
+	if(item.GetProtoId()==(694))
+	{
+		int time=0;
+		if(skill==(213))
+		{
+			Item@lighter=critter.GetItem((101),-1);
+			if(@lighter is null)
+			{
+				critter.SayMsg((11),(3),12985);
+				return true;
+			}
+			time=Random(critter.Stat[(6)],15)*1000;
+		}
+		else if(skill==(211))
+		{
+			bool succes=false;
+			uint knifeIndex=0;
+			uint16[]knifePids={(522),(517),(236),(319),(4)};
+			for(uint size=knifePids.length();knifeIndex<size;knifeIndex++)
+			{
+				Item@knife=critter.GetItem(knifePids[knifeIndex],-1);
+				if(@knife!=null)
+				{
+					succes=true;
+					break;
+				}
+			}
+			if(!succes)
+			{
+				critter.SayMsg((11),(3),12986);
+				return true;
+			}
+			
+			switch(knifePids[knifeIndex])
+			{
+				case(4):
+				time=10000;
+				break;
+				case(319):
+				time=9000;
+				break;
+				case(236):
+				time=7000;
+				break;
+				case(517):
+				time=6000;
+				break;
+				case(522):
+				time=5000;
+				break;
+				default:
+				time=-1;
+				break;
+			}
+			
+			if(time==-1)
+			{
+				critter.SayMsg((11),(3),12987);
+				return true;
+			}
+			
+			time-=(critter.Skill[(204)]*20)+(critter.Stat[(5)]*300);
+			if(time<=0)
+			time=1000; 
+			
+		}
+		
+		if(time<=0)
+		return false;
+		
+		StartProcess(critter,(34),1,0,0,time);
+		return true;
+	}
+	
+	if(skill==(209))
+	{
+		if(critter.Timeout[(234)]>0)
+		{
+			critter.SayMsg((11),(3),3401);
+			return true;
+		}
+		
+		if((critter.Skill[(209)])>300-Random(0,250))
+		{
+			StartProcess(critter,(34),0,0,0,1000);
+			return true;
+		}
+		
+		critter.TimeoutBase[(234)]=(__FullSecond+((30)*__TimeMultiplier));
+		critter.SayMsg((11),(3),12944);
+		return true;
+	}
+	if(skill==(212))
+	{
+		uint number=(critter.Stat[(182)]>>16)&0x1FFF;
+		critter.SayMsg((11),(3),12950,"$number"+number);
+		return true;
+	}
+	return false;
+}
+
+uint come_to_daddy(Critter&cr,int identifier,uint&rate)
+{
+	int8 y=0;
+	cr.ClearEnemyStack();
+	uint cuffs_state=cr.Stat[(182)];
+	uint16 master=(cuffs_state)&0xFFFF;
+	uint16 keynum=(cuffs_state>>16)&0x1FFF;
+	uint8 escape=(cuffs_state>>29)&0x1;
+	uint8 nohome=(cuffs_state>>30)&0x1;
+	uint8 follow=(cuffs_state>>31)&0x1;
+	uint8 leavemealone=Random(0,300);
+	Critter@daddy=GetCritter(master);
+	Map@daddymap=null;
+	if((@daddy!=null))
+	@daddymap=daddy.GetMap();
+	else if(!(@daddy!=null)&&escape==0)
+	SelfRelease(cr);
+	Map@crmap=cr.GetMap();
+	if((escape==0)&&(leavemealone!=10))
+	{
+		cr.ErasePlane(-1,true);
+		if(follow==1)
+		{
+			if((!(@daddymap!=null))&&((@crmap!=null)))
+			{
+				cr.TransitToGlobalGroup(daddy.Id);
+			}
+			else if(((@daddymap!=null))&&((@crmap!=null))&&(daddymap.Id==crmap.Id))
+			{          
+				
+				AddWalkPlane(cr,0,daddy.HexX,daddy.HexY,GetDir(cr,daddy),false,1);
+			}
+			else if(((@daddymap!=null))&&((@crmap!=null))&&(crmap.Id!=daddymap.Id))
+			{
+				uint8 findPos=1;
+				while(findPos<=10)
+				{
+					if(daddymap.IsHexPassed(daddy.HexX+findPos,daddy.HexY+findPos))
+					{
+						cr.TransitToMap(daddymap.Id,daddy.HexX+findPos,daddy.HexY+findPos,GetDir(cr,daddy));
+						findPos=10;
+					}
+					findPos++;
+				}
+			}
+		}
+	}
+	else if(escape==0&&leavemealone==10&&false)
+	{
+		SelfRelease(cr);
+	}
+	else if(escape==1)
+	{
+		uint homemap=0;
+		uint8 homedir=0;
+		uint16 homex=0;
+		uint16 homey=0;
+		uint16 EntX=0;
+		uint16 EntY=0;
+		uint16 ExitDist=0;
+		cr.GetHomePos(homemap,homex,homey,homedir);
+		
+		Map@homemap0=GetMap(homemap);
+		
+		if((@crmap!=null))
+		{
+			if(!crmap.GetEntireCoords(0,0,EntX,EntY))
+			EntX=cr.HexX;
+			EntY=cr.HexY;
+			ExitDist=GetDistantion(cr.HexX,cr.HexY,EntX,EntY);
+		}
+		else if(homemap0!is null)
+		cr.TransitToMap(homemap,homex,homey,homedir);
+		
+		if((@daddymap!=null)&&(@crmap!=null)&&(daddymap.Id==crmap.Id))
+		{
+			if(daddy.IsDead())
+			{
+				if(cr.Timeout[(238)]==0&&ExitDist<4)
+				{
+					if(homemap0!is null)
+					cr.TransitToMap(homemap,homex,homey,homedir);
+					cr.StatBase[(182)]=0;
+					return 0;
+				}
+				else
+				{
+					AddWalkPlane(cr,0,EntX,EntY,0,true,1);
+				}
+			}
+		}
+		else if(((@daddymap!=null))&&((@crmap!=null))&&(crmap.Id!=daddymap.Id)||(!(@daddymap!=null))&&((@crmap!=null)))
+		{
+			
+			if(cr.Timeout[(238)]==0&&ExitDist<4)
+			{
+				if(homemap0!is null)
+				cr.TransitToMap(homemap,homex,homey,homedir);
+				cr.StatBase[(182)]=0;
+				return 0;
+			}
+			else
+			{
+				AddWalkPlane(cr,0,EntX,EntY,0,true,1);
+			}
+		}
+	}
+	
+	return 30;
+}
+
+void ToAsk(Item&item,Critter&crit,Critter@onCritter)
+{
+	string player;
+	if(crit.IsPlayer())
+	player=GetPlayerName(crit.Id);
+	else
+	player="Кто-то";
+	if((crit.Stat[(0)]+crit.Stat[(6)]+crit.Stat[(5)]+Random(0,10))>(onCritter.Stat[(0)]+onCritter.Stat[(6)]+onCritter.Stat[(5)]+Random(1,15)))
+	{
+		TieUp(item,crit,onCritter);
+	}
+	else
+	{
+		papik=crit.Id;
+		brass=item.Id;
+		onCritter.ShowScreen((2),1,"AnswerMe");
+		onCritter.SayMsg((18),(3),12955,"$player"+player);
+		onCritter.SayMsg((19+(0)),(3),12956);
+	}
+	
+} 
+
+void AnswerMe(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		cr.SayMsg((11),(3),12942);
+		TieUp(GetItem(brass),GetCritter(papik),cr);
+	}
+	
+} 
+
+void SelfRelease(Critter&cr)
+{
+	if(cr.StatBase[(182)]==0)return;
+	
+	uint cuffs_state=cr.StatBase[(182)];
+	uint16 master=(cuffs_state)&0xFFFF;
+	uint16 keynum=0;
+	uint8 escape=1;
+	uint8 nohome=(cuffs_state>>30)&0x1;
+	uint8 follow=(cuffs_state>>31)&0x1;
+	Critter@bastard=GetCritter(master);
+	Item@[]items;
+	cr.GetItems((1),items);
+	cr.GetItems((2),items);
+	DeleteItems(items);
+	cr.AddItem((693),1);
+	if((@bastard!=null))
+	bastard.SayMsg((11),(3),12957);
+	cr.AddEnemyInStack(master);
+	cr.StatBase[(182)]=master|(keynum<<16)|(escape<<29)|(nohome<<30)|(follow<<31);
+}
+
+void _respawn(Critter&cr)
+{
+	uint homemap=0;
+	uint8 homedir=0;
+	uint16 homex=0;
+	uint16 homey=0;
+	Item@broken=cr.GetItemById((693));
+	Map@map=cr.GetMap();
+	MoveItem(broken,1,map,cr.HexX,cr.HexY);
+	cr.GetHomePos(homemap,homex,homey,homedir);
+	cr.ToLife();
+	cr.TransitToMap(homemap,homex,homey,homedir);
+} 
+
+void HookAttack(Critter&cr,Critter@target,uint8 force,uint8 pull)
+{
+	if(@target!is null&&!target.IsDead())
+	{
+		Map@map=cr.GetMap();
+		uint8 dist=GetDistantion(cr.HexX,cr.HexY,target.HexX,target.HexY);
+		uint id=cr.Id;
+		Item@hook=map.GetItem(target.HexX,target.HexY,(1524));
+		if(@hook is null)
+		{
+			@hook=map.AddItem(target.HexX,target.HexY,(1524),1);
+			hook.Val0=dist;
+			hook.Val1=cr.Id;
+			hook.Val5=pull;
+			(hook.Flags=(hook.Flags)|((0x00020000)));
+			hook.SetScript("_HookWalkInit");
+		}
+		else if(uint(hook.Val1)!=id)
+		{
+			hook.Val0=dist;
+			hook.Val1=id;
+			hook.Val5=pull;
+			hook.SetScript("_HookWalkInit");
+		}
+		else if(force+cr.Stat[(72)]/20-target.Stat[(72)]/20+cr.Stat[(0)]-target.Stat[(0)]>Random(0,15))
+		{
+			cr.Say((6),""+id);
+			uint16 targetHx=cr.HexX,
+			targetHy=cr.HexY;
+			map.GetHexCoordWall(target.HexX,target.HexY,targetHx,targetHy,0.0f,4);
+			target.ToKnockout(((Random(0,1)==1)?(82):(83)),((Random(0,1)==1)?(86):(87)),((Random(0,1)==1)?(88):(89)),2,targetHx,targetHy);
+			MoveItem(hook,1,map,targetHx,targetHy);
+		}
+	}
+}
+
+void _HookWalkInit(Item&item,bool firstTime)
+{
+	if(item.GetProtoId()==(1524))
+	item.SetEvent((7),"_HookWalk");
+}
+
+void _HookWalk(Item&hook,Critter&cr,bool entered,uint8 dir)
+{
+	if(!entered)
+	{
+		Critter@hooker=GetCritter(hook.Val1);
+		if(@hooker is null)
+		{
+			do{if(hook.GetCount()>(1))
+				hook.SetCount(hook.GetCount()-(1));else
+				DeleteItem(hook);}while(false);
+			return;
+		}
+		
+		uint8 dist=GetDistantion(cr.HexX,cr.HexY,hooker.HexX,hooker.HexY),
+		distMax=hook.Val0;
+		
+		Map@map=cr.GetMap();
+		Item@hook1=map.GetItem(hooker.HexX,hooker.HexY,(1524));
+		
+		if(@hook1 is null)
+		do{if(hook.GetCount()>(1))
+			hook.SetCount(hook.GetCount()-(1));else
+			DeleteItem(hook);}while(false);
+		else if(cr.GetMapId()!=hooker.GetMapId()||hooker.IsDead()||uint(hook1.Val1)!=cr.Id)
+		do{if(hook.GetCount()>(1))
+			hook.SetCount(hook.GetCount()-(1));else
+			DeleteItem(hook);}while(false);
+		else
+		{
+			if(dist>distMax)
+			{
+				uint16 hookHx=hooker.HexX,
+				hookHy=hooker.HexY;
+				map.GetHexCoordWall(cr.HexX,cr.HexY,hookHx,hookHy,0.0f,2);
+				cr.ToKnockout(((Random(0,1)==1)?(82):(83)),((Random(0,1)==1)?(86):(87)),((Random(0,1)==1)?(88):(89)),3,hookHx,hookHy);
+				cr.Say((11),"Вас отбрасывает назад");
+				MoveItem(hook,1,map,cr.HexX,cr.HexY);
+				cr.Say((6),""+cr.Id);
+			}
+			else if(hook.Val5!=0)hook.Val0=dist;
+			MoveItem(hook,1,map,cr.HexX,cr.HexY);
+		}
+	}
+}
+
+uint cte_DragAndDrop(Critter&cr,int identifier,uint&rate)
+{
+	Critter@hooker=GetCritter(rate);
+	if(@hooker is null)return 0;
+	if((!cr.IsDead()&&!cr.IsKnockout())||hooker.IsRuning)
+	{
+		hooker.Say((11),"Вы отпустили тело");
+		ChangeCritterSpeed(hooker);
+		return 0;
+	}
+	
+	Map@map=cr.GetMap(),
+	hmap=hooker.GetMap();
+	
+	uint16 hookHx=hooker.HexX,
+	hookHy=hooker.HexY;
+	
+	uint8 dist=GetDistantion(cr.HexX,cr.HexY,hooker.HexX,hooker.HexY),
+	revDir=hooker.Dir+3;
+	if(revDir>5)revDir=revDir-6;
+	
+	hmap.MoveHexByDir(hookHx,hookHy,revDir,1);
+	if(!hmap.IsHexPassed(hookHx,hookHy)||(dist<=2))return 1*__TimeMultiplier;
+	if(@hmap!is@map)
+	{
+		cr.TransitToMap(hmap.Id,hookHx,hookHy,hooker.Dir);
+		ChangeCritterSpeed(hooker);
+		return 0;
+	}
+	else if(dist<5||cr.GetAccess()>=(2))
+	{
+		cr.TransitToHex(hookHx,hookHy,hooker.Dir);
+		return 1*__TimeMultiplier;
+	}
+	else
+	{
+		hooker.Say((11),"Вы отпустили тело");
+		ChangeCritterSpeed(hooker);
+		return 0;
+	}
+}
+
+void DragAndDrop(Critter&cr,Critter@target)
+{
+	if((@target!=null))
+	{
+		if(target.GetTimeEvents((45),null,null,null)>0)
+		{
+			target.EraseTimeEvents((45));
+			cr.Say((11),"Вы отпустили тело");
+			ChangeCritterSpeed(cr);
+			return;
+		}
+		
+		target.AddTimeEvent("cte_DragAndDrop",1*__TimeMultiplier,(45),cr.Id);
+		cr.ModeBase[(540)]=1;
+		cr.Say((11),"Вы тащите тело");
+	}
+} 
+
+void HookMeleeAttack(Critter&cr,Critter@target)
+{
+	if(@target!is null&&!target.IsDead())
+	{
+		Map@map=cr.GetMap();
+		uint crId=cr.Id;
+		
+		if(target.Stat[(72)]<=0||target.IsKnockout())
+		{
+			if(target.GetTimeEvents((45),null,null,null)>0)
+			{
+				target.EraseTimeEvents((45));
+				cr.Say((11),"Вы отпустили тело");
+				ChangeCritterSpeed(cr);
+				return;
+			}
+			
+			target.AddTimeEvent("cte_DragAndDrop",1*__TimeMultiplier,(45),crId);
+			cr.ModeBase[(540)]=1;
+			cr.Say((11),"Вы тащите тело");
+			return;
+		}
+		
+		Item@hook=map.GetItem(target.HexX,target.HexY,(1525));
+		if(@hook is null)
+		{
+			@hook=map.AddItem(target.HexX,target.HexY,(1525),1);
+			hook.Val1=crId;
+			hook.Val2=0;
+			hook.Val3=0;
+			(hook.Flags=(hook.Flags)|((0x00020000)));
+			hook.SetScript("_HookMeleeInit");
+		}
+		else if(uint(hook.Val1)!=crId)
+		{
+			hook.Val1=crId;
+			hook.Val2=0;
+			hook.Val3=0;
+			hook.SetScript("_HookMeleeInit");
+		}
+		
+		Item@hook2=map.GetItem(cr.HexX,cr.HexY,(1525));
+		if(@hook2 is null)
+		{
+			@hook2=map.AddItem(cr.HexX,cr.HexY,(1525),1);
+			hook2.Val1=target.Id;
+			hook2.Val2=1;
+			(hook2.Flags=(hook2.Flags)|((0x00020000)));
+			hook2.SetScript("_HookMeleeInit");
+		}
+		else if(uint(hook2.Val1)!=target.Id)
+		{
+			hook2.Val1=target.Id;
+			hook2.Val2=1;
+			hook2.SetScript("_HookMeleeInit");
+		}
+	}
+}
+
+void _HookMeleeInit(Item&item,bool firstTime)
+{
+	if(item.GetProtoId()==(1525))
+	item.SetEvent((7),"_HookMelee");
+}
+
+void _HookMelee(Item&hook,Critter&cr,bool entered,uint8 dir)
+{
+	if(!entered)
+	{
+		Critter@hooker=GetCritter(hook.Val1);
+		
+		if(@hooker is null)
+		{
+			do{if(hook.GetCount()>(1))
+				hook.SetCount(hook.GetCount()-(1));else
+				DeleteItem(hook);}while(false);
+			return;
+		}
+		
+		Map@map=cr.GetMap();
+		Item@hook1=map.GetItem(hooker.HexX,hooker.HexY,(1525));
+		
+		if(@hook1 is null||cr.GetMapId()!=hooker.GetMapId()||hooker.IsDead()||uint(hook1.Val1)!=cr.Id)
+		{
+			do{if(hook.GetCount()>(1))
+				hook.SetCount(hook.GetCount()-(1));else
+				DeleteItem(hook);}while(false);
+			return;
+		}
+		
+		if(hook.Val2!=0)
+		{
+			if(hooker.Stat[(72)]>0||cr.IsRuning)
+			{
+				do{if(hook.GetCount()>(1))
+					hook.SetCount(hook.GetCount()-(1));else
+					DeleteItem(hook);}while(false);
+				do{if(hook1.GetCount()>(1))
+					hook1.SetCount(hook1.GetCount()-(1));else
+					DeleteItem(hook1);}while(false);
+				return;
+			}
+			else
+			{
+				
+				MoveItem(hook,hook.GetCount(),map,cr.HexX,cr.HexY);
+				if(cr.Timeout[(234)]>0)
+				return;
+				
+				cr.TimeoutBase[(234)]=__FullSecond+((1)*__TimeMultiplier);
+				uint8 revDir=dir+3;
+				if(revDir>5)revDir=revDir-6;
+				
+				uint16 hookHx=hook.HexX,
+				hookHy=hook.HexY;
+				map.MoveHexByDir(hookHx,hookHy,revDir,1);
+				hooker.TransitToHex(hookHx,hookHy,dir);
+				MoveItem(hook1,hook1.GetCount(),map,hooker.HexX,hooker.HexY);
+				return;
+			}
+		}
+		
+		uint16 chance=40+(cr.Stat[(72)]-hooker.Stat[(72)])*0.5+(cr.Skill[(203)]-hooker.Skill[(203)])*0.5+5*(cr.Stat[(0)]-hooker.Stat[(0)])+hook.Val3;
+		chance=(((chance)>(95))?(95):(((chance)<(1))?(1):(chance)));
+		
+		if(chance>=Random(1,100))
+		{
+			do{if(hook.GetCount()>(1))
+				hook.SetCount(hook.GetCount()-(1));else
+				DeleteItem(hook);}while(false);
+			do{if(hook1.GetCount()>(1))
+				hook1.SetCount(hook1.GetCount()-(1));else
+				DeleteItem(hook1);}while(false);
+			cr.Say((11),"Вы вырвались из захвата");
+			cr.Say((6),"вырывается");
+		}
+		else
+		{
+			hook.Val3+=10;
+			
+			uint8 revDir=dir+3;
+			if(revDir>5)
+			revDir=revDir-6;
+			
+			uint16 hookHx=cr.HexX,
+			hookHy=cr.HexY;
+			
+			map.MoveHexByDir(hookHx,hookHy,revDir,1);
+			cr.ToKnockout((((Random(0,1)==1?true:false))?(82):(83)),(((Random(0,1)==1?true:false))?(86):(87)),(((Random(0,1)==1?true:false))?(88):(89)),3,hookHx,hookHy);
+			cr.Say((11),"Вы не смогли вырваться из захвата");
+			hooker.Say((6),"держит");
+		}
+	}
+}  
+
+void HookHoldAttack(Critter@target,uint8 hardness)
+{
+	if(@target!is null&&!target.IsDead())
+	{
+		Map@map=target.GetMap();
+		uint targetId=target.Id;
+		Item@hook=map.GetItem(target.HexX,target.HexY,(1526));
+		if(@hook is null)
+		{
+			@hook=map.AddItem(target.HexX,target.HexY,(1526),1);
+			hook.Val1=targetId;
+			hook.Val5=hardness;
+			(hook.Flags=(hook.Flags)|((0x00020000)));
+			hook.SetScript("_HookHoldInit");
+		}
+		else if(uint(hook.Val1)!=targetId)
+		{
+			hook.Val1=targetId;
+			hook.Val5=hardness;
+			hook.SetScript("_HookHoldInit");
+		}
+	}
+}
+
+void _HookHoldInit(Item&item,bool firstTime)
+{
+	if(item.GetProtoId()==(1526))
+	item.SetEvent((7),"_HookHold");
+}
+
+void _HookHold(Item&hook,Critter&cr,bool entered,uint8 dir)
+{
+	if(!entered)
+	{
+		if(@hook!is null&&uint(hook.Val1)==cr.Id)
+		{
+			if(20>Random(1,20)&&(cr.Stat[(0)]+cr.Stat[(5)]+cr.Stat[(2)]-10*hook.Val5<Random(5,35)))
+			{
+				cr.Say((6),"не может вырваться");
+				cr.Say((11),"Вы не смогли вырваться");
+				uint16 hookHx=cr.HexX,
+				hookHy=cr.HexY;
+				
+				uint8 revDir=dir+3;
+				if(revDir>5)revDir=revDir-6;
+				
+				Map@map=cr.GetMap();
+				map.MoveHexByDir(hookHx,hookHy,revDir,1);
+				cr.ToKnockout(((Random(0,1)==1)?(82):(83)),((Random(0,1)==1)?(86):(87)),((Random(0,1)==1)?(88):(89)),3,hookHx,hookHy);
+				if(hook.Val5>0)hook.Val5-=1;
+			}
+			else
+			{
+				do{if(hook.GetCount()>(1))
+					hook.SetCount(hook.GetCount()-(1));else
+					DeleteItem(hook);}while(false);
+				cr.Say((6),"вырывается");
+				cr.Say((11),"Вы освободились");
+			}
+		}
+		else do{if(hook.GetCount()>(1))
+			hook.SetCount(hook.GetCount()-(1));else
+			DeleteItem(hook);}while(false);
+	}
+}
+
+void _InitSexItem(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_SexUse");
+}
+
+bool e_SexUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	return false;
+	if((@onCritter!=null)&&cr.IsPlayer()&&onCritter.IsPlayer()&&(!IsNotHuman(cr))&&(!IsNotHuman(onCritter)))
+	{
+		do{if(item.GetCount()>(1))
+			item.SetCount(item.GetCount()-(1));else
+			DeleteItem(item);}while(false);
+		ToAskSex(item,cr,onCritter);
+		return true;
+	}
+	else
+	cr.Say((11),"Это неуместно.");
+	return true;
+}
+
+void ToAskSex(Item&item,Critter&crit,Critter@onCritter)
+{
+	string player;
+	if(crit.IsPlayer())
+	player=GetPlayerName(crit.Id);
+	else
+	player="Кто-то";
+	
+	papik=crit.Id;
+	onCritter.ShowScreen((2),1,"AnswerSexMe");
+	onCritter.SayMsg((18),(3),12959,"$player"+player);
+	onCritter.SayMsg((19+(0)),(3),12709);
+}
+
+void AnswerSexMe(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		cr.Say((11),"Вы согласились.");
+		HaveSex(GetCritter(papik),cr);
+	}
+}
+
+void HaveSex(Critter&cr,Critter@onCritter)
+{
+	int roll=Random(0,2);
+	if(cr.Perk[(395)]!=0)
+	{
+		if(roll==0)
+		{SetDrug(cr,(480));
+			SetDrug(onCritter,(480));}
+		else if(roll==1)
+		{SetDrug(cr,(481));
+			SetDrug(onCritter,(481));}
+		else if(roll==2)
+		{SetDrug(cr,(482));
+			SetDrug(onCritter,(482));}
+	}
+	cr.Say((6),"совокупляются");
+	onCritter.Say((6),"совокупляются");
+	FlushScreen(cr,((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0)&0xFF)<<8)|((0)&0xFF)))),20000);
+	FlushScreen(onCritter,((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0)&0xFF)<<8)|((0)&0xFF)))),((uint((0xFF<<24)|(((0)&0xFF)<<16)|(((0)&0xFF)<<8)|((0)&0xFF)))),20000);
+} 
+
+void _InitSheriffItem(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_SheriffBadgeUse");
+}
+
+void _InitMayorDocs(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_MayorDocUse");
+}
+
+void _InitPoliceBadgeItem(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_PoliceBadgeUse");
+}
+
+bool e_SheriffBadgeUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!isSheriff(cr))
+	{
+		cr.Say((11),"У вас нет полномочий");
+		return true;
+	}
+	else if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	{
+		cr.ShowScreen((2),2,"answer_SheriffBadge_self");
+		cr.SayMsg((18),(3),107930);
+		cr.SayMsg((19+(0)),(3),107931);
+		cr.SayMsg((19+(1)),(3),107933); 
+		
+		return true;
+	}
+	else if(cr.IsPlayer()&&@onCritter!is null&&onCritter.IsPlayer()&&(!IsNotHuman(onCritter)))
+	{
+		cr.StatBase[(90)]=onCritter.Id;
+		cr.ShowScreen((2),3,"answer_SheriffBadge");
+		cr.SayMsg((18),(3),107930);
+		cr.SayMsg((19+(0)),(3),107935);
+		cr.SayMsg((19+(1)),(3),107936);
+		cr.SayMsg((19+(2)),(3),107937);
+		return true;
+	}
+	else
+	cr.Say((11),"это неуместно");
+	return true;
+}
+
+enum MayorActionSelf
+{
+	ListCop,
+	ListAdmin,
+	CheckSheryff,
+	
+	SetCityMode,
+	Count,
+}
+
+enum MayorAction
+{
+	SetSheryff,
+	SetAdmin,
+	Count,
+}
+
+bool e_MayorDocUse(Item&item,Critter&critter,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!isMayor(critter))
+	{
+		critter.Say((11),"У вас нет полномочий");
+		return true;
+	}
+	else if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	{
+		critter.ShowScreen((2),MayorActionSelf::Count,"answer_MayorDoc_self");
+		critter.Say((18),"Выберите действие:");
+		critter.Say((19+(MayorActionSelf::ListCop)),"Список копов");
+		critter.Say((19+(MayorActionSelf::ListAdmin)),"Лист администрации");
+		critter.Say((19+(MayorActionSelf::CheckSheryff)),"Узнать шерифа");  
+		
+		return true;
+	}
+	else if(critter.IsPlayer()&&@onCritter!is null&&onCritter.IsPlayer()&&(!IsNotHuman(onCritter)))
+	{
+		critter.StatBase[(90)]=onCritter.Id;
+		critter.ShowScreen((2),MayorAction::Count,"answer_MayorDoc");
+		critter.Say((18),"Выберите действие:");
+		critter.Say((19+(MayorAction::SetSheryff)),"Назначить шерифом");
+		critter.Say((19+(MayorAction::SetAdmin)),"Назначить администрацией");
+		return true;
+	}
+	else
+	critter.Say((11),"это неуместно");
+	return true;
+}
+
+void answer_MayorDoc_self(Critter&cr,uint arg_answerI,string&answerS)
+{
+	int answerI=arg_answerI;
+	
+	switch(answerI)
+	{
+		case MayorActionSelf::ListCop:
+		{
+			FileObject@modoc=objectManager.ProtoObject["ContentInfo:"+(1232)];
+			cr.Say((11),"Список полиции:\n"+modoc.GlobalData["CopList"]);
+		}break;
+		
+		case MayorActionSelf::ListAdmin:
+		{
+			FileObject@modoc=objectManager.ProtoObject["ContentInfo:"+(1232)];
+			cr.Say((11),"Список администрации:\n"+modoc.GlobalData["AdminList"]);
+		}break;
+		
+		case MayorActionSelf::CheckSheryff:
+		{
+			FileObject@modoc=objectManager.ProtoObject["ContentInfo:"+(1232)];
+			cr.Say((11),"Текущий шериф:\n"+modoc.GlobalData["Sheriff"]);
+		}break;     
+		
+		case MayorActionSelf::SetCityMode:
+		{
+			GameVar@border_mode=GetGlobalVar((7343));
+			cr.ShowScreen((2),6,"gm@answer_GM_PANNEL_SELF_TOWNMODES_GATES");
+			cr.Say((18),"шлюз, текущий - "+border_mode.GetValue());
+			cr.Say((19+(0)),"0 обычный");
+			cr.Say((19+(1)),"1 спец проп");
+			cr.Say((19+(2)),"2 нет гостей");
+			cr.Say((19+(3)),"3 карантин1");
+			cr.Say((19+(4)),"4 карантин2");
+			cr.Say((19+(5)),"5 открыть город");
+		}break;
+		
+		default:break;
+	}
+}
+
+void answer_MayorDoc(Critter&cr,uint arg_answerI,string&answerS)
+{
+	Critter@target=GetCritter(cr.Stat[(90)]);
+	if(@target is null)return;
+	
+	int answerI=arg_answerI;
+	switch(answerI)
+	{
+		case MayorAction::SetSheryff:
+		{
+			if(target.Quest[(704)]==0)
+			{
+				target.AddItem(1455,1);
+				target.QuestBase[(704)]=7;
+			}
+		}break;
+		
+		case MayorAction::SetAdmin:
+		{
+			target.QuestBase[(704)]=1;
+		}break;
+		
+		default:break;
+	}
+}
+
+bool isMayor(Critter@cr)
+{
+	return(cr.Quest[(704)]==8);
+}
+
+bool isClerk(Critter@cr)
+{
+	return cr.Quest[(704)]==1;
+}
+
+bool isSheriff(Critter@cr)
+{
+	return(cr.Quest[(704)]==7);
+}
+
+bool isCop(Critter@cr)
+{
+	return cr.Quest[(704)]==2;
+}
+
+int CitizenLevel(Critter@cr)
+{
+	return(cr.Quest[(705)]);
+}
+
+bool isCitizenLevel(Critter@cr,int rank)
+{
+	return(CitizenLevel(cr)==rank);
+}
+
+string CheckAll(uint CheckType)
+{
+	string[]desc={"Весь онлайн","Реестр Модока","Администрация","Полиция","Преступники"},
+	crType={"чужак   ","пропуск ","гость   ","граждан ","элита   ","TYPE #5","TYPE #6","TYPE #7","TYPE #8","TYPE #9","преступ "};
+	CheckType=(((CheckType)>(desc.length()))?(desc.length()):(((CheckType)<(0))?(0):(CheckType)));
+	GameVar@TotalPlayers=GetGlobalVar((4));
+	string result=desc[CheckType]+":\n";
+	int citizenship,n=0;
+	Critter@cr;
+	for(int i=0;i<=TotalPlayers.GetValue();i++)
+	{
+		@cr=@GetCritter(i);
+		if(!(@cr!=null))continue;
+		citizenship=(((CitizenLevel(cr))>(10))?(10):(((CitizenLevel(cr))<(0))?(0):(CitizenLevel(cr))));
+		switch(CheckType)
+		{
+			case(0):
+			if(isMayor(cr))result+="мэр ";
+			else if(isClerk(cr))result+="адм ";
+			if(isSheriff(cr))result+="шеф ";
+			else if(isCop(cr))result+="коп ";
+			else result+=crType[citizenship];
+			break;
+			case(1):
+			switch(citizenship)
+			{
+				case(0):
+				case(1):
+				case(2):
+				case(10):
+				continue;
+				
+				case(3):result+="Житель ";break;
+				case(4):result+="Элита  ";break;
+				default:result+="[ERROR:"+citizenship+"] ";break;
+			}
+			break;
+			case(2):
+			if(!isClerk(cr))continue;
+			if(isMayor(cr))result+="мэр ";
+			else if(isClerk(cr))result+="адм ";
+			result+=crType[citizenship];
+			break;
+			case(3):
+			if(!isCop(cr))continue;
+			if(isSheriff(cr))result+="шеф ";
+			else if(isCop(cr))result+="коп ";
+			result+=crType[citizenship];
+			break;
+			case(4):
+			if(citizenship!=10)continue;
+			break;
+			default:return"[ERROR CheckType:"+CheckType+"]";
+		}
+		n++;
+		result+=GetPlayerName(cr.Id)+" ["+n+"]\n";
+	}
+	return result;
+}
+
+void answer_SheriffBadge_self(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		FileObject@modoc=objectManager.ProtoObject["ContentInfo:"+(1232)];
+		cr.Say((11),"Список администрации:\n"+modoc.GlobalData["AdminList"]);
+		
+	}
+	else if(answerI==1)
+	{
+		FileObject@modoc=objectManager.ProtoObject["ContentInfo:"+(1232)];
+		cr.Say((11),"Список полиции:\n"+modoc.GlobalData["CopList"]);
+		
+	}       
+	
+}
+
+void answer_SheriffBadge(Critter&cr,uint answerI,string&answerS)
+{
+	Critter@asked=GetCritter(cr.Stat[(90)]);
+	if(!(@asked!=null))
+	return;
+	
+	if(answerI==0)
+	{
+		if(asked.Quest[(704)]==0)
+		ToAskJoinPolice(cr,asked);
+		else if(asked.Quest[(704)]==2)
+		cr.Say((11),"Цель уже состоит в полиции.");
+		else
+		cr.Say((11),"Цель уже состоит в какой-то другой фракции.");
+	}
+	else if(answerI==1)
+	{
+		if(asked.Quest[(704)]==2)
+		{
+			asked.QuestBase[(705)]=(0);
+			asked.QuestBase[(704)]=0;
+			cr.Say((11),"Вы исключили цель из рядов полиции.");
+			asked.MercBase[(800)]=cr.Id;
+			cr.KarmaBase[(497)]=0;
+			RestartFactions(cr,0,0,0);
+			Log_factions(cr,asked.Id,2,0,null,null);
+		}
+		else
+		cr.Say((11),"Цель не состоит в полиции.");
+	}
+	else if(answerI==2)
+	{
+		if(asked.Quest[(704)]==1)
+		{
+			asked.QuestBase[(705)]=(0);
+			asked.QuestBase[(704)]=0;
+			cr.Say((11),"Вы исключили цель из администрации города.");
+			asked.MercBase[(800)]=cr.Id;
+			cr.KarmaBase[(497)]=0;
+			RestartFactions(cr,0,0,0);
+			Log_factions(cr,asked.Id,2,0,null,null);
+		}
+		else
+		cr.Say((11),"Цель не состоит в администрации.");
+	}
+}                
+
+enum PoliceBadgeList
+{
+	GetAccess,
+	TimeAccess,
+	PermamentAccess, 
+	
+	Citizenship,
+	
+	UnsetAccess,
+	ExileMark,
+	UnsetMark=ExileMark,  
+	
+	Count
+}
+
+bool e_PoliceBadgeUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	{
+		cr.Say((6),"Показывает значек полиции Модока");
+		return false;
+	}
+	else if(cr.IsPlayer()&&onCritter.IsPlayer()&&(cr.Quest[(704)]==2||cr.Quest[(704)]==7)&&(!IsNotHuman(cr))&&(!IsNotHuman(onCritter)))
+	{
+		cr.StatBase[(90)]=onCritter.Id;
+		cr.ShowScreen((2),PoliceBadgeList::Count,"answer_PoliceBadge");
+		cr.SayMsg((18),(3),107910);
+		cr.SayMsg((19+(PoliceBadgeList::GetAccess)),(3),107911);
+		cr.SayMsg((19+(PoliceBadgeList::TimeAccess)),(3),107912);
+		cr.SayMsg((19+(PoliceBadgeList::PermamentAccess)),(3),107913);
+		cr.SayMsg((19+(PoliceBadgeList::Citizenship)),(3),107915);
+		
+		cr.SayMsg((19+(PoliceBadgeList::UnsetAccess)),(3),107917);
+		if(cr.Quest[(705)]!=10)
+		cr.SayMsg((19+(PoliceBadgeList::ExileMark)),(3),107918);
+		if(cr.Quest[(705)]==10)
+		cr.SayMsg((19+(PoliceBadgeList::UnsetMark)),(3),107919); 
+		
+		return true;
+	}
+	else
+	cr.Say((11),"это неуместно");
+	return true;
+}
+
+void answer_PoliceBadge(Critter&cr,uint answer,string&answerS)
+{
+	Critter@asked=GetCritter(cr.Stat[(90)]);
+	if(!(@asked!=null))
+	return;
+	
+	int answerI=answer;
+	
+	if(answerI==PoliceBadgeList::GetAccess)
+	{
+		if(asked.Quest[(705)]==0)
+		cr.Say((11),"Чужак.");
+		else if(asked.Quest[(704)]==1)
+		cr.Say((11),"Администрация города Модока.");
+		else if(asked.Quest[(704)]==2)
+		cr.Say((11),"Полицейский.");
+		else if(asked.Quest[(705)]==1)
+		cr.Say((11),"Временный гость.");
+		else if(asked.Quest[(705)]==2)
+		cr.Say((11),"Гость.");
+		else if(asked.Quest[(705)]==3)
+		cr.Say((11),"Гражданин Модока.");
+		else if(asked.Quest[(705)]==4)
+		cr.Say((11),"Привелигированный гражданин Модока.");
+		else if(asked.Quest[(705)]==10)
+		cr.Say((11),"Метка изгоя, преступник.");
+		else
+		cr.Say((11),"ERROR, сообщите ГМу или администрации");
+		if(asked.Merc[(800)]==0)
+		cr.Say((11),"Еще никто не менял доступменял доступ.");
+		else
+		cr.Say((11),"Последним менял доступ житель с номером "+asked.Merc[(800)]+" в городском реестре");
+	}
+	else if(answerI==PoliceBadgeList::TimeAccess)
+	{
+		if(asked.Quest[(705)]==0)
+		{
+			asked.QuestBase[(705)]=(1);
+			cr.Say((11),"Вы выдали временный гостевой пропуск.");
+			cr.Say((6),"выдает пропуск");
+			
+			Item@pass=asked.AddItem(912,1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			
+			Log_factions(cr,asked.Id,1,1,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}
+	else if(answerI==PoliceBadgeList::PermamentAccess)
+	{
+		if(asked.Quest[(705)]<=2)
+		{
+			asked.QuestBase[(705)]=(2);
+			cr.Say((11),"Вы выдали постоянный гостевой пропуск.");
+			cr.Say((6),"выдает пропуск");
+			
+			asked.MercBase[(800)]=cr.Id;
+			
+			Item@pass=asked.AddItem(911,1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			
+			Log_factions(cr,asked.Id,1,2,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}               
+	
+	else if(answerI==PoliceBadgeList::Citizenship)
+	{
+		if(asked.Quest[(705)]<3)
+		{
+			asked.QuestBase[(705)]=(3);
+			cr.Say((11),"Вы выдали документы гражданина Модока.");
+			cr.Say((6),"выдает документы");
+			Item@pass=asked.AddItem((910),1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			Log_factions(cr,asked.Id,1,3,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}
+	else if(answerI==PoliceBadgeList::UnsetAccess)
+	{
+		if((asked.Quest[(705)]>0)&&(asked.Quest[(704)]!=1)&&(asked.Quest[(704)]!=2))
+		{
+			asked.QuestBase[(705)]=(0);
+			cr.Say((11),"Вы сняли допуск в город.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,0,null,null);
+		}
+		else
+		cr.Say((11),"Вы не можете снять допуск.");
+	}
+	
+	else if(answerI==PoliceBadgeList::ExileMark)
+	{
+		if(asked.Quest[(705)]<5&&(asked.Quest[(704)]!=1)&&(asked.Quest[(704)]!=2))
+		{
+			asked.QuestBase[(705)]=(10);
+			cr.Say((6),"ставит метку");
+			cr.Say((11),"Вы поставили метку изгоя преступнику.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,10,null,null);
+		}
+		else if(asked.Quest[(705)]==10)
+		{
+			asked.QuestBase[(705)]=(0);
+			cr.Say((11),"Вы убрали метку изгоя.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,10,null,null);
+		}
+		else
+		cr.Say((11),"Вы не можете поставить или убрать метку.");
+	}                                   
+	
+	return;
+}  
+
+void _InitRegistrationDocs(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_PassportUse");
+}                
+
+enum ListingAnswerPassport
+{
+	GetAccess,
+	TimeAccess,
+	PermamentAccess,
+	
+	CountNoAdmin,
+	
+	Reposition=CountNoAdmin-1, 
+	
+	Citizenship,
+	
+	UnsetAccess,
+	ExileMark,
+	UnsetMark=ExileMark,    
+	
+	Count
+}
+
+bool e_PassportUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	{
+		cr.Say((6),"Показывает паспорт гражданина Модока");
+		return true;
+	}
+	else if((cr.Quest[(705)]<=2)||(cr.Quest[(705)]==10))
+	{
+		cr.Say((11),"У вас нет полномочий");
+		return true;
+	}
+	else if(cr.IsPlayer()&&onCritter.IsPlayer()&&(!IsNotHuman(cr))&&(!IsNotHuman(onCritter)))
+	{
+		cr.StatBase[(90)]=onCritter.Id;
+		if(cr.Quest[(704)]==1||cr.Quest[(704)]==2||cr.Quest[(704)]==7||cr.Quest[(704)]==8||cr.Quest[(705)]==4)
+		cr.ShowScreen((2),ListingAnswerPassport::Count,"answer_Passport");
+		else
+		cr.ShowScreen((2),ListingAnswerPassport::CountNoAdmin,"answer_Passport");
+		cr.SayMsg((18),(3),107940);
+		cr.SayMsg((19+(ListingAnswerPassport::GetAccess)),(3),107941);
+		cr.SayMsg((19+(ListingAnswerPassport::TimeAccess)),(3),107942);
+		cr.SayMsg((19+(ListingAnswerPassport::PermamentAccess)),(3),107943);
+		if(cr.Quest[(704)]==1||cr.Quest[(704)]==2||cr.Quest[(704)]==7||cr.Quest[(704)]==8||cr.Quest[(705)]==4)
+		{
+			
+			cr.SayMsg((19+(ListingAnswerPassport::Citizenship)),(3),107945);
+			
+			cr.SayMsg((19+(ListingAnswerPassport::UnsetAccess)),(3),107947);
+			if(cr.Quest[(705)]!=10)
+			cr.SayMsg((19+(ListingAnswerPassport::ExileMark)),(3),107948);
+			else
+			cr.SayMsg((19+(ListingAnswerPassport::UnsetMark)),(3),107949); 
+			
+		}
+		return true;
+	}
+	else
+	cr.Say((11),"это неуместно");
+	return true;
+}
+
+uint ClosestNpcByDialog(Critter&player,int dialog)
+{
+	Map@map=player.GetMap();
+	if((@map!=null))
+	{
+		Critter@[]npc;
+		uint dist=10;
+		uint id=0;
+		if(map.GetCritters(0,(0x0F)|(0x20),npc)==0)
+		{
+			player.Say((11),"нет нужного человека");
+		}
+		else
+		{
+			for(uint i=0;i<npc.length();i++)
+			{
+				if(npc[i].Stat[(104)]==dialog)
+				{
+					if(GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY)<dist)
+					{
+						dist=GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY);
+						id=npc[i].Id;
+					}
+				}
+			}
+			return id;
+		}
+	}
+	return 0;
+}
+
+uint ClosestNpcByPrototype(Critter&player,int proto_first,int proto_last)
+{
+	Map@map=player.GetMap();
+	if((@map!=null))
+	{
+		Critter@[]npc;
+		uint dist=10;
+		uint id=0;
+		if(map.GetCritters(0,(0x0F)|(0x20),npc)==0)
+		{
+			player.Say((11),"нет нужного человека");
+		}
+		else
+		{
+			for(uint i=0;i<npc.length();i++)
+			{
+				if(npc[i].GetProtoId()>=proto_first&&npc[i].GetProtoId()<=proto_last)
+				{
+					if(GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY)<dist)
+					{
+						dist=GetDistantion(player.HexX,player.HexY,npc[i].HexX,npc[i].HexY);
+						id=npc[i].Id;
+					}
+				}
+			}
+			return id;
+		}
+	}
+	return 0;
+}
+
+void answer_Passport(Critter&cr,uint answer,string&answerS)
+{
+	Critter@asked=GetCritter(cr.Stat[(90)]);
+	if(!(@asked!=null))
+	return;
+	
+	int answerI=answer;
+	Critter@guard=GetCritter(ClosestNpcByPrototype(cr,1930,1941));
+	
+	if(answerI==ListingAnswerPassport::GetAccess)
+	{
+		if(asked.Quest[(705)]==0)
+		cr.Say((11),"Чужак.");
+		else if(asked.Quest[(704)]==1)
+		cr.Say((11),"Администрация города Модока.");
+		else if(asked.Quest[(704)]==2)
+		cr.Say((11),"Полицейский.");
+		else if(asked.Quest[(705)]==1)
+		cr.Say((11),"Временный гость.");
+		else if(asked.Quest[(705)]==2)
+		cr.Say((11),"Гость.");
+		else if(asked.Quest[(705)]==3)
+		cr.Say((11),"Гражданин Модока.");
+		else if(asked.Quest[(705)]==4)
+		cr.Say((11),"Привелигированный гражданин Модока.");
+		else if(asked.Quest[(705)]==10)
+		cr.Say((11),"Метка изгоя, преступник.");
+		else
+		cr.Say((11),"ERROR, сообщите ГМу или администрации");
+		if(asked.Merc[(800)]==0)
+		cr.Say((11),"Еще никто не менял доступменял доступ.");
+		else
+		cr.Say((11),"Последним менял доступ житель с номером "+asked.MercBase[(800)]+" в городском реестре");
+	}
+	else if(answerI==ListingAnswerPassport::TimeAccess)
+	{
+		if(!(@guard!=null)&&cr.Quest[(704)]!=1)
+		{
+			cr.Say((11),"Поблизости нет гвардейцев гарнизона.");
+			return;
+		}
+		else if(asked.Quest[(705)]==0)
+		{
+			asked.QuestBase[(705)]=(1);
+			cr.Say((11),"Вы выдали временный гостевой пропуск.");
+			cr.Say((6),"подает знак гвардейцу");
+			guard.Say((1),"да - да, временный пропуск, понятно");
+			Item@pass=asked.AddItem(912,1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			
+			Log_factions(cr,asked.Id,1,1,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}
+	else if(answerI==ListingAnswerPassport::PermamentAccess)
+	{
+		if(!(@guard!=null)&&cr.Quest[(704)]!=1)
+		{
+			cr.Say((11),"Поблизости нет гвардейцев гарнизона.");
+			return;
+		}
+		else if(asked.Quest[(705)]<=1)
+		{
+			asked.QuestBase[(705)]=(2);
+			cr.Say((11),"Вы выдали гостевой пропуск.");
+			cr.Say((6),"подает знак гвардейцу");
+			guard.Say((1),"хм, постоянный пропуск, хорошо, проходи");
+			asked.MercBase[(800)]=cr.Id;
+			
+			Item@pass=asked.AddItem(911,1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			
+			Log_factions(cr,asked.Id,1,2,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}              
+	
+	else if(answerI==ListingAnswerPassport::Citizenship)
+	{
+		if(asked.Quest[(705)]<3)
+		{
+			asked.QuestBase[(705)]=(3);
+			cr.Say((11),"Вы выдали документы гражданина Модока.");
+			cr.Say((6),"выдает документы");
+			Item@pass=asked.AddItem((910),1);
+			pass.Val1=asked.Id;
+			asked.MercBase[(800)]=cr.Id;
+			cr.ShowScreen((5),0,"handcuffs@PassportLex");
+			cr.Say((39),"Имя в документы");
+			cr.StatBase[(93)]=pass.Id;
+			Log_factions(cr,asked.Id,1,3,null,null);
+		}
+		else
+		cr.Say((11),"У цели уже более высокий допуск в город.");
+	}              
+	
+	else if(answerI==ListingAnswerPassport::UnsetAccess)
+	{
+		if((asked.Quest[(705)]>0)&&(cr.Quest[(704)]==1||cr.Quest[(704)]==2||cr.Quest[(704)]==7||cr.Quest[(704)]==8||cr.Quest[(705)]==4))
+		{
+			asked.QuestBase[(705)]=(0);
+			cr.Say((11),"Вы сняли допуск в город.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,0,null,null);
+		}
+		else
+		cr.Say((11),"Вы не можете снять допуск.");
+	}
+	else if(answerI==ListingAnswerPassport::ExileMark)
+	{
+		if(asked.Quest[(705)]<5&&(cr.Quest[(704)]==1||cr.Quest[(704)]==2||cr.Quest[(704)]==7||cr.Quest[(704)]==8||cr.Quest[(705)]==4))
+		{
+			asked.QuestBase[(705)]=(10);
+			cr.Say((6),"ставит метку");
+			cr.Say((11),"Вы поставили метку изгоя преступнику.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,10,null,null);
+		}
+		else if(asked.Quest[(705)]==10)
+		{
+			asked.QuestBase[(705)]=(0);
+			cr.Say((11),"Вы убрали метку изгоя.");
+			asked.MercBase[(800)]=cr.Id;
+			Log_factions(cr,asked.Id,1,0,null,null);
+		}
+		else
+		cr.Say((11),"Вы не можете поставить или убрать метку.");
+	}                                      
+	
+}
+
+void ToAskJoinPolice(Critter&crit,Critter@onCritter)
+{
+	string player;
+	if(crit.IsPlayer())
+	player=GetPlayerName(crit.Id);
+	else
+	player="Кто-то";
+	onCritter.ShowScreen((2),1,"AnswerJoinPolice");
+	onCritter.SayMsg((18),(3),12938,"$player"+player);
+	onCritter.SayMsg((19+(0)),(3),12709);
+}
+
+void AnswerJoinPolice(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		cr.Say((11),"Вы вступили в ряды полиции Модока, гордитесь.");
+		cr.Say((6),"Принимает значек");
+		cr.KarmaBase[(497)]=1;
+		Item@badge=cr.AddItem((1454),1);
+		badge.Val1=cr.Id;
+		cr.QuestBase[(704)]=2;
+		cr.QuestBase[(705)]=(4);
+		RestartFactions(cr,0,0,0);
+		cr.ShowScreen((5),0,"handcuffs@BadgeLex");
+		cr.Say((39),"Имя на значек");
+		cr.StatBase[(93)]=badge.Id;
+		Log_factions(cr,cr.Id,2,2,null,null);
+	}
+}
+
+void BadgeLex(Critter&player,uint answerI,string&answerS)
+{
+	if(answerS.length()!=0)
+	{
+		Item@item=GetItem(player.Stat[(93)]);
+		item.SetLexems(""+answerS);
+		player.Say((11),"На значке выбито имя: "+answerS);
+		item.Update();
+	}
+}
+
+void PassportLex(Critter&player,uint answerI,string&answerS)
+{
+	if(answerS.length()!=0)
+	{
+		Item@item=GetItem(player.Stat[(93)]);
+		if(@item!is null)
+		{
+			PassportLex(item,answerS);
+			player.Say((11),"Документ заполнен на имя: "+answerS);
+		}
+	}
+}
+
+void PassportLex(Item&item,string@name)
+{
+	item.SetLexems(""+name);
+	item.SetLexems("$ModocRegistrationName"+name);
+	item.Update();
+}
+
+void GivePass(Critter&cr)
+{
+	Critter@Police=GetCritter(papik);
+	Item@item=GetItem(Police.StatBase[(90)]);
+	if(Police.Karma[(497)]==1)
+	cr.PerkBase[(417)]=2;
+	else if(Police.Karma[(497)]>=2)
+	{
+		if(item.Val1==0)
+		{
+			cr.PerkBase[(417)]=3;
+			Police.Say((11),"Вы выдали постоянный пропуск.");
+		}
+		else
+		{
+			cr.PerkBase[(417)]=2;
+			Police.Say((11),"Вы выдали временный пропуск.");
+		}
+	}
+	Police.StatBase[(105)]+=1;
+	cr.StatBase[(105)]=papik;
+	Police.Say((11),"Вы выдали пропуск.");
+	Police.Say((6),"выдает пропуск");
+	cr.TimeoutBase[(234)]=__FullSecond+((2)*__TimeMultiplier*3600);
+}
+
+void _InitExileItem(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_ExileUse");
+}
+
+bool e_ExileUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	if(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null))
+	return false;
+	
+	if(!(@onItem!=null)&&!(@onScenery!=null))
+	{
+		if(cr.IsPlayer()&&onCritter.IsPlayer()&&cr.Karma[(495)]>=2&&(!IsNotHuman(cr))&&(!IsNotHuman(onCritter)))
+		{
+			ToAskJoinExile(item,cr,onCritter);
+			return true;
+		}
+	}
+	if((@onItem!=null)&&!(@onCritter!=null)&&!(@onScenery!=null))
+	{
+		Map@map=cr.GetMap();
+		if((@map!=null)&&(map.GetProtoId()==102||map.GetProtoId()==100)&&cr.Karma[(495)]>=2&&(((onItem.LockerCondition)&((0x20)))!=0)&&(onItem.GetType()==(9)||onItem.GetType()==(8)))
+		{
+			cr.ShowScreen((5),0,"handcuffs@ElectroDoorUseScreen");
+			cr.StatBase[(90)]=onItem.Id;
+			return true;
+		}
+	}
+	else
+	cr.Say((11),"это неуместно");
+	return true;
+}
+
+import void setcodedoor(Critter&cr,int p0,int p1,int p3)from"debug";
+
+void ElectroDoorUseScreen(Critter&player,uint answerI,string&answerS)
+{
+	Item@item=GetItem(player.StatBase[(90)]);
+	if(answerS.length()>0)
+	{
+		int number=0;
+		StrToInt(answerS,number);
+		item.Val1=number;
+		if(number>9999||number<1000)
+		return;
+		setcodedoor(player,player.StatBase[(90)],4,number);
+	}
+} 
+
+void ToAskJoinExile(Item&item,Critter&crit,Critter@onCritter)
+{
+	string player;
+	if(crit.IsPlayer())
+	player=GetPlayerName(crit.Id);
+	else
+	player="Кто-то";
+	
+	papik=crit.Id;
+	onCritter.ShowScreen((2),1,"AnswerJoinExile");
+	onCritter.SayMsg((18),(3),12939,"$player"+player);
+	onCritter.SayMsg((19+(0)),(3),12709);
+}
+
+void AnswerJoinExile(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		cr.KarmaBase[(495)]=1;
+		cr.Say((6),"принимает знак");
+		cr.Say((11),"Вы примкнули к изгоям, отныне дорога в Модок для вас закрыта.");
+		cr.QuestBase[(704)]=5;
+		RestartFactions(cr,0,0,0);
+	}
+}
+
+void _InitEnslaveItem(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_EnslaveUse");
+}
+
+bool e_EnslaveUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	bool onSelf=(!(@onCritter!=null)&&!(@onItem!=null)&&!(@onScenery!=null));
+	if(onSelf&&(!IsNotHuman(cr)))
+	{
+		brass=item.Id;
+		papik=cr.Id;
+		Enslave(cr,cr);
+		return true;
+	}
+	if(cr.IsPlayer()&&onCritter.IsPlayer()&&(!IsNotHuman(cr))&&(!IsNotHuman(onCritter)))
+	{
+		if(cr.Karma[(489)]==0)
+		{
+			cr.Say((11),"Вы не умеете обращаться с ошейником");
+			return true;
+		}
+		else if(onCritter.Stat[(72)]<0||onCritter.IsKnockout())
+		{
+			brass=item.Id;
+			papik=onCritter.Id;
+			Enslave(cr,onCritter);
+		}
+		else
+		ToAskEnslave(item,cr,onCritter);
+		return true;
+	}
+	else
+	cr.Say((11),"Это неуместно");
+	return true;
+}
+
+void ToAskEnslave(Item&item,Critter&crit,Critter@onCritter)
+{
+	string player;
+	if(crit.IsPlayer())
+	player=GetPlayerName(crit.Id);
+	else
+	player="Кто-то";
+	
+	papik=crit.Id;
+	brass=item.Id;
+	onCritter.ShowScreen((2),1,"AnswerEnslave");
+	onCritter.SayMsg((18),(3),12958,"$player"+player);
+	onCritter.SayMsg((19+(0)),(3),12956);
+}
+
+void AnswerEnslave(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		Enslave(GetCritter(papik),cr);
+	}
+}
+
+void Enslave(Critter&cr,Critter@onCritter)
+{
+	Item@Precollar=GetItem(brass);
+	
+	Item@[]items;
+	Item@[]items0;
+	
+	uint itemscount=onCritter.GetItems((1),items);
+	uint itemscount0=onCritter.GetItems((2),items0);
+	if(itemscount>0)
+	{
+		onCritter.MoveItem(items[0].Id,itemscount,(0));
+	}
+	if(itemscount0>0)
+	{
+		onCritter.MoveItem(items0[0].Id,itemscount0,(0));
+	}
+	Item@collar=onCritter.AddItem((1537),1),
+	collarswitch=cr.AddItem((1538),1);
+	
+	onCritter.MoveItem(collar.Id,1,(2));
+	cr.Say((6),"Одевает ошейник на раба");
+	cr.Say((11),"Вы одели ошейник на раба.");
+	onCritter.Say((11),"На вас одели ошейник.");
+	collarswitch.Val1=collar.Id;
+	collarswitch.Val2=onCritter.Id;
+	do{if(Precollar.GetCount()>(1))
+		Precollar.SetCount(Precollar.GetCount()-(1));else
+		DeleteItem(Precollar);}while(false);
+}
+
+void _InitUsedCollar(Item&item,bool firstTime)
+{
+	item.SetEvent((6),"_hellno2");
+	item.SetEvent((5),"_hellno4");
+	item.SetEvent((4),"e_used_collar_delete");
+}
+
+bool e_used_collar_delete(Item&item,Critter&cr,int skill)
+{
+	if((skill==(-1))&&(item.Accessory==(2)))
+	do{if(item.GetCount()>(1))
+		item.SetCount(item.GetCount()-(1));else
+		DeleteItem(item);}while(false);
+	return true;
+}
+
+void _InitCollarSwitch(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_shock");
+	item.SetEvent((4),"e_collarunlock");
+}
+
+bool e_shock(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	Critter@Slave=GetCritter(item.Val2);
+	Item@collar=GetItem(item.Val1);
+	if((@Slave!=null))
+	{
+		if(!(@collar!=null))
+		{
+			Item@collar_new=Slave.AddItem((1537),1);
+			item.Val1=collar_new.Id;
+			cr.Say((11),"Раб пытался снять ошейник.");
+		}
+		cr.Say((11),"Вы наказали раба.");
+		Slave.Say((11),"Шею обожгло огнем, все тело сотрясают судороги.");
+		Slave.Say((6),"Корчится в агонии");
+		Slave.StatBase[(72)]-=(Slave.Stat[(72)]/100)+1;
+		Slave.ToKnockout(((true)?(82):(83)),((true)?(86):(87)),((true)?(88):(89)),100,Slave.HexX,Slave.HexY);
+		return true;
+	}
+	return false;
+}
+
+bool e_collarunlock(Item&item,Critter&cr,int skill)
+{
+	Critter@Slave=GetCritter(item.Val2);
+	Item@collar=GetItem(item.Val1);
+	if(skill==(212))
+	{
+		cr.ShowScreen((5),0,"handcuffs@CollarNameScreen");
+		cr.StatBase[(90)]=item.Id;
+		return true;
+	}
+	else if(skill==(206))
+	{
+		if((@Slave!=null))
+		{
+			if(!(@collar!=null))
+			{
+				@collar=Slave.AddItem((1537),1);
+				item.Val1=collar.Id;
+				cr.Say((11),"Раб пытался снять ошейник.");
+			}
+			cr.Say((11),"Вы наказали раба.");
+			Slave.Say((11),"Шею обожгло огнем, все тело сотрясают судороги.");
+			Slave.Say((6),"Корчится в агонии");
+			Slave.StatBase[(72)]-=Random(1,4);
+			Slave.ToKnockout(((true)?(82):(83)),((true)?(86):(87)),((true)?(88):(89)),10,Slave.HexX,Slave.HexY);
+			return true;
+		}
+		else
+		cr.Say((11),"Ответный сигнал слишком слабый.");
+		return true;
+	}
+	else if(skill==(207))
+	{
+		if((@Slave!=null))
+		{
+			if(!(@collar!=null))
+			{
+				Item@collar_new=Slave.AddItem((1537),1);
+				item.Val1=collar_new.Id;
+				cr.Say((11),"Раб пытался снять ошейник.");
+			}
+			cr.Say((11),"Ошейник раба отзывается.");
+			Slave.Say((11),"Ошейник колется.");
+			return true;
+		}
+		else
+		cr.Say((11),"Ответный сигнал слишком слабый.");
+		return true;
+	}
+	else if(skill==(213))
+	{
+		if((@Slave!=null))
+		{
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+			if((@collar!=null))
+			do{if(collar.GetCount()>(1))
+				collar.SetCount(collar.GetCount()-(1));else
+				DeleteItem(collar);}while(false);
+			cr.Say((11),"Вы казнили раба");
+			Slave.Say((11),"Боль как от сотни расскаленных игл пронзила вас.");
+			Slave.ToDead((113),cr);
+		}
+		else
+		cr.Say((11),"Ответный сигнал слишком слабый.");
+		return true;
+	}
+	if(skill==(211))
+	{
+		if((@Slave!=null))
+		{
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+			if((@collar!=null))
+			do{if(collar.GetCount()>(1))
+				collar.SetCount(collar.GetCount()-(1));else
+				DeleteItem(collar);}while(false);
+			cr.Say((11),"Вы освободили раба");
+			cr.AddItem((1536),1);
+			Slave.Say((11),"Ошейник расстегнулся");
+		}
+		else
+		cr.Say((11),"Ответный сигнал слишком слабый.");
+		return true;
+	}
+	return false;
+}
+
+void CollarNameScreen(Critter&player,uint answerI,string&answerS)
+{
+	if(answerS.length()!=0)
+	{
+		Item@item=GetItem(player.StatBase[(90)]);
+		item.SetLexems(""+answerS);
+		item.Update();
+	}
+}

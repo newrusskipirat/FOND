@@ -1,0 +1,877 @@
+
+# define __MAIN_AI
+# include "_macros.fos"
+# include "_global_events.fos"
+# include "_npc_pids.fos"
+# include "Ai.fosh"
+
+import bool AddAttackPlane( Critter& critter, uint priority, Critter& target ) from "npc_planes";
+import bool AddAttackPlane( Critter& critter, uint priority, Critter& target, int minHp ) from "npc_planes";
+import bool AddWalkPlane( Critter& critter, uint priority, uint16 hexX, uint16 hexY, uint8 dir, bool run, uint cut ) from "npc_planes";
+import uint EraseAttackPlane( Critter& critter, Critter& target ) from "npc_planes";
+import bool IsKindFriend( Critter& critter, Critter& check ) from "world";
+
+ManagerControllers _Manager;
+
+void _MapFinish( Map& map, bool deleted )
+{
+	@map.ScriptDescriptor = null;
+}
+
+void ModuleInit( string&in, Handle@ ){ manager_add_module( _Manager, "AiControllers", uint8(-2) );}
+class ManagerControllers : iManagerModule, iManager_map_critter_in, iManager_map_critter_out, iManager_critter_idle, iManager_critter_finish
+{	
+	bool global_critter_finish( Critter& critter, bool toDelete )
+	{
+		@critter.GroupDescriptor = null;
+		return true;
+	}
+	
+    bool manager_init( ) override
+	{
+		return true;
+	}
+	
+	bool manager_start( ) override
+	{
+		return true;
+	}
+	
+	bool global_critter_idle( Critter& critter )
+	{
+		return true;
+	}
+	
+	MapDescriptor @GetDescriptor( Map& map )
+	{
+		Descriptor @descriptor = map.ScriptDescriptor;
+		if( @descriptor is null )
+		{
+			@map.ScriptDescriptor = MapDescriptor( map );
+			@descriptor = map.ScriptDescriptor;
+			if( map.GetEventFuncId( MAP_EVENT_FINISH ) == 0 )
+				map.SetEvent( MAP_EVENT_FINISH, "_MapFinish" );
+		}
+		return cast<MapDescriptor@>(descriptor);
+	}
+	
+    bool global_map_critter_in( Map& map, Critter& critter ) override
+	{
+		MapDescriptor @descriptor = GetDescriptor( map );
+		if( @descriptor !is null )
+			descriptor.CritterIn( critter );
+			
+		return true;
+	}
+	
+    bool global_map_critter_out( Map& map, Critter& critter ) override
+	{
+		MapDescriptor @descriptor = GetDescriptor( map );
+		if( @descriptor !is null )
+				descriptor.CritterOut( critter );
+
+		return true;
+	}
+}
+
+class MapDescriptor : Descriptor
+{
+	MapDescriptor( Map& map )
+	{
+		@ThisMap = map;
+	}
+	
+	void CritterIn( Critter& critter )
+	{
+		if( critter.IsNpc() )
+		{
+			for( uint i = 0, iEnd = Orders.length(); i < iEnd; i++ )
+				if( Orders[i].AddCritter( critter ) )
+				{
+					@critter.GroupDescriptor = Orders[i];
+					return;
+				}
+				
+			Group @group = Group( critter );
+			@critter.GroupDescriptor = group;
+			Orders.insertLast( group );
+		}
+	}
+	
+	void CritterOut( Critter& critter )
+	{
+		if( critter.IsNpc() )
+		{
+			for( uint i = 0, iEnd = Orders.length(); i < iEnd; i++ )
+				if( Orders[i].find( critter ) == 0 )
+				{
+					Orders[i].RemoveCritter( critter );
+					if( @Orders[i].Leader is null ) Orders.removeAt( i );
+					@critter.GroupDescriptor = null;
+					return;
+				}
+			
+		}
+	}
+	
+	Group@[] Orders;
+	Map@ ThisMap;
+}
+
+class LeaderData
+{
+	LeaderData( AloneController @new, LeaderData @last = null )
+	{
+		@Current = new;
+		@Last = last;
+	}
+	
+	LeaderData @New( AloneController @controller ){ return LeaderData( controller, this ); }
+	bool IsValid( ){	return ( @Current !is null && @Current.Npc !is null && !Current.Npc.IsDead( ) ); }
+	
+	LeaderData @Return( )
+	{
+		if( @Last !is null )
+		{
+			if( Last.IsValid( ) ) return Last;
+			return Last.Return( );
+		}
+		return null;
+	}
+
+	LeaderData @Last;
+	AloneController @Current;
+}
+
+class Group : Descriptor
+{
+	Group@[] Orders;
+	
+	AloneController@[] Controllers;
+	LeaderData @LeaderHierarchy;
+	
+	Critter@ get_Leader( )
+	{
+		if( @LeaderHierarchy !is null && @LeaderHierarchy.Current !is null )
+			return LeaderHierarchy.Current.Npc;
+		return null;
+	}
+	
+	int TeamId;
+	
+	Group( Critter& critter )
+	{
+		TeamId = critter.Stat[ST_TEAM_ID];
+		AddCritterForced( critter );
+	}
+	
+	int find( Critter& critter )
+	{
+		uint critterId = critter.Id;
+		for( int i = 0, iEnd = Controllers.length(); i < iEnd; i++ )
+			if( Controllers[i].Npc.Id == critterId )
+				return i;
+		return -1;
+	}
+	
+	private void AddCritterForced( Critter& critter )
+	{
+		AloneController @controller = AloneController( critter );
+		Controllers.insertLast( controller );
+		if( @LeaderHierarchy is null )
+			@LeaderHierarchy = LeaderData( controller );
+	}
+	
+	bool AddCritter( Critter& critter )
+	{
+		if( TeamId != 0 )
+		{
+			if( TeamId == critter.Stat[ST_TEAM_ID] )
+			{
+				AddCritterForced( critter );
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	bool RemoveCritter( Critter& critter )
+	{
+		int index = find( critter );
+		if( index != -1 )
+		{
+			Controllers.removeAt( index );
+			if( critter.Id == LeaderHierarchy.Current.Npc.Id )
+				@LeaderHierarchy = LeaderHierarchy.Return();
+			return true;
+		}
+		return false;
+	}
+}
+
+class AloneController : iController
+{
+	AloneController( Critter& critter )
+	{
+		@Npc = critter;
+		@ListEnemy = array<Critter@>( 0 );
+		@property_Ai = GetAI( critter );
+		Critter@[] critters = { critter };
+		if( @property_Ai !is null )
+			for( uint i = 0, iEnd = property_Ai.GetWorkCritters ( critters, critter ); i < iEnd; i++ )
+			{
+				Critter@ icritter = @critters[i];
+				if( icritter.Mode[ MODE_HIDE ] != 0 && icritter.IsPlayer() && icritter.GetAccess() > ACCESS_TESTER )
+					continue;
+				if( IsEnemy( critter, icritter ) )
+					ListEnemy.insertLast( icritter );
+			}
+	}
+
+	bool Attack( Critter& target, bool ignoredCheckers ) override
+	{
+		if( target.Quest[ QST_INVIS ] == 1 )
+			return false; //Frank Kost hotfix 21.03.2018. Теперь мобы не агрятся на ГМ-инвиз.
+		if( @property_Ai !is null )
+			return property_Ai.AddAttackPlane( Npc, target );
+		return AddAttackPlane( Npc, 0, target );
+	}
+	
+	bool Walk( Critter& critter ) override
+	{
+		if( @property_Ai !is null && !property_Ai.IsIdleWalk )
+			return false;
+		int rand = Random( 0, 9 );  
+		if(  rand < 4 ) 
+			critter.MoveRandom();
+		return rand != 10;
+	}
+
+	bool GoHome( Critter& critter ) override
+	{
+		uint   mapId = 0;
+		uint16 homeX = 0, homeY = 0;
+		uint8  dir = 0;
+		critter.GetHomePos( mapId, homeX, homeY, dir );
+		
+		if( critter.GetMapId() == mapId && GetDistantion( homeX, homeY, critter.HexX, critter.HexY ) > critter.AIWorkRadius )
+		{
+			critter.DropPlanes();
+			return AddWalkPlane( critter, 0, homeX, homeY, dir, false, 0 );
+		}
+		return false;
+	}
+	
+	bool IsEnemy( Critter& npc, Critter& target ) override {
+		if( @property_Ai !is null && !property_Ai.IsControllerEnemy )
+			return property_Ai.IsEnemy( target );
+		return ( npc.KindHierarchy != 0 && !IsKindFriend( npc, target ) );
+	}
+
+	bool Idle( ) override
+	{
+		if( ListEnemy.length() > 0 )
+		{
+			Attack( ListEnemy[ Random( 0, ListEnemy.length() - 1 ) ], false );
+			return false;
+		}
+		return true;
+	}
+	
+	iAI @property_Ai;
+	iAI @get_Ai( ) override { return @property_Ai; }
+	
+	Critter@ Npc;
+	Critter@[] @ListEnemy;
+}
+
+class GroupController : iController
+{
+	GroupController( Critter& critter )
+	{
+		@ListNpc = array<Critter@>( 0 );
+		@ListEnemy = array<Critter@>( 0 );
+		@property_Ai = GetAI( critter );
+			
+		ListNpc.insertLast( critter );
+		LeaderId = critter.AIGroupHierarchy;
+		
+		Critter @icritter = null, leader = GetCritter( LeaderId );
+		if( @leader !is null && LeaderId != critter.Id )
+			ListNpc.insertLast( leader );
+		else LeaderId = critter.Id;
+		
+		TeamId = critter.Stat[ ST_TEAM_ID ];
+		@Npc = critter;
+		
+		for( uint i = 0, iEnd = property_Ai.GetWorkCritters ( ListEnemy, critter ); i < iEnd; i++ )
+		{
+			@icritter = @ListEnemy[i];
+			if( icritter.Mode[ MODE_HIDE ] != 0 && icritter.IsPlayer() && icritter.GetAccess() > ACCESS_TESTER )
+			{
+				ListEnemy.removeAt( i-- );
+				iEnd--;
+				continue;
+			}
+			if( !IsEnemy( critter, icritter ) )
+			{
+				if( icritter.Stat[ ST_TEAM_ID ] == TeamId )
+				{
+					if( LeaderId == 0 || icritter.AIGroupHierarchy == LeaderId )
+						ListNpc.insertLast( icritter );
+				}
+				
+				ListEnemy.removeAt( i-- );
+				iEnd--;
+			}
+		}
+	}
+
+	bool Idle( ) override
+	{
+		if( ListEnemy.length() > 0 )
+		{
+			Attack( ListEnemy[ Random( 0, ListEnemy.length() - 1 ) ], false );
+			return false;
+		}
+		return true;
+	}
+	
+	bool Walk( Critter& critter ) override
+	{
+		if( @property_Ai !is null && !property_Ai.IsIdleWalk )
+			return true;
+	
+		if( LeaderId == 0 || LeaderId == critter.Id  )
+		{
+			int rand = Random( 0, 9 );  
+			if( rand < 4 ) 
+				critter.MoveRandom();
+			return rand != 10;
+		}
+		else
+		{
+			Critter@ leader = GetCritter( LeaderId );
+				
+			if( GetCrittersDistantion ( leader, critter ) > critter.AIWorkRadius )
+				AddWalkPlane( critter, 0, leader.HexX, leader.HexY, critter.Dir, false, Random( 1, critter.AIWorkRadius - 1 ) );
+			else if( Random( 0, 10 ) > 4 )
+				critter.MoveRandom();
+		}
+		return true;
+	}
+
+	bool GoHome( Critter& critter ) override
+	{
+		if( LeaderId == 0 && ListNpc.length() == 1 )
+		{
+			uint   mapId = 0;
+			uint16 homeX = 0, homeY = 0;
+			uint8  dir = 0;
+			
+			critter.GetHomePos( mapId, homeX, homeY, dir );
+			
+			if( critter.GetMapId() == mapId )
+				return AddWalkPlane( critter, 0, homeX, homeY, dir, false, 0 );
+		}
+		return false;
+	}
+	
+	bool Attack( Critter& target, bool ignoredCheckers ) override
+	{
+		for( uint i = 0, iEnd = ListNpc.length(); i < iEnd; i++ )
+		{
+			//Log( "Attack " + target.Id + " " + i + " " + iEnd );
+			if( ignoredCheckers )
+			{
+				if( @property_Ai !is null )
+					return property_Ai.AddAttackPlane( ListNpc[i], target );
+				return AddAttackPlane( ListNpc[i], 0, target );
+			}
+			else
+			{
+				if( ListNpc[i].Quest[ QST_INVIS ] == 1 ) continue; //Frank Kost hotfix 21.03.2018. Теперь мобы не агрятся на ГМ-инвиз.
+				if( IsEnemy( ListNpc[i], target ) )
+				{
+					if( @property_Ai !is null )
+						return property_Ai.AddAttackPlane( ListNpc[i], target );
+					return AddAttackPlane( ListNpc[i], 0, target );
+				}
+			}
+		}
+		
+		return true;
+	}
+	
+	bool IsEnemy( Critter& npc, Critter& target ) override 
+	{
+		if( @property_Ai !is null && !property_Ai.IsControllerEnemy )
+			return property_Ai.IsEnemy( target );
+		
+		bool isFrend = false;
+		if( npc.KindHierarchy != 0 )
+			isFrend = IsKindFriend( npc, target );
+		
+		if( isFrend )
+			return false;
+			
+		return ( TeamId != 0 && TeamId != target.Stat[ST_TEAM_ID] );
+	}
+	
+	Critter@ Npc;
+	int TeamId;
+	uint LeaderId;
+	Critter@[] @ListNpc;
+	Critter@[] @ListEnemy;
+	
+	iAI @property_Ai;
+	iAI @get_Ai( ) override { return @property_Ai; }
+}
+
+// Нету развития, попадет под сокращение
+iController @GetTeamController( Critter& critter )		{ return @GroupController( critter ); }
+iController @GetAloneController( Critter& critter )		{ return @AloneController( critter ); }
+iController @GetController( Critter& critter )
+{
+	iAI @ai = @GetAI( critter );
+	if( 0 == critter.Stat[ST_TEAM_ID] || ai.GetTeamCritters( critter, null ) == 1 )
+		return @GetAloneController( critter );
+	return @GetTeamController( critter );
+}
+
+void Idle( Critter& critter )
+{
+	if( critter.IsCanWalk( ) && critter.IsLife() )
+	{
+		iController @controller = @GetController( critter );
+		if( controller.Idle( ) && !controller.Walk( critter ) )
+			controller.GoHome( critter );
+	}
+}
+
+bool Attacked( Critter& critter, Critter& attacking )
+{
+	iController @controller = @GetController( critter );
+    return controller.Attack( attacking, true );
+}
+
+void ShowCritter( Critter& critter, Critter& show )
+{
+	iController @controller = @GetController( critter );
+	iAI @ai = @controller.Ai;
+	
+	if( ai.IsEnemy( show ) )
+		controller.Attack( show, false );
+}
+
+void ShowAttack( Critter& critter, Critter& attacking, Critter& target)
+{
+	iController @controller = @GetController( critter );
+	iAI @ai = @controller.Ai;	
+	
+	if( critter.AIHash == target.AIHash )
+	{
+		controller.Attack( attacking, true );
+		return;
+	}
+	if( critter.AIHash == attacking.AIHash )
+	{
+		controller.Attack( target, true );
+		return;	
+	}
+	
+	int targetProtected = ai.IsProtected( target );
+	
+	if( 0 > targetProtected ) return; // Не защищаем
+	
+	if( targetProtected >= ai.IsProtected( attacking ) )
+		controller.Attack( attacking, true );
+}
+/*
+Аргументы:
+ plane  План.  
+ childIndex  Номер плана в качестве наследника, если 0, значит план базовый.  
+ reason  Указывает причину завершения плана (см. Plane end reasons).  
+ someCr  В некоторых случаях хранит указатель на персонажа (см. Работа с планами ).  
+ someItem  В некоторых случаях хранит указатель на предмет (см. Работа с планами ). 
+
+ Plane end reasons
+#define  REASON_SUCCESS   (30) 
+#define  REASON_HEX_TOO_FAR   (31) 
+#define  REASON_HEX_BUSY   (32) 
+#define  REASON_HEX_BUSY_RING   (33) 
+#define  REASON_DEADLOCK   (34) 
+#define  REASON_TRACE_FAIL   (35) 
+#define  REASON_POSITION_NOT_FOUND   (36) 
+#define  REASON_FIND_PATH_ERROR   (37) 
+#define  REASON_CANT_WALK   (38) 
+#define  REASON_TARGET_DISAPPEARED   (39) 
+#define  REASON_USE_ITEM_NOT_FOUND   (40) 
+#define  REASON_GAG_CRITTER   (41) 
+#define  REASON_GAG_ITEM   (42) 
+#define  REASON_NO_UNARMED   (43) 
+
+ 
+Возвращает:
+PLANE_RUN_GLOBAL - вызвать глобальный обработчик, который определит сохранить или удалить план; 
+PLANE_KEEP - сохранить план, без вызова глобального обработчика; 
+PLANE_DISCARD - удалить план, без вызова глобального обработчика. 
+
+int  Identifier 
+  Идентификатор плана. 
+uint  IdentifierExt 
+  Дополнительный идентификатор плана. 
+int  Type 
+  Тип плана. 
+uint  Priority 
+  Приоритет плана. 
+NpcPlane  Child 
+  Дочерний план.
+bool  Run 
+  Указывает, бежать ли криттеру при выполнении плана (true) или идти (false). 
+ 
+AI_PLANE_ATTACK  
+uint  Attack_TargId 
+  Уникальный ID атакуемого криттера. 
+int  Attack_MinHp 
+  Минимальное количество очков жизни у атакуемого криттера. 
+bool  Attack_IsGag 
+  (?) 
+uint16  Attack_GagHexX 
+  (?) 
+uint16  Attack_GagHexY 
+  (?)
+uint16  Attack_LastHexX 
+  (?) 
+uint16  Attack_LastHexY 
+
+
+*/
+bool AddPlaneChild( Critter& npc, NpcPlane& plane, NpcPlane& child )
+{
+    if( child.Type == plane.Type && plane.Attack_TargId == child.Attack_TargId && AI_PLANE_ATTACK == plane.Type )
+        return false;
+    plane.SetChild( child );
+    //return false;
+    return npc.AddPlane(plane);
+}
+
+int PlaneEnd(Critter& critter, NpcPlane& plane, int reason, Critter@ someCritter, Item@ someItem)
+{
+	if( plane.Type == AI_PLANE_ATTACK && reason != REASON_SUCCESS )
+	{
+		if( reason == REASON_TARGET_DISAPPEARED )
+		{
+			Critter@ target = GetCritter( plane.Attack_TargId );
+			NpcPlane@ child = CreatePlane();
+			child.Type = AI_PLANE_WALK;
+			child.Priority = plane.Priority * 2;
+			child.Identifier = 0;
+			child.IdentifierExt = 0;
+			child.Walk_HexX = target.HexX;
+			child.Walk_HexY = target.HexY;
+			child.Run = plane.Run;
+			child.Walk_Cut = critter.GetMap().GetPathLength ( critter, target.HexX, target.HexY, 2 );
+			
+			AddPlaneChild( critter, plane, child );	
+			return PLANE_KEEP;
+		}
+		//Log( "End attack " + reason );
+		//critter.SetEvent( CRITTER_EVENT_PLANE_END, "PlaneEnd" );
+	}
+
+	return PLANE_RUN_GLOBAL;
+}
+
+NewAI( AggressorAI, Aggressor, DefaultAI )
+{
+	AggressorAI( Critter& critter )
+	{
+		super( critter );
+		hash = HashList.Get ( "Aggressor" );
+	}
+	
+	void Initialize( Critter& critter ) override
+	{
+		DefaultAI::Initialize( critter );
+		critter.AIHash = hash;
+	}
+	
+	bool IsEnemy( Critter& target ) override
+	{
+		return target.AIHash != hash;
+	}
+	
+	iAI @Copy( Critter& critter ) override
+	{
+		return AggressorAI( critter );
+	}
+	
+	uint GetWorkCritters( Critter@[]@ critters, Critter& critter ) override
+	{
+		return critter.GetMap().GetCritters( 0, FIND_LIFE_AND_KO , critters );
+	}
+	
+	bool get_IsControllerEnemy( ) override
+	{
+		return false;
+	}
+	
+	uint hash;
+}
+
+enum CitizenshipType
+{
+	CTEnemy = -1,
+	CTOutcast = -1,
+	CTStranger,
+	CTVisitor = 11,
+	CTCitizen,
+	
+	CTCop,
+	CTAdmin,
+	CTMayor,
+	CTSheriff,
+	
+	CTMax,
+}
+
+NewAI( ModocGuardAI, ModocGuard, GuardAI )
+{
+	ModocGuardAI( Critter& critter )
+	{
+		super( critter );
+		hash = HashList.Get ( "ModocGuard" );
+	}
+	
+	void Initialize( Critter& critter ) override
+	{
+		GuardAI::Initialize( critter );
+		critter.ModeBase[ MODE_NO_HOME ] = 0;
+		critter.AIWorkRadius = 40;
+		critter.AIHash = hash;
+	}
+	
+	int IsProtected( Critter& verifying ) override {
+		if( IsEnemy( verifying ) ) return CitizenshipType::CTEnemy;
+		
+		int priority = 0;
+		
+		if( verifying.Quest[QST_FACTION] == 2 ) return CitizenshipType::CTCop;
+		if( verifying.Quest[QST_FACTION] == 1 ) return CitizenshipType::CTAdmin;
+		if( verifying.Quest[QST_FACTION] == 8 ) return CitizenshipType::CTMayor;
+		if( verifying.Quest[QST_FACTION] == 7 ) return CitizenshipType::CTSheriff;
+		/*
+		 "0 - без фракции" );
+         "1 - администрация" );
+         "2 - полиция" );
+         "3 - мафия" );
+         "4 - мутанты" );
+         "5 - форт" );
+         "6 - рейдеры" );
+         "7 - шериф" );
+         "8 - мэр" );
+		*/
+		
+		if( verifying.Quest[QST_MODOC_CITIZENSHIP] != 0 ) 
+		{
+			if( verifying.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+				return CitizenshipType::CTOutcast;
+			else priority = verifying.Quest[QST_MODOC_CITIZENSHIP];
+		}
+		if( hash == verifying.AIHash )	priority = CitizenshipType::CTMax;
+															
+		return priority;
+	}
+	
+	iAI @Copy( Critter& critter ) override {
+		return @ModocGuardAI( critter );
+	}
+}
+
+NewAI( GuardAI, Guard, DefaultAI )
+{
+	GuardAI( Critter& critter )
+	{
+		super( critter );
+		hashAggressor = HashList.Get ( "Aggressor" );
+		hash = HashList.Get ( "Guard" );
+	}
+	
+	bool get_IsIdleWalk( ) override
+	{
+		return false;
+	}
+	
+	
+	bool AddAttackPlane( Critter& critter, Critter& target ) override
+	{
+		if( target.IsNpc() ) return ::AddAttackPlane( critter, 0, target );
+		return ::AddAttackPlane( critter, 0, target, 0 );
+	}
+	
+	bool get_IsControllerEnemy( ) override
+	{
+		return false;
+	}
+	
+	uint GetTeamCritters( Critter& critter, Critter@[]@ critters ) override
+	{
+		Map@ map = critter.GetMap();
+		Critter@[] temp = {};
+		uint len = 0;
+		for( uint i = 0, iEnd = GetWorkCritters( temp, critter ); i < iEnd; i++ )
+			if( temp[i].IsNpc() && critter.AIHash == temp[i].AIHash )
+			{
+				if( @critters !is null )
+					critters.insertLast( temp[i] );
+				len++;
+			}
+		return len;
+	}
+	
+	void Initialize( Critter& critter ) override
+	{
+		DefaultAI::Initialize( critter );
+		
+		critter.SetEvent( CRITTER_EVENT_SMTH_ATTACK, "ShowAttack" );
+		
+		critter.AIHash = hash;
+	}
+
+	iAI @Copy( Critter& critter ) override
+	{
+		return GuardAI( critter );
+	}
+	
+	bool IsEnemy( Critter& target ) override
+	{
+		return target.AIHash == hashAggressor;
+	}
+	
+	int IsProtected( Critter& target ) override
+	{
+		if( IsEnemy( target ) )
+			return -1;
+		if( target.IsPlayer( ) ) 
+			return 1;
+		if( target.AIHash == hash )
+			return 2;
+		return 0;
+	}
+	
+	uint hashAggressor;
+	uint hash;
+}
+
+NewAI( DefaultAI, Default, iAI )
+{
+	DefaultAI( Critter& critter ){}
+
+	bool get_IsIdleWalk( ) override
+	{
+		return true;
+	}
+	
+	bool AddAttackPlane( Critter& critter, Critter& target ) override
+	{
+		return ::AddAttackPlane( critter, 0, target );
+	}
+	
+	bool get_IsControllerEnemy( ) override
+	{
+		return true;
+	}
+	
+	int IsProtected( Critter& target ) override
+	{
+		return 0;
+	}
+
+	bool IsEnemy( Critter& target ) override
+	{
+		return false;
+	}
+	
+	void Initialize( Critter& critter ) override
+	{
+		critter.AIHash = HashList.Get( "Default" );
+		critter.ModeBase[ MODE_NO_HOME ] = 1;
+
+		critter.SetEvent( CRITTER_EVENT_IDLE, "Idle" );
+		critter.SetEvent( CRITTER_EVENT_ATTACKED,"Attacked" );
+		
+		critter.SetEvent( CRITTER_EVENT_SHOW_CRITTER, "ShowCritter");
+		//critter.SetEvent( CRITTER_EVENT_PLANE_END, "PlaneEnd" );
+	}
+	
+	uint GetWorkCritters( Critter@[]@ critters, Critter& critter ) override {
+		return critter.GetMap().GetCrittersHex ( critter.HexX, critter.HexY, critter.AIWorkRadius, FIND_LIFE_AND_KO , critters );
+	}
+	
+	uint GetTeamCritters( Critter& critter, Critter@[]@ critters ) override
+	{
+		Map@ map = critter.GetMap();
+		Critter@[] temp = {};
+		uint len = 0;
+		int teamId = critter.Stat[ ST_TEAM_ID ];
+		if( teamId != 0 )
+		{
+			for( uint i = 0, iEnd = GetWorkCritters( temp, critter ); i < iEnd; i++ )
+				if( temp[i].IsNpc() && temp[i].Stat[ ST_TEAM_ID ] == teamId )
+				{
+					if( @critters !is null )
+						critters.insertLast( temp[i] );
+					len++;
+				}
+		}
+		return len;
+	}
+	
+	iAI @Copy( Critter& critter ) override {
+		return DefaultAI( critter );
+	}
+}
+
+NewAI( HumanoidAI, Humanoid, DefaultAI )
+{
+	HumanoidAI( Critter& critter ) {
+		super( critter );
+	}
+	
+	void Initialize( Critter& critter ) override
+	{
+		DefaultAI::Initialize( critter );
+		critter.AIHash = HashList.Get( "Humanoid" );
+	}
+	
+	iAI @Copy( Critter& critter ) override {
+		return HumanoidAI( critter );
+	}
+}
+
+HashMemory HashList;
+
+class HashMemory : AiHashMemory
+{
+	HashMemory()
+	{
+		Get( "Humanoid", HumanoidAI( ) );
+		Get( "Aggressor", AggressorAI( ) );
+		Get( "Default", DefaultAI( ) );
+		Get( "Guard", GuardAI( ) );
+		Get( "ModocGuard", ModocGuardAI( ) );
+	}
+}
+
+AiHashMemory @get_AiHashList( ){
+	return @HashList;
+}
+
+iAI @GetAI( Critter& critter )
+{
+	iAI @ai = HashList.GetAI( critter.AIHash );
+	if( @ai is null )
+		return null;
+	return @ai.Copy( critter );
+}

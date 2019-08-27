@@ -1,0 +1,266 @@
+# ifndef __MAPS__
+# define __MAPS__
+
+// ************************************************************************/
+// * Locations                                                            */
+// ************************************************************************/
+
+/*
+   # define LOCATION_IS_CITY #(locPid)                  ((locPid)>=LOCATION_Den && (locPid)<=LOCATION_Vault13 && (locPid)!=LOCATION_Cathedral && (locPid)!=LOCATION_MilitaryBase && (locPid)!=LOCATION_Sierra && (locPid)!=LOCATION_ReplicationHell)
+ */
+
+// # define LOCATION_IS_OCEAN #(locPid)                 ((locPid)>=LOCATION_Den && (locPid)<=LOCATION_OceanTrader) //q tla water
+
+//Modoc
+# define LOCATION_Modoc  							( 1 )
+
+# define LOCATION_Modoc_Rich						( 1 )
+# define LOCATION_Modoc_Admin						( 2 )
+# define LOCATION_Modoc_Mine						( 3 )
+# define LOCATION_Modoc_Slum						( 4 )
+# define LOCATION_Modoc_Center						( 5 )
+# define LOCATION_Modoc_Sawmill						( 6 )
+//approaches
+# define LOCATION_Modoc_1_1							( 2 )
+# define LOCATION_Modoc_1_2							( 3 )
+# define LOCATION_Modoc_1_3							( 4 )
+# define LOCATION_Modoc_1_4							( 5 )
+# define LOCATION_Modoc_2_1							( 6 )
+# define LOCATION_Modoc_2_4							( 7 )
+# define LOCATION_Modoc_3_1							( 8 )
+# define LOCATION_Modoc_3_4							( 9 )
+# define LOCATION_Modoc_4_1							( 10 )
+# define LOCATION_Modoc_4_2							( 11 )
+# define LOCATION_Modoc_4_3							( 12 )
+# define LOCATION_Modoc_4_4							( 13 )
+
+
+//Sutter
+# define LOCATION_Sutter_1_1						( 20 )
+# define LOCATION_Sutter_1_2						( 21 )
+# define LOCATION_Sutter_1_3						( 22 )
+# define LOCATION_Sutter_1_4						( 23 )
+# define LOCATION_Sutter_2_1						( 24 )
+# define LOCATION_Sutter_2_4						( 25 )
+# define LOCATION_Sutter_3_1						( 26 )
+# define LOCATION_Sutter_3_4						( 27 )
+# define LOCATION_Sutter_4_1						( 28 )
+# define LOCATION_Sutter_4_2						( 29 )
+# define LOCATION_Sutter_4_3						( 30 )
+# define LOCATION_Sutter_4_4						( 31 )
+# define LOCATION_Sutter     						( 32 )
+
+
+//Lake
+# define LOCATION_Lakecity                      	( 41 )
+
+//Phoenix
+# define LOCATION_Phoenix                       	( 42 )
+
+//Junkyard
+# define LOCATION_Junkyard                      	( 43 )
+
+
+//other
+# define LOCATION_Bridge							( 90 )
+# define LOCATION_Cell								( 91 )
+# define LOCATION_StartMap							( 93 )
+# define LOCATION_Dream								( 94 )
+# define LOCATION_Arcade							( 95 )
+# define LOCATION_Deadloc							( 96 )
+
+/*
+# define LOCATION_Modoc_1                       	( 1 )
+# define LOCATION_Modoc_2                       	( 2 )
+# define LOCATION_Modoc_3                       	( 3 )
+# define LOCATION_Modoc_4                       	( 4 )
+# define LOCATION_Modoc_5                       	( 5 )
+# define LOCATION_Modoc_6                       	( 6 )
+# define LOCATION_ModocApp_1                    	( 7 )
+# define LOCATION_ModocApp_2                    	( 8 )
+# define LOCATION_ModocApp_3                    	( 9 )
+# define LOCATION_ModocApp_4                    	( 10 )
+# define LOCATION_ModocApp_5                    	( 11 )
+# define LOCATION_ModocApp_6                    	( 12 )
+
+# define LOCATION_Satter_0_0                    	( 13 )
+# define LOCATION_Satter_0_1                    	( 14 )
+# define LOCATION_Satter_0_2                    	( 15 )
+# define LOCATION_Satter_0_3                    	( 16 )
+# define LOCATION_Satter_1_0                    	( 17 )
+# define LOCATION_Satter_1_3                    	( 18 )
+# define LOCATION_Satter_2_0                    	( 19 )
+# define LOCATION_Satter_2_3                    	( 20 )
+# define LOCATION_Satter_3_0                    	( 21 )
+# define LOCATION_Satter_3_1                    	( 22 )
+# define LOCATION_Satter_3_2                    	( 23 )
+# define LOCATION_Satter_3_3                    	( 24 )
+# define LOCATION_Satter_center                 	( 25 )
+
+# define LOCATION_lake                          	( 40 )
+# define LOCATION_junkyard                      	( 41 )
+# define LOCATION_phoenix                       	( 42 )
+*/
+
+// для roleplay сервера
+# define LOCATION_IS_CITY                       # (locPid)                  ( LocIsCity( ( locPid ) ) )
+
+bool LocIsModoc( uint locPid )
+{
+    return (locPid<=LOCATION_Modoc_4_4);
+}
+
+bool LocIsCity( uint locPid )
+{
+    return (locPid<=LOCATION_Sutter || locPid==LOCATION_Lakecity || locPid==LOCATION_Junkyard || locPid == 96);
+}
+
+bool LocIsMasked( uint locPid )
+{
+    return (locPid==LOCATION_Phoenix);
+}
+
+bool LocIsHidden( uint locPid )
+{
+    return false;
+}
+
+// ************************************************************************/
+// * Maps                                                                 */
+// ************************************************************************/
+
+# define MAP_PATTERN_BLANK					   		( 191 )
+
+# define MAP_MODOC   								( 1 )
+# define MAP_MODOC_DN								( 2 )
+# define MAP_MODOC_UP1								( 3 )
+# define MAP_MODOC_UP2								( 4 )
+
+# define MAP_MODOC_11								( 5 )
+//#define MAP_MODOC_11_UP							( 2 )
+//#define MAP_MODOC_11_DN							( 3 )
+
+# define MAP_MODOC_12								( 6 )
+//#define MAP_MODOC_12_DN							( 5 )
+
+# define MAP_MODOC_13								( 7 )
+//#define MAP_MODOC_13_DN							( 7 )
+# define MAP_MODOC_14								( 8 )
+
+# define MAP_MODOC_21								( 9 )
+
+# define MAP_MODOC_24								( 10 )
+//#define MAP_MODOC_22_UP							( 11 )
+//#define MAP_MODOC_22_UP_1							( 12 )
+
+# define MAP_MODOC_31								( 11 )
+# define MAP_MODOC_34								( 12 )
+# define MAP_MODOC_41								( 13 )
+# define MAP_MODOC_42								( 14 )
+# define MAP_MODOC_43								( 15 )
+# define MAP_MODOC_44								( 16 )
+//#define MAP_MODOC_23_DN							( 14 )
+/*
+# define MAP_MODOC_APP_11							( 15 )
+# define MAP_MODOC_APP_12							( 16 )
+# define MAP_MODOC_APP_13							( 17 )
+# define MAP_MODOC_APP_21							( 18 )
+# define MAP_MODOC_APP_22							( 19 )
+# define MAP_MODOC_APP_23							( 20 )
+
+# define MAP_MODOC_Center                       	( 10 )
+*/
+# define MAP_PHOENIX	                           	( 130 )
+# define MAP_PHOENIX_DN                         	( 131 )
+
+# define MAP_JUNKYARD	                       		( 135 )
+# define MAP_JUNKYARD_DN                        	( 136 )
+
+# define MAP_SUTTER_11                          	( 60 )
+# define MAP_SUTTER_11_DN                       	( 61 )
+# define MAP_SUTTER_12                          	( 63 )
+# define MAP_SUTTER_12_DN                       	( 64 )
+# define MAP_SUTTER_13                          	( 65 )
+# define MAP_SUTTER_13_DN                       	( 66 )
+# define MAP_SUTTER_14                          	( 67 )
+# define MAP_SUTTER_14_DN                       	( 68 )
+
+# define MAP_SUTTER_21                          	( 69 )
+# define MAP_SUTTER_21_DN                       	( 70 )
+# define MAP_SUTTER_24                          	( 71 )
+# define MAP_SUTTER_24_DN                       	( 72 )
+# define MAP_SUTTER_31                          	( 73 )
+# define MAP_SUTTER_31_DN                       	( 74 )
+# define MAP_SUTTER_34                          	( 75 )
+# define MAP_SUTTER_34_DN                       	( 76 )
+
+# define MAP_SUTTER_41                          	( 77 )
+# define MAP_SUTTER_41_DN                       	( 78 )
+# define MAP_SUTTER_42                          	( 79 )
+# define MAP_SUTTER_42_DN                       	( 80 )
+# define MAP_SUTTER_43                          	( 81 )
+# define MAP_SUTTER_43_DN                       	( 82 )
+# define MAP_SUTTER_44                          	( 83 )
+# define MAP_SUTTER_44_DN                       	( 84 )
+
+# define MAP_SUTTER_CENTER                      	( 88 )
+# define MAP_SUTTER_CENTER_DN                   	( 89 )
+# define MAP_SUTTER_CENTER_UP                   	( 90 )
+# define MAP_SUTTER_CENTER_UP_1                 	( 91 )
+# define MAP_SUTTER_CENTER_DN_2                 	( 92 )
+
+# define MAP_UTILITY_START	                   		( 400 )
+# define MAP_UTILITY_ARCADE	                   		( 402 )
+# define MAP_UTILITY_DEAD	                   		( 403 )
+
+# define MAP_MODOC_Center                        	( 400 )
+# define LOCATION_Sutter_Center                  	( 4001 )
+
+//BIOMS
+
+//#define MAP_ROAD_VERT_BEGIN						( 300 ) //random encounters
+//#define MAP_ROAD_VERT_END							( 300 )
+
+//#define MAP_ROAD_HOR_BEGIN						( 305 ) //random encounters
+//#define MAP_ROAD_HOR_END							( 305 )
+/*
+# define MAP_ROAD_BEGIN								( 300 )
+
+# define MAP_WASTELAND_BEGIN						( 400 ) //random encounters
+# define MAP_WASTELAND_END							( 403 )
+
+# define MAP_ENCOUNTER_IN_GROUP						( 5 )
+
+# define MAP_VERT									( 0 )
+# define MAP_HORZ									( 1 )
+# define MAP_CROS									( 2 )
+# define MAP_TPRT									( 3 )
+# define MAP_TPLT									( 4 )
+# define MAP_DNRT									( 5 )
+# define MAP_DNLT									( 6 )
+
+# define MAP_TOPP									( 35 )
+# define MAP_DOWN									( 36 )
+# define MAP_LEFT									( 37 )
+# define MAP_RGHT									( 38 )
+
+# vert	   -- locpids
+# horiznt -- locpids + 5
+# cross   -- locpids + 10
+# t-r     -- locspids + 15
+# t-l     -- locspids + 20
+# d-r     -- locspids + 25
+# d-l     -- locspids + 30
+#
+# for roads:
+# top     -- locspids + 35
+# down    -- locspids + 36
+# left    -- locspids + 37
+# right   -- locspids + 38
+*/
+
+// ************************************************************************/
+// *                                                                      */
+// ************************************************************************/
+
+# endif // __MAPS__

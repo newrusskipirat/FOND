@@ -1,0 +1,10 @@
+#==========================================================
+#ND Raiders Cave
+#==========================================================
+
+Name = Raiders Cave	
+LocationPid = 1300							
+Flags = Static Hidden			
+Hidden SpawnItems
+Visible = 50								
+Size = 1 1 									

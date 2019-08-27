@@ -1,0 +1,563 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                                                                                                                                
+
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";   
+
+bool IsTree(Scenery@scen)
+{
+	if(not(@scen!=null))
+	return false;
+	uint16 pid=scen.ProtoId;
+	return pid==2066||pid==2316||pid==2317||pid==2318||pid==2319||pid==2320||pid==2321||pid==2945||pid==2946||pid==2947||
+	pid==3842||pid==3843||
+	(pid>=4562&&pid<=4572)
+	;
+}    
+
+bool UseAxeOnTree(Critter@cr,Scenery@tree) 
+
+{
+	if(not(@tree!=null)){
+		Log("Scenery (tree) is not valid.");
+		return false;
+	}
+	
+	return UseAxeOnTree(cr,tree.HexX,tree.HexY,(286));
+}
+
+bool UseAxeOnTree(Critter@cr,Scenery@tree,uint16 pid){
+	if(not(@tree!=null)){
+		Log("Scenery (tree) is not valid.");
+		return false;
+	}
+	
+	return UseAxeOnTree(cr,tree.HexX,tree.HexY,pid);
+}
+
+bool UseAxeOnTree(Critter@cr,Item@tree,uint16 pid,bool removeTree){
+	if(not(@tree!=null)){
+		Log("Item (tree) is not valid.");
+		return false;
+	}
+	
+	bool r=UseAxeOnTree(cr,tree.HexX,tree.HexY,pid);
+	
+	if(r&&removeTree){
+		DeleteItem(tree);
+	}
+	
+	return r;
+}
+
+bool UseAxeOnTree(Critter@cr,uint16 hX,uint16 hY,uint16 pid){   
+	
+	if(not(@cr!=null))
+	{
+		Log("Critter is not valid.");
+		return false;
+	}    
+	
+	bool damArmL=cr.Damage[(504)]!=0;
+	bool damArmR=cr.Damage[(503)]!=0;
+	bool damLegL=cr.Damage[(506)]!=0;
+	bool damLegR=cr.Damage[(505)]!=0;
+	
+	uint8 randNum_tree=(hX*hY)%100+1;
+	uint8 randNum_crit=cr.Id%100+1;
+	uint8 randNum_time=(__FullSecond/10)%100+1;
+	uint8 randNum=(randNum_tree*randNum_crit*randNum_time)%100;
+	uint8 crLuck=cr.Stat[(6)];
+	
+	uint8 penalty=0;
+	if(cr.Damage[(502)]!=0)
+	penalty=10;
+	
+	if((20+crLuck*2-penalty)>randNum)
+	{
+		
+		if(damArmL&&damArmR)
+		{
+			cr.SayMsg((11),(0),2200);
+			
+			return true;
+		}
+		
+		int32 axeLastTime_value=0;
+		GameVar@axeLastTime=GetLocalVar((4800),cr.Id);
+		if((@axeLastTime!=null))
+		axeLastTime_value=axeLastTime.GetValue();
+		else
+		Log("LVAR_scenery_axe_lasttime is not valid.");
+		
+		if(axeLastTime_value>__FullSecond-((15-cr.Stat[(2)])*__TimeMultiplier))
+		{
+			cr.SayMsg((11),(0),2201);
+			
+			return true;
+		}
+		
+		if((@axeLastTime!=null))
+		axeLastTime=__FullSecond;
+		
+		if(!damArmL&&!damArmR&&Random(1,crLuck*20+((((cr.Stat[(5)])>(10))?(10):(((cr.Stat[(5)])<(4))?(4):(cr.Stat[(5)])))-4)*10)==1)
+		{
+			if(Random(1,10)==1)
+			cr.DamageBase[(503)]=1;
+			else
+			cr.DamageBase[(504)]=1;
+			cr.SayMsg((11),(0),2202);
+			uint8 dir=GetDirection(hX,hY,cr.HexX,cr.HexY);
+			InjureCritter(cr,Random(10,10+cr.Stat[(0)]*2),(1),dir,0);
+			
+			return true;
+		} 
+		
+		uint8 count=((randNum_tree%10)+crLuck)/4;
+		uint16 mapPID=0;
+		Map@map=cr.GetMap();
+		if((@map!=null))
+		mapPID=map.GetProtoId();
+		else
+		Log("Map is not valid.");
+		if(damArmL||damArmR)
+		count=2;  
+		
+		if(mapPID!=6)
+		
+		{
+			int8 countEnc=((((cr.Skill[(217)])>(100))?(100):(((cr.Skill[(217)])<(49))?(49):(cr.Skill[(217)])))-40)/10;
+			if(damLegL)
+			count--;
+			if(damLegR)
+			count--;
+			if(damArmL||damArmR)
+			count-=2;
+			count+=(((countEnc)>(6))?(6):(((countEnc)<(0))?(0):(countEnc)));
+		}
+		ProtoItem@proto=GetProtoItem(pid);
+		uint32 itemsWeight=cr.ItemsWeight();
+		uint32 carryWeight=cr.Stat[(11)];
+		count=Random(1,count);
+		
+		if(cr.ItemsWeight()+proto.Weight*count<=carryWeight)
+		{
+			if(not(@cr.AddItem(pid,count)!=null))
+			{
+				Log("AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2203);
+		}
+		
+		else if(itemsWeight+proto.Weight<=carryWeight)
+		{
+			uint8 countDrop=count;
+			count=(carryWeight-itemsWeight)/proto.Weight;
+			countDrop-=count;
+			if(not(@cr.AddItem(pid,count)!=null))
+			{
+				Log("cr.AddItem fail.");
+				return false;
+			}
+			if(not(@map.AddItem(cr.HexX,cr.HexY,pid,countDrop)!=null))
+			{
+				Log("map.AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2204);
+		}
+		
+		else
+		{
+			if(not(@map.AddItem(cr.HexX,cr.HexY,pid,count)!=null))
+			{
+				Log("map.AddItem fail.");
+				return false;
+			}
+			cr.SayMsg((11),(0),2205);
+		}
+		
+		return true;
+	}else{
+		string[]action={"Вам не кажется, что тут осталось что-либо полезное.","Это дерево уже дало все, что могло.","Вы не видите на этом дереве ничего, что можно было бы срубить.","Попытка нарубить немного дров успехом не увенчалась.","Вы промазали топором по суку. Бывает.","Вы хорошенько врезали топором по стволу, но мгновенного результата нет."};
+		cr.Say((11),action[Random(0,action.length()-1)]);
+	}
+	return false;
+}    
+
+import int RollVsSkill(Critter&cr,uint skillIndex,int bonus)from"stdlib";  
+
+import bool IsSuccessRvS(int val)from"stdlib";  
+
+import bool IsCriticalRvS(int val)from"stdlib";  
+
+import void HealCritter(Critter&player)from"stdlib";  
+
+import bool TransitToLoc(Critter&cr,uint16 locPid,uint mapIndex,uint entranceNum)from"stdlib";  
+
+import bool TransitToMap(Critter&cr,uint16 mapPid,uint entranceNum)from"stdlib";  
+
+import bool TransitToNewLocation(Critter&cr,uint16 locPid)from"stdlib";  
+
+import void InfoMessage(Critter&player,Critter&npc,uint strNum)from"stdlib";  
+
+import void NpcMessageNorm(Critter&npc,uint strNum)from"stdlib";  
+
+import void NpcMessageShout(Critter&npc,uint strNum)from"stdlib";  
+
+import void NpcMessageWhisp(Critter&npc,uint strNum)from"stdlib";  
+
+import void NpcMessageEmo(Critter&npc,uint strNum)from"stdlib";        
+
+import void TimeoutSet(Critter&npc,int timeoutNumber,uint gameHours)from"stdlib";  
+
+import void TimeoutSub(Critter&npc,uint gameHoursSub)from"stdlib";  
+
+import void TimeoutAdd(Critter&npc,uint gameHoursAdd)from"stdlib";  
+
+import void GroupSetVar(Critter&player,uint16 varId,int value)from"stdlib";  
+
+import void Warn(Critter&player,int npcRole)from"stdlib";  
+
+import void DoorControl(Critter&player,uint entireNum,bool toOpen)from"stdlib";  
+
+import bool DialogNpc(Critter&player,int role)from"stdlib";  
+
+import Critter@GetNearCritterWithRole(Map@map,uint16 hexX,int hexY,uint radius,int role)from"stdlib";              
+
+import void DropDrugEffects(Critter&cr)from"drugs";
+import void DropRadiation(Critter&cr)from"radiation";  
+
+bool s_Dialog(Critter&player,Scenery&scenery,int skill,Item@item,int dialogId)
+{
+	
+	if(skill==-1&&not(@item!=null))
+	{
+		return RunDialog(player,dialogId,scenery.HexX,scenery.HexY,false);
+	}
+	return false;
+}
+
+bool s_DoorControl(Critter&player,Scenery&scenery,int skill,Item@item,int entireNum,int toOpen)
+{
+	if(toOpen==1)
+	{
+		DoorControl(player,entireNum,true);
+	}
+	else
+	{
+		DoorControl(player,entireNum,false);
+	}
+	return true;
+}
+
+bool s_Water(Critter&player,Scenery&scenery,int skill,Item@item)
+{
+	if(!(item is null)){
+		uint pid=0;
+		if(item.GetProtoId()==(542)){
+			pid=(106);
+		}else if(item.GetProtoId()==(532)){
+			pid=(533);
+		}else{
+			player.Say((11),"Не подходящий предмет.");
+		}
+		
+		return true;
+	}
+	
+	return false;
+}     
+

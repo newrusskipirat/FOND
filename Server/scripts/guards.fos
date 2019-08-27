@@ -1,0 +1,635 @@
+/*
+   ќхрана: модернизаци€ системы безопасности ћодока
+
+   «адача: сделать охрану более активной и полезной
+
+   ToDo:
+   _initGuard - инициализаци€ охранника, повышение резистов (не сильно же), выдача патронов, св€зь с городской переменной
+   найм охраны - охранник нанимаетс€ в выбранный игроком магазин, приходит с глобальной карты через некоторое врем€.
+
+   EntireHex:
+   80 - госпиталь
+   81 - магазин
+   82 - бар
+   71 - ворота, центр
+   83 - ворота, слева
+   84 - ворота, справа
+
+   90 - точка справа от церкви, между домами
+   91 - лева€ часть maintenance center
+   92 - дом с Vinnie
+   93 - перед сараем с браминами
+   94,95,73 - точки в бедном районе, дл€ "рейдов" охраны. —юда же - 82 (бар)
+   96 - слева от входа в General Store
+   97 - тюрьма
+ */
+
+# include "_macros.fos"
+# include "entire.fos"
+# include "pids_groups.fos"
+# include "_npc_pids.fos"
+# include "_teams.fos"
+# include "_bags.fos"
+
+# define GuardPID    ( 128 )
+
+import bool AddWalkPlane( Critter& npc, uint priority, uint16 hexX, uint16 hexY, uint8 dir, bool run, uint cut ) from "npc_planes";
+import bool AddAttackPlane( Critter& npc, uint priority, Critter& target ) from "npc_planes";
+
+import void addGuard( Critter& npc ) from "gateway";
+import void AttackAndCatch( Critter& cr ) from "gateway";
+
+import void Log_Crims( Critter& player, int target, int param1, int param2, string@ param3, int[] @ param4 ) from "gm";  // ErlKing
+import bool AddAttackPlane( Critter& npc, uint priority, Critter& target, int minHp ) from "npc_planes";
+import uint EraseAttackPlane( Critter& npc, Critter& target ) from "npc_planes";
+
+// Ќайм охраны в город
+// params: location, number, level
+
+void GM_InitGuard( Critter& player, int param0, int param1, int param2, string@ param3, int[] @ param4 )
+{
+    Critter@ cr = GetCritter( param0 );
+    if( cr is null )
+        return;
+    else if( cr.IsNpc() )
+    {
+        cr.SetScript( "_InitGuard" );
+        player.Say( SAY_NETMSG, " риттер " + param0 + " назначен охранником" );
+    }
+}
+
+void GM_InitCommonGuard( Critter& player, int param0, int param1, int param2, string@ param3, int[] @ param4 )
+{
+    Critter@ cr = GetCritter( param0 );
+    if( cr is null )
+        return;
+    cr.SetScript( "_InitCommonGuard" );
+}
+
+void _InitCommonGuard( Critter& cr, bool firstTime )
+{
+    if( cr.IsNpc() )
+    {
+        cr.StatBase[ ST_AI_ID ] = 12;
+        cr.StatBase[ ST_TEAM_ID ] = 5;
+        cr.StatBase[ ST_PERCEPTION ] = 10;
+        for( uint i = ST_NORMAL_ABSORB; i <= ST_EXPLODE_ABSORB; i++ )
+            cr.StatBase[ i ] = 10;
+        cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+        cr.ModeBase[ MODE_NO_STEAL ] = 1;
+        cr.ModeBase[ MODE_NO_BARTER ] = 1;
+        cr.ModeBase[ MODE_NO_DROP ] = 1;
+        cr.ModeBase[ MODE_NO_LOOSE_LIMBS ] = 1;
+        cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+        cr.StatBase[ ST_HEALING_RATE ] += 50;
+        cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 2;
+        cr.StatBase[ ST_LUCK ] += 5;
+        cr.ShowCritterDist1 = 15;
+        Item@gun = cr.GetItem( PID_SLOT_MACHINE_KEY, SLOT_HAND1 );
+        cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER_1, "_checkCommonEnemy" );
+        cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+    }
+}
+
+void _InitMutantGuard( Critter& cr, bool firstTime )
+{
+    if( cr.IsNpc() )
+    {
+        cr.StatBase[ ST_AI_ID ] = 12;
+        cr.StatBase[ ST_TEAM_ID ] = 5;
+        cr.StatBase[ ST_PERCEPTION ] = 10;
+        for( uint i = ST_NORMAL_ABSORB; i <= ST_EXPLODE_ABSORB; i++ )
+            cr.StatBase[ i ] = 10;
+        cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+        cr.ModeBase[ MODE_NO_STEAL ] = 1;
+        cr.ModeBase[ MODE_NO_BARTER ] = 1;
+        cr.ModeBase[ MODE_NO_DROP ] = 1;
+        cr.ModeBase[ MODE_NO_LOOSE_LIMBS ] = 1;
+        cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+        cr.StatBase[ ST_HEALING_RATE ] += 50;
+        cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 2;
+        cr.StatBase[ ST_LUCK ] += 5;
+        cr.ShowCritterDist1 = 15;
+        Item@ gun = cr.GetItem( PID_SLOT_MACHINE_KEY, SLOT_HAND1 );
+        cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER_1, "_checkMutantEnemy" );
+        cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+    }
+}
+
+void _InitCaravanGuard( Critter& cr, bool firstTime )
+{
+    cr.StatBase[ ST_AI_ID ] = 12;
+    cr.StatBase[ ST_TEAM_ID ] = 5;
+    cr.StatBase[ ST_PERCEPTION ] = 10;
+    for( uint i = ST_NORMAL_ABSORB; i <= ST_EXPLODE_ABSORB; i++ )
+        cr.StatBase[ i ] = 10;
+    cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+    cr.ModeBase[ MODE_NO_STEAL ] = 1;
+    cr.ModeBase[ MODE_NO_BARTER ] = 1;
+    cr.ModeBase[ MODE_NO_DROP ] = 1;
+    cr.ModeBase[ MODE_NO_LOOSE_LIMBS ] = 1;
+    cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+    cr.StatBase[ ST_HEALING_RATE ] += 50;
+    cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 2;
+    cr.StatBase[ ST_LUCK ] += 5;
+    cr.ShowCritterDist1 = 15;
+    Item@gun = cr.GetItem( PID_HUNTING_RIFLE, -1 );
+    if( valid( gun ) )
+        gun.SetEvent( ITEM_EVENT_SKILL, "e_RiflePickup" );
+    cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER_1, "_checkEnemy" );
+    cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+}
+
+bool e_RiflePickup( Item& item, Critter& cr, int skill )
+{
+    if( ( skill == SKILL_PICK_ON_GROUND ) && ( item.Accessory == ACCESSORY_HEX ) )
+    {
+        DeleteItem( item );
+        Log_Crims( cr, 0, 0, 0, null, null );
+    }
+    return false;
+}
+
+import void ModocGuard( Critter& critter, bool firstTime ) from "Ai";
+
+void _InitGuard( Critter& cr, bool firstTime )
+{
+    /* cr.StatBase[ ST_AI_ID ] = 12;
+    cr.StatBase[ ST_TEAM_ID ] = 5;
+    cr.StatBase[ ST_PERCEPTION ] = 10;
+    for( uint i = ST_NORMAL_ABSORB; i <= ST_EXPLODE_ABSORB; i++ )
+        cr.StatBase[ i ] = 10;
+    cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+    cr.ModeBase[ MODE_NO_STEAL ] = 1;
+    cr.ModeBase[ MODE_NO_BARTER ] = 1;
+    cr.ModeBase[ MODE_NO_DROP ] = 1;
+    cr.ModeBase[ MODE_NO_LOOSE_LIMBS ] = 1;
+    // cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+    if( cr.StatBase[ ST_DIALOG_ID ] != 330 )
+        cr.StatBase[ ST_DIALOG_ID ] = 352;                                  // охранник ћодока
+    cr.PerkBase[ PE_SNIPER ] = 1;
+    cr.StatBase[ ST_CRITICAL_CHANCE ] = 100;
+    cr.StatBase[ ST_MAX_CRITICAL ] = 100;
+    cr.StatBase[ ST_NORMAL_ABSORB ] = 10;
+    cr.StatBase[ ST_HEALING_RATE ] += 50;
+    .. cr.StatBase[ ST_MAX_LIFE ] = Random( 100, 150 );
+    cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 2;
+    Item@gun = cr.GetItem( PID_HUNTING_RIFLE, -1 );
+    if( valid( gun ) )
+        gun.SetEvent( ITEM_EVENT_SKILL, "e_RiflePickup" );
+    // cr.PerkBase[PE_BETTER_CRITICALS]+=1;
+    cr.StatBase[ ST_LUCK ] += 5;
+	*/
+    cr.ShowCritterDist1 = 15;
+    // cr.SetEvent(CRITTER_EVENT_SMTH_STEALING, "_thief");
+    /*if(cr.StatBase[ST_DIALOG_ID]!=330)*/ cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER_1, "_checkEnemy" );   // закомментил условие чтобы пропускающий таки бил аркад //изменил show на show 1 с дистанцией 15
+    // cr.SetEvent(CRITTER_EVENT_SMTH_ATTACKED, "_agression");
+    // cr.SetEvent(CRITTER_EVENT_SMTH_DEAD , "_alarm");
+    // cr.SetEvent(CRITTER_EVENT_SHOW_CRITTER_1,"_armedAndDangerous");
+    cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+    // cr.SetEvent(CRITTER_EVENT_ATTACK, "_KnockThemDown");
+    cr.SetEvent( CRITTER_EVENT_RESPAWN, "_gimmeMyGun" );
+    addGuard( cr );
+	ModocGuard( cr, firstTime );
+}
+
+bool _KnockThemDown( Critter& cr, Critter& target )
+{
+    if( valid( cr ) && valid( target ) && target.IsPlayer() && !target.IsKnockout() && !target.IsDead() )
+    {
+        if( cr.StatBase[ ST_DIALOG_ID ] == 330 )
+        {
+            if( target.Param[ QST_GAMEMODE ] == GAME_ADVENTURE && target.Quest[QST_MODOC_CITIZENSHIP] != 10 && target.Quest[QST_FACTION] == 0 )
+                target.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( true ), 5, target.HexX, target.HexY );
+            else if( target.Param[ QST_GAMEMODE ] == GAME_SURVIVAL && target.Quest[QST_MODOC_CITIZENSHIP] != 10 && target.Quest[QST_FACTION] == 0 )
+                target.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( true ), 20, target.HexX, target.HexY );
+            return true;
+        }
+        else
+        {
+            if( target.Param[ QST_GAMEMODE ] == GAME_SURVIVAL && target.Quest[QST_MODOC_CITIZENSHIP] != 10 && target.Quest[QST_FACTION] == 0 && ( Random( 0, 2 ) == 0 ) )
+                target.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( true ), 20, target.HexX, target.HexY );
+            return true;
+        }
+    }
+    return true;
+}
+
+void buyGuard( Critter& player, int param0, int param1, int param2 )
+{
+    Map@   map = GetMapByPid( 18, 0 );
+    uint16 x = 0, y = 0, totalEnt = 0, entX = 0, entY = 0;
+    totalEnt = map.CountEntire( 70 );
+
+    switch( param0 )
+    {
+    case ( 80 ):
+        map.GetEntireCoords( 80, 0, x, y );
+        break;                                                      // госпиталь
+    case ( 81 ):
+        map.GetEntireCoords( 81, 0, x, y );
+        break;                                                      // магазин
+    case ( 82 ):
+        map.GetEntireCoords( 82, 0, x, y );
+        break;                                                      // бар
+    case ( 71 ):
+        map.GetEntireCoords( 71, 0, x, y );
+        break;                                                      // ворота, центр
+    case ( 83 ):
+        map.GetEntireCoords( 83, 0, x, y );
+        break;                                                      // ворота, слева
+    case ( 84 ):
+        map.GetEntireCoords( 84, 0, x, y );
+        break;                                                      // ворота, справа
+    case ( 90 ):
+        map.GetEntireCoords( 90, 0, x, y );
+        break;                                                      // точка справа от церкви
+    case ( 91 ):
+        map.GetEntireCoords( 91, 0, x, y );
+        break;                                                      // лева€ часть maintenance center
+    case ( 92 ):
+        map.GetEntireCoords( 92, 0, x, y );
+        break;                                                      // дом с Vinnie
+    case ( 93 ):
+        map.GetEntireCoords( 93, 0, x, y );
+        break;                                                      // перед сараем с браминами
+    case ( 94 ):
+        map.GetEntireCoords( 94, 0, x, y );
+        break;                                                      // бедный район
+    case ( 95 ):
+        map.GetEntireCoords( 95, 0, x, y );
+        break;                                                      // бедный район
+    case ( 73 ):
+        map.GetEntireCoords( 93, 0, x, y );
+        break;                                                      // бедный район
+    case ( 96 ):
+        map.GetEntireCoords( 96, 0, x, y );
+        break;                                                      // слева от входа в магазин
+    case ( 97 ):
+        map.GetEntireCoords( 97, 0, x, y );
+        break;                                                      // тюрьма
+    default:
+        break;
+    }
+
+    for( int i = 0; i < param1; i++ )
+    {
+        map.GetEntireCoords( 70, Random( 0, totalEnt ), entX, entY );
+        Critter@ cr = map.AddNpc( 128, entX, entY, Random( 0, 5 ), null, null, null );
+        if( valid( cr ) )
+        {
+            cr.SetEvent( CRITTER_EVENT_DEAD, "_OnDeadEvent" );
+            cr.StatBase[ ST_AI_ID ] = 12;
+            cr.StatBase[ ST_TEAM_ID ] = 5;
+            cr.StatBase[ ST_PERCEPTION ] = 10;
+            cr.PerkBase[ PE_SNIPER ] = 1;
+            cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+            cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+            cr.PerkBase[ PE_BETTER_CRITICALS ] += 1;
+            cr.StatBase[ ST_LUCK ] += 5;
+            cr.StatBase[ ST_REPLICATION_TIME ] = 0;
+            cr.StatBase[ ST_HEALING_RATE ] += 20;
+            cr.StatBase[ ST_DIALOG_ID ] = 352;           // охранник ћодока
+            cr.ShowCritterDist1 = 10;
+            // cr.SetEvent(CRITTER_EVENT_SHOW_CRITTER_1,"_armedAndDangerous");
+            cr.SetEvent( CRITTER_EVENT_SMTH_STEALING, "_thief" );
+            cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER, "_checkEnemy" );
+            cr.SetEvent( CRITTER_EVENT_SMTH_ATTACKED, "_agression" );
+            cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+            cr.SetEvent( CRITTER_EVENT_SMTH_DEAD, "_alarm" );
+            // cr.ModeBase[MODE_NO_HOME] = 1;
+            switch( param2 )
+            {
+            case 0:
+                cr.StatBase[ ST_CRITICAL_CHANCE ] = 35;
+                cr.StatBase[ ST_NORMAL_ABSORB ] = 5;
+                cr.StatBase[ ST_MAX_LIFE ] = Random( 75, 100 );
+                cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 1;
+                cr.AddItem( PID_HUNTING_RIFLE, 1 );
+                break;
+            case 1:
+                cr.StatBase[ ST_CRITICAL_CHANCE ] = 40;
+                cr.StatBase[ ST_NORMAL_ABSORB ] = 10;
+                cr.StatBase[ ST_MAX_LIFE ] = Random( 100, 150 );
+                cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 2;
+                cr.AddItem( PID_SHOTGUN, 1 );
+                break;
+            case 2:
+                cr.StatBase[ ST_CRITICAL_CHANCE ] = 35;
+                cr.StatBase[ ST_NORMAL_ABSORB ] = 15;
+                cr.StatBase[ ST_MAX_LIFE ] = Random( 150, 200 );
+                cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 3;
+                cr.AddItem( PID_HUNTING_RIFLE, 1 );
+                break;
+            default:
+                cr.StatBase[ ST_CRITICAL_CHANCE ] = 35;
+                cr.StatBase[ ST_NORMAL_ABSORB ] = 5;
+                cr.StatBase[ ST_MAX_LIFE ] = Random( 75, 100 );
+                cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 1;
+                cr.AddItem( PID_HUNTING_RIFLE, 1 );
+                break;
+            }
+            AddWalkPlane( cr, AI_PLANE_ATTACK_PRIORITY, x, y, Random( 0, 5 ), true, 0 );
+            cr.SetHomePos( x, y, Random( 0, 5 ) );
+        }
+    }
+}
+
+void spawnGuard( Critter& player, int param0, int param1, int param2 )
+{
+    uint16 x = 0, y = 0;
+    Map@   map = GetMapByPid( 18, 0 );
+    map.GetEntireCoords( 71, 0, x, y );
+    for( int i = 0; i < param0; i++ )
+    {
+        Critter@ cr = map.AddNpc( GuardPID, x, y, Random( 0, 5 ), null, null, null );
+        if( valid( cr ) )
+        {
+            // Log("Critter valid");
+            cr.SetEvent( CRITTER_EVENT_DEAD, "_OnDeadEvent" );
+            cr.StatBase[ ST_DIALOG_ID ] = 352;                   // охранник ћодока
+            cr.StatBase[ ST_AI_ID ] = 12;
+            cr.StatBase[ ST_PERCEPTION ] = 9;
+            cr.StatBase[ ST_CRITICAL_CHANCE ] = 60;
+            cr.StatBase[ ST_NORMAL_ABSORB ] = 10;
+            cr.StatBase[ ST_BONUS_LOOK ] = 30;
+            cr.PerkBase[ PE_SNIPER ] = 1;
+            cr.PerkBase[ PE_BETTER_CRITICALS ] += 1;
+            cr.StatBase[ ST_LUCK ] += 5;
+            cr.StatBase[ ST_HEALING_RATE ] += 20;
+            cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+            cr.StatBase[ ST_BAG_ID ] = BAG_Empty;
+            cr.StatBase[ ST_TEAM_ID ] = 5;
+            cr.StatBase[ ST_REPLICATION_TIME ] = -1;
+            cr.AddItem( PID_HUNTING_RIFLE, 1 );
+            cr.PerkBase[ PE_BONUS_RANGED_DAMAGE ] = 5;
+            cr.ShowCritterDist1 = 10;
+            // cr.SetEvent(CRITTER_EVENT_SHOW_CRITTER_1,"_armedAndDangerous");
+            cr.SetEvent( CRITTER_EVENT_SMTH_STEALING, "_thief" );
+            cr.SetEvent( CRITTER_EVENT_SHOW_CRITTER, "_checkEnemy" );
+            cr.SetEvent( CRITTER_EVENT_SMTH_ATTACKED, "_agression" );
+            cr.SetEvent( CRITTER_EVENT_ATTACKED, "_wrongMove" );
+            cr.SetEvent( CRITTER_EVENT_SMTH_DEAD, "_alarm" );
+        }
+    }
+}
+
+void _OnDeadEvent( Critter& dead, Critter@ killer )
+{
+    Log( "Guard: Critter is dead" );
+    dead.AddTimeEvent( "cte_deleteCorpse", 60 * 60 * 6, 0 );
+}
+
+uint cte_deleteCorpse( Critter& dead, int identifier, uint& rate )
+{
+    Log( "Guard: Deleting!" );
+    DeleteNpc( dead );
+    return 0;
+}
+
+void _checkCommonEnemy( Critter& cr, Critter& showCr )
+{
+    if( cr.IsDead() || !( showCr.IsPlayer() ) )
+        return;
+
+    int body = showCr.Stat[ ST_BODY_TYPE ];
+    if( showCr.IsPlayer() && showCr.Quest[ QST_GAMEMODE ] == GAME_ARCADE || ( ( body > 5 && body < 10 ) || body > 11 ) )
+    {
+        if( !cr.CheckEnemyInStack( showCr.Id ) )
+        {
+            cr.AddEnemyInStack( showCr.Id );
+            AddAttackPlane( cr, AI_PLANE_ATTACK_PRIORITY + 1, showCr );
+        }
+    }
+}
+
+void _checkMutantEnemy( Critter& cr, Critter& showCr )
+{
+    if( cr.IsDead() || !( showCr.IsPlayer() ) )
+        return;
+
+    int body = showCr.Stat[ ST_BODY_TYPE ];
+    if( showCr.IsPlayer() && showCr.Quest[ QST_GAMEMODE ] == GAME_ARCADE || ( ( body > 5 && body < 10 ) || body > 11 ) )
+    {
+        if( !cr.CheckEnemyInStack( showCr.Id ) )
+        {
+            cr.AddEnemyInStack( showCr.Id );
+            AddAttackPlane( cr, AI_PLANE_ATTACK_PRIORITY + 1, showCr );
+        }
+    }
+	
+    GameVar@ junkyard_war_mode = GetGlobalVar( GVAR_inf_junkyard_war_mode );
+    Map@ map = cr.GetMap();
+    if( junkyard_war_mode == 1 && map.GetProtoId() == 36 )
+    {
+        if( cr.Quest[QST_FACTION] != 4 )
+            MutantAttackAndCatch( showCr );
+        return;
+    }
+    if( junkyard_war_mode == 2 && ( map.GetProtoId() == 35 || map.GetProtoId() == 36 ) )
+    {
+        if( cr.Quest[QST_FACTION] != 4 )
+            MutantAttackAndCatch( showCr );
+        return;
+    }
+}
+
+void _checkEnemy( Critter& cr, Critter& showCr )
+{
+    if( cr.IsDead() || !( showCr.IsPlayer() ) )
+        return;
+
+    int body = showCr.Stat[ ST_BODY_TYPE ];
+    if( showCr.IsPlayer() && showCr.Quest[ QST_GAMEMODE ] == GAME_ARCADE || ( ( body > 5 && body < 10 ) || body > 11 ) )
+    {
+        if( !cr.CheckEnemyInStack( showCr.Id ) )
+        {
+            cr.AddEnemyInStack( showCr.Id );
+            AddAttackPlane( cr, AI_PLANE_ATTACK_PRIORITY + 1, showCr );
+        }
+        if( cr.StatBase[ ST_DIALOG_ID ] == 330 )
+            AttackAndCatch( showCr );
+    }
+	
+    GameVar@ war_mode = GetGlobalVar( GVAR_inf_modoc_war_mode );
+    Item@    item = showCr.GetItem( 0, SLOT_HAND1 );
+    bool     isMale = ( showCr.Stat[ ST_GENDER ] == GENDER_MALE );
+    uint8    dir = GetDirection( cr.HexX, cr.HexY, showCr.HexX, showCr.HexY );
+    Map @ map = cr.GetMap();
+    if( war_mode >= 1 && ( showCr.Quest[QST_MODOC_CITIZENSHIP] == 0 || showCr.Quest[QST_MODOC_CITIZENSHIP] == 10 || showCr.Quest[QST_MODOC_CITIZENSHIP] != 4 && map.GetProtoId() == 1 ) )
+    {
+        if( map.GetProtoId() == 1 || map.GetProtoId() == 4 || map.GetProtoId() == 6 || map.GetProtoId() == 9 || map.GetProtoId() == 13 || ( map.GetProtoId() == 10 && showCr.HexY <= 217 ) )
+        {
+            ( AttackAndCatch( showCr ) );
+            return;
+        }
+    }
+    if( valid( item ) && item.GetType() == ITEM_TYPE_WEAPON && Random( 0, 1 ) == 1 && showCr.Quest[QST_MODOC_CITIZENSHIP] <= 2 && !cr.CheckEnemyInStack( showCr.Id ) && showCr.IsPlayer() && showCr.Timeout[ TO_BATTLE ] == 0 )
+    {
+        if( map.GetProtoId() == 1 || map.GetProtoId() == 4 || map.GetProtoId() == 6 || map.GetProtoId() == 9 || map.GetProtoId() == 13 || ( map.GetProtoId() == 10 && showCr.HexY <= 217 ) )
+        {
+            if( war_mode >= 3 && showCr.Quest[QST_MODOC_CITIZENSHIP] <= 2 )
+            {
+                ( AttackAndCatch( showCr ) );
+                return;
+            }
+            cr.SetDir( dir );
+            cr.SayMsg( SAY_NORM_ON_HEAD, TEXTMSG_TEXT, isMale ? Random( 6100, 6110 ) : Random( 6111, 6116 ) );
+        }
+    }
+}
+
+void _armedAndDangerous( Critter& cr, Critter& showCr )
+{
+    GameVar@ war_mode = GetGlobalVar( GVAR_inf_modoc_war_mode );
+    Item@    item = showCr.GetItem( 0, SLOT_HAND1 );
+    bool     isMale = ( showCr.Stat[ ST_GENDER ] == GENDER_MALE );
+    uint8    dir = GetDirection( cr.HexX, cr.HexY, showCr.HexX, showCr.HexY );
+
+    if( war_mode >= 1 && ( showCr.Quest[QST_MODOC_CITIZENSHIP] == 0 || showCr.Quest[QST_MODOC_CITIZENSHIP] == 10 ) && !cr.CheckEnemyInStack( showCr.Id ) )
+    {
+        Map @ map = cr.GetMap();
+        if( map.GetProtoId() == 1 || map.GetProtoId() == 4 || map.GetProtoId() == 6 || map.GetProtoId() == 9 || map.GetProtoId() == 13 || ( map.GetProtoId() == 10 && showCr.HexY <= 217 ) )
+        {
+            ( AttackAndCatch( showCr ) );
+            return;
+        }
+    }
+    if( valid( item ) && item.GetType() == ITEM_TYPE_WEAPON && Random( 0, 1 ) == 1 && showCr.Quest[QST_MODOC_CITIZENSHIP] <= 2 && !cr.CheckEnemyInStack( showCr.Id ) && showCr.IsPlayer() && showCr.Timeout[ TO_BATTLE ] == 0 )
+    {
+        Map @ map = cr.GetMap();
+        if( map.GetProtoId() == 1 || map.GetProtoId() == 4 || map.GetProtoId() == 6 || map.GetProtoId() == 9 || map.GetProtoId() == 13 || ( map.GetProtoId() == 10 && showCr.HexY <= 217 ) )
+        {
+            if( war_mode >= 3 && showCr.Quest[QST_MODOC_CITIZENSHIP] <= 2 )
+            {
+                ( AttackAndCatch( showCr ) );
+                return;
+            }
+            cr.SetDir( dir );
+            cr.SayMsg( SAY_NORM_ON_HEAD, TEXTMSG_TEXT, isMale ? Random( 6100, 6110 ) : Random( 6111, 6116 ) );
+        }
+    }
+}
+
+bool _wrongMove( Critter& cr, Critter& attacker )
+{
+    if( !cr.CheckEnemyInStack( attacker.Id ) )
+    {
+        cr.AddEnemyInStack( attacker.Id );
+        AddAttackPlane( cr, AI_PLANE_ATTACK_PRIORITY + 1, attacker );
+    }
+    return true;
+}
+
+void _gimmeMyGun( Critter& cr )
+{
+    cr.StatBase[ ST_CURRENT_HP ] = cr.Stat[ ST_MAX_LIFE ];
+    Item@[] items;
+    bool  armed = false;
+    uint8 x = 0;
+    uint8 MyGunNumber;
+    cr.GetItems( SLOT_INV, items );
+    cr.GetItems( SLOT_HAND1, items );
+    cr.GetItems( SLOT_HAND2, items );
+
+    while( x < items.length() )
+    {
+        if( items[ x ].GetProtoId() == PID_HUNTING_RIFLE )
+        {
+            armed = true;
+            MyGunNumber = x;
+        }
+        x++;
+    }
+    if( armed )
+    {
+        if( items[ MyGunNumber ].CritSlot != SLOT_HAND1 )
+            cr.MoveItem( items[ MyGunNumber ].Id, 1, SLOT_HAND1 );
+    }
+    else
+    {
+        Item@ item = cr.AddItem( PID_HUNTING_RIFLE, 1 );
+        cr.MoveItem( item.Id, 1, SLOT_HAND1 );
+    }
+
+}
+
+
+void MutantAttackAndCatch( Critter& cr )
+{
+    Critter@[] mutant_guards;
+    Map@ map = cr.GetMap();
+    if( map is null )
+        return;
+
+    if( map.GetCritters( NPC_PID_Supermutant, FIND_LIFE_AND_KO | FIND_ONLY_NPC, mutant_guards ) <= 0 )
+        return;
+
+    for( uint i = 0; i < mutant_guards.length(); i++ )
+    {
+        Critter@ guard = mutant_guards[ i ];
+        if( guard is null )
+            continue;
+
+        uint len = GetDistantion( cr.HexX, cr.HexY, guard.HexX, guard.HexY );
+        if( len > 25 || !guard.IsSee( cr ) || ( cr.GetMap().Id != guard.GetMap().Id ) )
+            continue;
+
+        AddAttackPlane( guard, 0, cr, -10 );
+    }
+
+    if( cr.Quest[ QST_GAMEMODE ] != GAME_ARCADE && cr.Stat[ ST_BODY_TYPE ] != BT_ZOMBIE )
+        cr.SetEvent( CRITTER_EVENT_KNOCKOUT, "_KoAndCatch" );
+}
+
+void _KoAndCatch( Critter& cr, uint anim2begin, uint anim2idle, uint anim2end, uint lostAp, uint knockDist )
+{
+
+    Critter@[] mutant_guards;
+    Map@ map = cr.GetMap();
+    if( map is null )
+        return;
+
+    if( map.GetCritters( NPC_PID_Supermutant, FIND_LIFE_AND_KO | FIND_ONLY_NPC, mutant_guards ) <= 0 )
+        return;
+
+    int  ck = cr.Quest[ QST_GAMEMODE ];
+
+    bool ck2 = false;
+
+    if( !cr.IsDead() )
+    {
+        for( uint i = 0; i < mutant_guards.length(); i++ )
+        {
+            Critter@ guard = mutant_guards[ i ];
+
+            if( (guard is null) )
+                continue;
+            if( cr.GetMap().Id != guard.GetMap().Id )
+                continue;
+
+            EraseAttackPlane( guard, cr );
+
+            if( ck2 || ( !guard.IsSee( cr ) ) )
+                continue;
+
+            if( !mutant_catch( cr ) )
+                Log( "Fail with catch!" );
+
+            ck2 = true;
+        }
+    }
+
+    cr.SetEvent( CRITTER_EVENT_KNOCKOUT, null );
+}
+
+bool mutant_catch( Critter& cr )
+{
+    Map @ map = cr.GetMap();
+    if( map is null )
+        return false;
+    bool ch = false;
+    ch = cr.TransitToMap( 35, 0 );
+    cr.Say( SAY_NETMSG, "вас выкинули за ворота" );
+    return ch;
+}

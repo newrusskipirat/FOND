@@ -1,0 +1,703 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                         
+
+const uint[]skin_supermute=
+{
+	(21),
+	(20),
+	(114),
+	(170),
+};
+const uint[]skin_robot=
+{
+	(66),
+	(53),
+	(54),
+	(90),
+	(101),
+	(17),
+};     
+
+bool critter_check_move_item(Critter&cr,Item&item,uint8 toSlot,Item@itemSwap)
+{
+	if(item.Proto.Type==15)return true;
+	int fromSlot=item.CritSlot;
+	const uint16 pid=item.GetProtoId();
+	
+	if((pid>=(692)&&pid<=(694)&&toSlot!=(1)&&fromSlot==(1))||
+	(pid==(1537)&&(toSlot!=(2)&&(fromSlot==(2)||fromSlot==(1)))))
+	{   
+		
+		return false;
+	}
+	
+	bool moveFreeze=false,
+	dropFreeze=false;
+	
+	if(cr.Stat[(67)]>4&&cr.Stat[(67)]<10||cr.Stat[(67)]>10)
+	{
+		moveFreeze=true;
+		dropFreeze=true;
+	} 
+	
+	if(toSlot==(255))
+	return!dropFreeze; 
+	
+	if(@itemSwap!is null)
+	{
+		const uint16 swapPid=itemSwap.GetProtoId();
+		if((swapPid==(1537)&&toSlot==(2))||(swapPid>=(692)&&swapPid<=(694)&&toSlot==(1)))
+		return false;
+	}
+	
+	bool handsSwap=((fromSlot==(1)&&toSlot==(2))||(fromSlot==(2)&&toSlot==(1)));
+	if((@itemSwap!=null)&&!handsSwap)
+	return false;
+	
+	if(moveFreeze&&!handsSwap)
+	return false; 
+	
+	if(toSlot==(1))
+	{
+		if(item.GetType()==(3)&&!IsCritterAnim1(cr.CrType,item.Proto.Weapon_Anim1))
+		return false;
+	} 
+	
+	if(toSlot==(3))
+	{
+		if(item.GetType()!=(1))
+		return false;
+		if(item.Proto.Slot!=(0))
+		return false;   
+		
+		uint16 pid=item.GetProtoId();
+		uint16 skin=cr.Stat[(112)];
+		if(skin==0)
+		skin=(cr.Stat[(71)]==(0)?((62)):((61)));
+		bool isMutePlayer=skin_supermute.find(skin)!=-1,
+		isRoboPlayer=skin_robot.find(skin)!=-1,
+		isMuteArmor=pid==592||pid==593;
+		if(isRoboPlayer||isMutePlayer!=isMuteArmor)
+		return false;
+	} 
+	
+	if(toSlot>(3))
+	{
+		if(toSlot!=item.Proto.Slot)
+		return false;
+	} 
+	
+	return true;
+}  
+
+import void ChangeCritterSpeed(Critter&cr)from"speed";
+
+const uint[]skin_small=
+{
+	(27),
+	(103),
+	(42),
+};
+const uint[]skin_male=
+{
+	(31),
+	(40),
+	(39),
+	(41),
+	(43),
+	(45),
+	(48),
+	(57),
+	(64),
+	(72),
+	(77),
+	(78),
+	(83),
+	(87),
+	(88),
+	(89),
+	(92),
+	(93),
+	(95),
+	(96),
+	(98),
+	(130),
+	(134),
+	(131),
+	(132),
+	(133),
+	(138),
+	(139),
+	(197),
+	(169),
+	(198),
+	(171),
+	(172),
+	(173),
+};
+const uint[]skin_female=
+{
+	(33),
+	(35),
+	(35),
+	(36),
+	(37),
+	(38),
+	(63),
+	(73),
+	(74),
+	(83),
+	(94),
+	(164),
+};
+const uint[]skin_ghoul=
+{
+	(28),
+	(29),
+	(137),
+	(155),
+	(79),
+	(174),
+	(175),
+};
+const uint[]skin_robe=
+{
+	(159),
+	(56),
+	(122),
+	(26),
+	(84),
+	(2),
+};
+const uint[]skin_armor=
+{
+	(158),
+	(199),
+	(3),
+	(10),
+	(150),
+	(104),
+	(105),
+	(112),
+	(111),
+	(177),
+	(185),
+	(178),
+	(186),
+	(179),
+	(187),
+	(180),
+	(188),
+	(181),
+	(189),
+	(182),
+	(190),
+	(183),
+	(191),
+	(184),
+	(192),
+	(30),
+	(1),
+	(71),
+	(193),
+	(194),
+};
+const uint[]skin_armor_levels_male=
+{
+	(11),
+	(13),
+	(12),
+	(166),
+	(124),
+	(202),
+	(209),
+	(14),
+};
+const uint[]skin_armor_levels_female=
+{
+	(4),
+	(6),
+	(5),
+	(165),
+	(123),
+	(200),
+	(207),
+	(7),
+};
+const uint[][]skin_packs=
+{
+	{
+		(61),
+		(4),
+		(6),
+		(5),
+		(165),
+		(123),
+		(200),
+		(207),
+		(7),
+	},{
+		(151),
+		(152),
+		(34),
+		(153),
+		(153),
+		(195),
+		(201),
+		(208),
+		(154),
+	},{
+		(62),
+		(11),
+		(13),
+		(12),
+		(166),
+		(124),
+		(202),
+		(209),
+		(14),
+	},{
+		(110),
+		(106),
+		(108),
+		(107),
+		(167),
+		(125),
+		(204),
+		(211),
+		(109),
+	},{
+		(120),
+		(8),
+		(118),
+		(117),
+		(168),
+		(126),
+		(203),
+		(210),
+		(119),
+	},{
+		(140),
+		(142),
+		(144),
+		(146),
+		(146),
+		(196),
+		(206),
+		(213),
+		(9),
+	},{
+		(91),
+		(91),
+		(160),
+		(161),
+		(161),
+		(161),
+		(205),
+		(212),
+		(162),
+	}
+};
+
+void critter_move_item(Critter&cr,Item&item,uint8 fromSlot)
+{
+	uint8 toSlot=item.CritSlot;
+	
+	if(fromSlot==255||toSlot==255)
+	{
+		ChangeCritterSpeed(cr);
+		if(item.GetType()==(8))
+		{
+			int contWeight=0;
+			Item@[]items;
+			for(uint i=0,len=item.GetItems(uint(-1),items);i<len;i++)
+			{
+				if(@items[i]is null)
+				continue;
+				contWeight+=int(items[i].Proto.Weight*items[i].GetCount());
+			}
+			if(fromSlot==255)
+			contWeight*=-1;
+			cr.StatBase[(43)]+=contWeight;
+			return;
+		}
+	}
+	if(item.GetType()==(1)&&(fromSlot==(3)||toSlot==(3)))
+	{
+		bool isMale=(cr.Stat[(71)]==(0));
+		uint armor_skin=(isMale?item.Proto.Armor_CrTypeMale:item.Proto.Armor_CrTypeFemale);
+		uint skin_base=cr.Stat[(112)];
+		if(skin_base==0)
+		skin_base=(isMale?((62)):((61)));
+		uint crType=skin_base;
+		uint16 pid=item.GetProtoId();
+		if(GetCritterAnimType(cr.CrType)!=(1))
+		{
+			if(toSlot==(3))
+			{
+				if(skin_robe.find(armor_skin)!=-1&&skin_small.find(skin_base)!=-1)
+				crType=(99);
+				else{
+					if(skin_supermute.find(skin_base)<skin_supermute.find(armor_skin))
+					crType=armor_skin;
+					else{
+						if(skin_armor.find(skin_base)!=-1){
+							if(skin_armor.find(armor_skin)>skin_armor.find(skin_base))
+							crType=armor_skin;
+							else
+							crType=skin_base;
+						}else if(skin_robe.find(skin_base)!=-1){
+							if(skin_armor.find(armor_skin)!=-1)
+							crType=armor_skin;
+						}else{
+							if(skin_armor.find(armor_skin)!=-1||
+							skin_robe.find(armor_skin)!=-1)
+							crType=armor_skin;
+							else if(skin_male.find(skin_base)!=-1||
+							skin_female.find(skin_base)!=-1||
+							skin_ghoul.find(skin_base)!=-1){
+								
+							}else{
+								int skin_armor_level=(isMale?skin_armor_levels_male.find(armor_skin):skin_armor_levels_female.find(armor_skin))+1;
+								for(uint n=0;n<skin_packs.length();n++)
+								{
+									int skin_level=skin_packs[n].find(skin_base);
+									if(skin_level>=0){
+										if(skin_level<skin_armor_level&&skin_packs[n].length>uint(skin_armor_level))
+										crType=skin_packs[n][skin_armor_level];
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		if(cr.CrType!=crType){
+			cr.ChangeCrType(crType);
+			ChangeCritterSpeed(cr);
+		}  
+		
+		int sign=(toSlot==(3)?int(1):-1);
+		switch(item.Proto.Armor_Perk)
+		{
+			case(1):
+			cr.StatBase[(32)]+=3*sign;
+			cr.StatBase[(62)]+=30*sign;
+			break;
+			case(2):
+			cr.StatBase[(62)]+=20*sign;
+			break;
+			case(3):
+			cr.StatBase[(32)]+=4*sign;
+			cr.StatBase[(62)]+=60*sign;
+			break;
+			case(4):
+			cr.StatBase[(32)]+=4*sign;
+			cr.StatBase[(62)]+=75*sign;
+			break;
+			case(5):
+			cr.StatBase[(35)]+=1*sign;
+			break;
+			default:
+			break;
+		}
+		cr.StatBase[(114)]=(toSlot==(3)?item.Proto.Armor_Perk:0);
+	}     
+	
+}
+

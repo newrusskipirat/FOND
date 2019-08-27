@@ -1,0 +1,183 @@
+// Author: cvet
+#include "_macros.fos"
+
+import void AffectRadiation( Critter& cr, int value ) from "radiation";
+
+#define FIX_SUCCESS    ( FIXBOY_DEFAULT )
+#define FIX_TIMEOUT    ( FIXBOY_DEFAULT ^ FIXBOY_SET_TIMEOUT )
+#define FIX_FAIL       ( FIXBOY_DEFAULT ^ FIXBOY_ALLOW_CRAFT )
+
+// Таймауты на крафт
+#define SHORT_TO       ( __FullSecond + REAL_SECOND( 3 ) )
+#define MEDIUM_TO      ( __FullSecond + REAL_SECOND( 15 ) )
+#define HITECH_TO      ( __FullSecond + REAL_SECOND( 60 ) )
+
+/*
+   // Fix boy function call states
+   #define FIXBOY_LIST                (0)
+   #define FIXBOY_BUTTON              (1)
+   #define FIXBOY_CRAFT               (2)
+
+   // Fix boy craft results
+   #define FIXBOY_ALLOW_CRAFT         (0x0001)
+   #define FIXBOY_CHECK_TIMEOUT       (0x0002)
+   #define FIXBOY_SET_TIMEOUT         (0x0004)
+   #define FIXBOY_CHECK_PARAMS        (0x0008)
+   #define FIXBOY_CHECK_MATERIALS     (0x0010)
+   #define FIXBOY_CHECK_TOOLS         (0x0020)
+   #define FIXBOY_SUB_MATERIALS       (0x0040)
+   #define FIXBOY_ADD_CRAFT_ITEMS     (0x0080)
+   #define FIXBOY_ADD_EXPERIENCE      (0x0100)
+   #define FIXBOY_SEND_SUCC_MESSAGE   (0x0200)
+   #define FIXBOY_SEND_FAIL_MESSAGE   (0x0400)
+   #define FIXBOY_DEFAULT             (0xFFFF)
+ */
+// Пора, пора сделать шаг в сторону нормального крафта.
+// fix_boy@fix_Repair
+// fix_boy@fix_Science
+// fix_boy@fix_Advanced
+// fix_boy@fix_HighTech
+// fix_boy@fix_Cooking
+
+// Крафт-рецепт, требующий скилл ремонта.
+int fix_FreeHands( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = SHORT_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+//Крафт-рецепт готовки еды
+int fix_Cooking( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_FIREPLACE_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_OUTDOORSMAN ] = SHORT_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+// Крафт-рецепт, требующий скилл ремонта.
+int fix_Repair( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = SHORT_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+// ...Науки...
+int fix_Science( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_SCIENCE ] = SHORT_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+
+// ...Науки и ремонта, сложный предмет...
+int fix_Advanced( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = MEDIUM_TO;
+        cr.TimeoutBase[ TO_SK_SCIENCE ] = MEDIUM_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+// ...Хайтек...
+int fix_HighTech( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = HITECH_TO;
+        cr.TimeoutBase[ TO_SK_SCIENCE ] = HITECH_TO;
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+// ...Науки... радиоактивный крафт
+int fix_Science2( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = HITECH_TO;
+        cr.TimeoutBase[ TO_SK_SCIENCE ] = HITECH_TO;
+        AffectRadiation( cr, 100 * 100 ); //Чувствительность увеличена стократно (1.00 раньше == 100 рад теперь ), но ребаланс не делаю!
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}

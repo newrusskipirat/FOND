@@ -1,0 +1,577 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                           
+
+bool s_InitCook(Critter&cr,Scenery&scen,int skill,Item@item)
+{
+	if(item is null)
+	{
+		Log("itemnull");
+		return false;
+	}
+	LighterOnFire(cr,item,scen);
+	
+	return true;
+}
+
+bool ShowMenu(Critter&cr){
+	cr.ShowScreen((2),4,"cooking@answer_COOKING");
+	cr.Say((18),"Выберите действие");
+	cr.Say((19+(0)),"погреться");
+	cr.Say((19+(1)),"пожарить мясо");
+	cr.Say((19+(2)),"пожарить рыбу");
+	cr.Say((19+(3)),"приготовить еду");
+	return true;
+}
+
+bool UseCookingStuff(Scenery&fire,Critter&cr)
+{
+	if(!CanCook(fire))
+	{
+		return false;
+	}
+	else
+	{
+		ShowMenu(cr);
+	}
+	
+	return true;
+}
+
+bool CanCook(Scenery@fire)
+{
+	if(!(@fire!=null))
+	return false;
+	uint16 pid=fire.ProtoId;
+	return pid==2001||pid==2612||pid==3823||pid==3824||
+	pid==3825||pid==2682||pid==2683||pid==2684||
+	pid==2685||pid==3822;
+}
+
+bool IsMeat(Item@meat)
+{
+	if(!(@meat!=null))
+	return false;
+	uint16 pid=meat.GetProtoId();
+	return pid==(539)||pid==(1551)||pid==(1552);
+}
+
+bool IsFish(Item@fish)
+{
+	if(!(@fish!=null))
+	return false;
+	uint16 pid=fish.GetProtoId();
+	return pid==(940)||pid==(941)||
+	pid==(942)||pid==(943)||pid==(944);
+}
+
+bool LighterOnFire(Critter&cr,Item&lighter,Scenery&fire)
+{
+	if(lighter.GetProtoId()!=(101))
+	return false;
+	else if(!CanCook(fire))
+	return false;
+	else
+	{
+		cr.ShowScreen((2),4,"cooking@answer_COOKING");
+		cr.Say((18),"Выберите действие");
+		cr.Say((19+(0)),"погреться");
+		cr.Say((19+(1)),"пожарить мясо");
+		cr.Say((19+(2)),"пожарить рыбу");
+		cr.Say((19+(3)),"приготовить еду");
+		return true;
+	}
+}
+
+string[]foodNames={"шашлык","лепешка","желудок","салат","рагу"};
+
+void _WorkplaceWalk(Item&item,Critter&crit,bool entered,uint8 dir)
+{
+	
+	Item@[]tokens;
+	for(uint i=0,iEnd=crit.GetItems(-1,tokens);i<iEnd;i++)
+	if(tokens[i].GetProtoId()==(3978)||tokens[i].GetProtoId()==(3979))
+	DeleteItem(tokens[i]);
+	DeleteItem(item);
+}
+
+void answer_COOKING(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0){
+		cr.Say((5),"Греет руки");
+		Item@token=cr.AddItem((3979),1);
+		Item@holder=cr.GetMap().AddItem(cr.HexX,cr.HexY,(909),1);
+		holder.SetEvent((7),"_WorkplaceWalk");
+	}
+	
+	if(cr.Timeout[(232)]>((cr.Stat[(2)])*__TimeMultiplier*60)){
+		cr.Say((11),"Вы слишком устали, что бы готовить.");return;
+	}
+	
+	Item@item=cr.GetItem(0,(1));
+	if(item is null&&answerI>=1&&answerI<=2)
+	{
+		cr.Say((11),"Для этого вам понадобиться мясо в руках.");
+		return;
+	}
+	
+	if(answerI==1)
+	{ 
+		
+		if(IsMeat(item))
+		{ 
+			
+			switch(item.GetProtoId())
+			{
+				case(539):
+				cr.AddItem((1553),1);
+				break;
+				case(1551):
+				cr.AddItem((1554),1);
+				break;
+				case(1552):
+				cr.AddItem((1555),1);
+				break;
+				default:
+				break;
+			}
+			cr.Say((11),"Вы успешно пожарили мясо");
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+		}
+		else
+		cr.Say((11),"Даже после обжарки эта вещь будет несъедобна");
+	}
+	if(answerI==2)
+	{
+		
+		if(IsFish(item))
+		{ 
+			
+			switch(item.GetProtoId())
+			{
+				case(940):
+				cr.AddItem((1556),1);
+				break;
+				case(941):
+				cr.AddItem((1556),2);
+				break;
+				case(942):
+				cr.AddItem((1556),3);
+				break;
+				case(943):
+				cr.AddItem((1556),4);
+				break;
+				case(944):
+				cr.AddItem((1556),5);
+				break;
+				default:
+				break;
+			}
+			cr.Say((11),"Вы успешно пожарили рыбу");
+			
+			do{if(item.GetCount()>(1))
+				item.SetCount(item.GetCount()-(1));else
+				DeleteItem(item);}while(false);
+		}
+		else
+		cr.Say((11),"Даже после обжарки эта вещь будет несъедобна");
+	}
+	if(answerI==3)
+	{       
+		
+		uint16 count=0;
+		if(cr.Skill[(217)]<40)
+		cr.Say((11),"Вы не знаете ни одного полезного рецепта для готовки");
+		if(cr.Skill[(217)]>=40)
+		count+=2;
+		if(cr.Skill[(217)]>=60)
+		count+=2;
+		if(cr.Skill[(217)]>=80)
+		++count;
+		
+		cr.ShowScreen((2),count,"cooking@answer_PATTERN");
+		cr.Say((18),"Выберите рецепт");
+		
+		for(uint8 i=0;i<count;i++)
+		{
+			cr.Say((19+(i)),""+foodNames[i]);
+		}     
+		
+	}
+	
+}
+
+void answer_PATTERN(Critter&cr,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		if(cr.CountItem((539))>0&&cr.CountItem((272))>0)
+		{
+			cr.DeleteItem((539),1);
+			cr.DeleteItem((272),1);
+			cr.AddItem((103),1);
+			cr.Say((11),"Вам удалось приготовить что-то съедобное");
+		}
+		else if(cr.CountItem((539))==0)
+		cr.Say((11),"Все-таки даже для такого шашлыка вам понадобится мясо");
+		else if(cr.CountItem((272))==0)
+		cr.Say((11),"Вам кажется что корень зандера не помешает");
+	}
+	if(answerI==1)
+	{
+		if(cr.CountItem((10128))>0&&cr.CountItem((272))>0)
+		{
+			cr.DeleteItem((10128),1);
+			cr.DeleteItem((272),1);
+			cr.AddItem((1557),1);
+			cr.Say((11),"Вам удалось приготовить что-то съедобное");
+		}
+		else if(cr.CountItem((10128))==0)
+		cr.Say((11),"Для начала вам понадобится кукуруза");
+		else if(cr.CountItem((272))==0)
+		cr.Say((11),"Вам кажется что корень зандера не помешает");
+	}
+	if(answerI==2)
+	{
+		if(cr.CountItem((539))>0&&cr.CountItem((1444))>0&&cr.CountItem((271))>1)
+		{
+			cr.DeleteItem((271),2);
+			cr.DeleteItem((539),1);
+			cr.DeleteItem((1444),1);
+			cr.AddItem((1559),1);
+			cr.Say((11),"Вам удалось приготовить что-то съедобное");
+		}
+		else if(cr.CountItem((1444))==0)
+		cr.Say((11),"Для начала вам понадобится желудок кротокрыса");
+		else if(cr.CountItem((539))==0)
+		cr.Say((11),"Вам кажется что мясо пойдет как отличное наполнение");
+		else if(cr.CountItem((271))<2)
+		cr.Say((11),"Побольше цветка Брока в виде приправы - лучший выбор выживальца");
+		
+	}
+	if(answerI==3)
+	{
+		if(cr.CountItem((1436))>1&&cr.CountItem((71))>0)
+		{
+			cr.DeleteItem((71),1);
+			cr.DeleteItem((1436),2);
+			cr.AddItem((1560),1);
+			cr.Say((11),"Вам удалось приготовить что-то съедобное");
+		}
+		else if(cr.CountItem((1436))<2)
+		cr.Say((11),"Вы считаете что несколько хороших грибов хорошо пойдет в салат");
+		else if(cr.CountItem((71))==0)
+		cr.Say((11),"Вам кажется что мутафрукт будет хорошо сочетаться с грибами");
+	}
+	if(answerI==4)
+	{
+		if(cr.CountItem((539))>1&&cr.CountItem((272))>0&&cr.CountItem((271))>0)
+		{
+			cr.DeleteItem((539),2);
+			cr.DeleteItem((272),1);
+			cr.DeleteItem((271),1);
+			cr.AddItem((1563),1);
+			cr.Say((11),"Вам удалось приготовить что-то съедобное");
+		}
+		else if(cr.CountItem((539))<2)
+		cr.Say((11),"Как рагу может быть мясным без пары кусков хорошего мяса?");
+		else if(cr.CountItem((272))==0)
+		cr.Say((11),"Приправа в виде корня Зандера - вы думаете это неплохо");
+		else if(cr.CountItem((271))==0)
+		cr.Say((11),"Немного цветка Брока завершит это блюдо");
+	}
+	
+}

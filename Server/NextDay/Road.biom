@@ -1,0 +1,15 @@
+Maps:EW = 750-752
+Maps:SN = 755-757
+Maps:EN = 760-762
+Maps:ES = 765-767
+Maps:SW = 770-772
+Maps:WN = 775-777
+Maps:ESN = 780-782
+Maps:EWN = 785-787
+Maps:ESW = 790-792
+Maps:SWN = 795-797
+Speed = 2.0f		# Скорость перемещения для глобала. Чем выше, тем быстрее. Можно не целыми. По умолчанию 1.0f
+Symbol:Parse = R
+Symbol:Client = R
+Symbol:Color = 89 76 63 255
+Name:Str = Дорога # Не используется

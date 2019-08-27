@@ -1,0 +1,186 @@
+# ifndef __MAPS__
+# define __MAPS__
+
+//=============================================================================================================================
+//Locations
+//=============================================================================================================================
+
+/*
+   # define LOCATION_IS_CITY #(locPid)                  ((locPid)>=LOCATION_Den && (locPid)<=LOCATION_Vault13 && (locPid)!=LOCATION_Cathedral && (locPid)!=LOCATION_MilitaryBase && (locPid)!=LOCATION_Sierra && (locPid)!=LOCATION_ReplicationHell)
+ */
+
+// # define LOCATION_IS_OCEAN #(locPid)                 ((locPid)>=LOCATION_Den && (locPid)<=LOCATION_OceanTrader) //q tla water
+
+//Модок												//Location PID	//Комментарий
+# define LOCATION_Modoc								( 1232 )		//modoc_lands_town - Модок, 1ый этаж
+
+# define LOCATION_Modoc_Rich						( 1232 )		//Богатый район 			(не используется)
+# define LOCATION_Modoc_Admin						( 1238 )		//Административный район	(не используется)
+# define LOCATION_Modoc_Mine						( 1243 )		//Шахта						(не используется)
+# define LOCATION_Modoc_Slum						( 1246 )		//Трущобы					(не используется)
+# define LOCATION_Modoc_Center						( 1249 )		//Центр						(не используется)
+# define LOCATION_Modoc_Sawmill						( 1241 )		//Лесопилка					(не используется)
+
+
+//Пригород Модока
+# define LOCATION_Modoc_1_1							( 1238 )		//modoc_lands_river_turn - Предместья Модока, река поворот
+# define LOCATION_Modoc_1_2							( 1243 )		//modoc_lands_cliff_1 - Предместья Модока, утес 1
+# define LOCATION_Modoc_1_3							( 1246 )		//modoc_lands_cliff_2 - Предместья Модока, утес 2
+# define LOCATION_Modoc_1_4							( 1249 )		//modoc_lands_cliff_3 - Предместья Модока, утес 3
+# define LOCATION_Modoc_2_1							( 1241 )		//modoc_lands_river_1 - Предместья Модока, река 1
+# define LOCATION_Modoc_2_4							( 1250 )		//modoc_lands_cliff_4 - Предместья Модока, утес 4
+# define LOCATION_Modoc_3_1							( 1240 )		//modoc_lands_river_2 - Предместья Модока, река 2
+# define LOCATION_Modoc_3_4							( 1251 )		//modoc_lands_graveyard - Предместья Модока, кладбище
+# define LOCATION_Modoc_4_1							( 1242 )		//modoc_lands_bridge - Предместья Модока, мост
+# define LOCATION_Modoc_4_2							( 1245 )		//modoc_lands_caravan_camp - Предместья Модока, стоянка караванщиков
+# define LOCATION_Modoc_4_3							( 1248 )		//modoc_lands_gas_station - Предместья Модока, заправка
+# define LOCATION_Modoc_4_4							( 1253 )		//modoc_lands_oasis - Предместья Модока, оазис
+
+
+//Саттер
+# define LOCATION_Sutter_1_1						( 20 )			//
+# define LOCATION_Sutter_1_2						( 21 )			//
+# define LOCATION_Sutter_1_3						( 22 )			//
+# define LOCATION_Sutter_1_4						( 23 )			//
+# define LOCATION_Sutter_2_1						( 24 )			//
+# define LOCATION_Sutter_2_4						( 25 )			//
+# define LOCATION_Sutter_3_1						( 26 )			//
+# define LOCATION_Sutter_3_4						( 27 )			//
+# define LOCATION_Sutter_4_1						( 28 )			//
+# define LOCATION_Sutter_4_2						( 29 )			//
+# define LOCATION_Sutter_4_3						( 30 )			//
+# define LOCATION_Sutter_4_4						( 31 )			//
+# define LOCATION_Sutter     						( 32 )			//
+
+
+//Пирс
+# define LOCATION_Lakecity                      	( 1216 )		//Big_lake_town - Пирс на озере
+
+
+//Феникс
+# define LOCATION_Phoenix                       	( 42 )			//phoenix_0 - Феникс, 1ый этаж
+
+
+//Свалка
+# define LOCATION_Junkyard                      	( 43 )			//junk_new - Свалка, 1ый этаж
+
+
+//Прочее
+# define LOCATION_Bridge							( 90 )			//bridge - Мост
+# define LOCATION_Cell								( 91 )			//pattern_blank - Шаблон пустой
+# define LOCATION_StartMap							( 93 )			//startmap - Стартовая локация
+# define LOCATION_Dream								( 94 )			//dreammap - Пустая карта
+# define LOCATION_Arcade							( 95 )			//arcademap - Карта для аркады
+# define LOCATION_Deadloc							( 96 )			//deadloc - Рай
+
+
+// для roleplay сервера
+# define LOCATION_IS_CITY                       # (locPid)                  ( LocIsCity( ( locPid ) ) )
+
+bool LocIsModoc( uint locPid )
+{
+    return (locPid<=LOCATION_Modoc_4_4);
+}
+
+bool LocIsCity( uint locPid )
+{
+    return (locPid<=LOCATION_Sutter || locPid==LOCATION_Lakecity || locPid==LOCATION_Junkyard || locPid == 96);
+}
+
+bool LocIsMasked( uint locPid )
+{
+    return (locPid==LOCATION_Phoenix);
+}
+
+bool LocIsHidden( uint locPid )
+{
+    return false;
+}
+
+//=============================================================================================================================
+//Maps
+//=============================================================================================================================
+
+//													//Map PID		//Комментарий
+# define MAP_PATTERN_BLANK					   		( 191 )			//pattern_blank - Шаблон пустой
+
+
+//Модок	
+# define MAP_MODOC   								( 1232 )		//modoc_lands_town - Модок, 1ый этаж
+# define MAP_MODOC_DN								( 1233 )		//modoc_lands_town_dn - Модок, подвалы
+# define MAP_MODOC_UP1								( 1234 )		//modoc_lands_town_up1 - Модок, 2ой этаж
+# define MAP_MODOC_UP2								( 1235 )		//modoc_lands_town_up2 - Модок, 3ий этаж
+# define MAP_MODOC_11								( 1238 )		//modoc_lands_river_turn - Предместья Модока, река поворот
+# define MAP_MODOC_12								( 1243 )		//modoc_lands_cliff_1 - Предместья Модока, утес 1
+# define MAP_MODOC_13								( 1246 )		//modoc_lands_cliff_2 - Предместья Модока, утес 2
+# define MAP_MODOC_14								( 1249 )		//modoc_lands_cliff_3 - Предместья Модока, утес 3
+# define MAP_MODOC_21								( 1241 )		//modoc_lands_river_1 - Предместья Модока, река 1
+# define MAP_MODOC_24								( 1250 )		//modoc_lands_cliff_4 - Предместья Модока, утес 4
+# define MAP_MODOC_31								( 1240 )		//modoc_lands_river_2 - Предместья Модока, река 2
+# define MAP_MODOC_34								( 1251 )		//modoc_lands_graveyard - Предместья Модока, кладбище
+# define MAP_MODOC_41								( 1242 )		//modoc_lands_bridge - Предместья Модока, мост
+# define MAP_MODOC_42								( 1245 )		//modoc_lands_caravan_camp - Предместья Модока, стоянка караванщиков
+# define MAP_MODOC_43								( 1248 )		//modoc_lands_gas_station - Предместья Модока, заправка
+# define MAP_MODOC_44								( 1253 )		//modoc_lands_oasis - Предместья Модока, оазис
+
+
+//Феникс
+# define MAP_PHOENIX	                           	( 130 )			//phoenix_0 - Феникс, 1ый этаж
+# define MAP_PHOENIX_DN                         	( 131 )			//phoenix_1 - Феникс, подвал
+
+
+//Свалка
+# define MAP_JUNKYARD	                       		( 135 )			//junk_new - Свалка, 1ый этаж
+# define MAP_JUNKYARD_DN                        	( 136 )			//junk_new_dn - Свалка, подвалы
+
+
+//Саттер
+# define MAP_SUTTER_11                          	( 60 )			//
+# define MAP_SUTTER_11_DN                       	( 61 )			//
+# define MAP_SUTTER_12                          	( 63 )			//
+# define MAP_SUTTER_12_DN                       	( 64 )			//
+# define MAP_SUTTER_13                          	( 65 )			//
+# define MAP_SUTTER_13_DN                       	( 66 )			//
+# define MAP_SUTTER_14                          	( 67 )			//
+# define MAP_SUTTER_14_DN                       	( 68 )			//
+
+# define MAP_SUTTER_21                          	( 69 )			//
+# define MAP_SUTTER_21_DN                       	( 70 )			//
+# define MAP_SUTTER_24                          	( 71 )			//
+# define MAP_SUTTER_24_DN                       	( 72 )			//
+# define MAP_SUTTER_31                          	( 73 )			//
+# define MAP_SUTTER_31_DN                       	( 74 )			//
+# define MAP_SUTTER_34                          	( 75 )			//
+# define MAP_SUTTER_34_DN                       	( 76 )			//
+
+# define MAP_SUTTER_41                          	( 77 )			//
+# define MAP_SUTTER_41_DN                       	( 78 )			//
+# define MAP_SUTTER_42                          	( 79 )			//
+# define MAP_SUTTER_42_DN                       	( 80 )			//
+# define MAP_SUTTER_43                          	( 81 )			//
+# define MAP_SUTTER_43_DN                       	( 82 )			//
+# define MAP_SUTTER_44                          	( 83 )			//
+# define MAP_SUTTER_44_DN                       	( 84 )			//
+
+# define MAP_SUTTER_CENTER                      	( 88 )			//
+# define MAP_SUTTER_CENTER_DN                   	( 89 )			//
+# define MAP_SUTTER_CENTER_UP                   	( 90 )			//
+# define MAP_SUTTER_CENTER_UP_1                 	( 91 )			//
+# define MAP_SUTTER_CENTER_DN_2                 	( 92 )			//
+
+
+//Прочее
+# define MAP_UTILITY_START	                   		( 400 )			//startmap - Стартовая локация
+# define MAP_UTILITY_ARCADE	                   		( 402 )			//arcademap - Карта для аркады
+# define MAP_UTILITY_DEAD	                   		( 403 )			//deadloc - Рай
+
+# define MAP_MODOC_Center                        	( 400 )			//startmap - Стартовая локация
+# define LOCATION_Sutter_Center                  	( 4001 )		//Не понятно зачем эта строка. Такого номера нет в Locations.cfg
+
+
+//=============================================================================================================================
+//
+//=============================================================================================================================
+
+
+# endif // __MAPS__

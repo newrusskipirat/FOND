@@ -1,0 +1,184 @@
+#include "_macros.fos"
+#include "_colors.fos"
+#include "_animation.fos"
+#include "external_defines.fos"
+
+import void InjureCritter( Critter& cr, uint dmg, uint dmgType, uint8 dir, uint attackerId ) from "combat";
+import void DragAndDrop( Critter& cr, Critter@ target ) from "handcuffs";
+import void opt_CloseDoorsAround( Critter& cr ) from "external_opt";
+import void opt_CritterAct( Critter& cr, uint action, uint16 x, uint16 y ) from "external_opt";
+
+import void critter_reload_weapon( Critter& cr, Item& weapon, Item@ ammo ) from "main";
+
+void unsafe_reload( Critter& player, int param0, int param1, int param2, string@ saveText, int[] @ param4 )
+{
+	Map@ map = player.GetMap();
+	if( !valid(map) ) WarnReturn( player, "На глобале нельзя." ); 
+
+	Item@ weapon = _CritGetItemHand( player );
+	if( !valid(weapon) ) WarnReturn( player, "В основной руке нет оружия." );
+
+	int skill = _WeaponSkill( weapon.Proto, _WeaponModeUse( 0 ) );
+	bool isGun = skill == SK_SMALL_GUNS || skill == SK_BIG_GUNS || skill == SK_ENERGY_WEAPONS;
+	if( !isGun ) WarnReturn( player, "В основной руке не перезаряжаемое оружие."  );
+
+	int pid = weapon.GetProtoId();
+	
+	int[] TypeShotgun = {
+		PID_FLARE_GUN, PID_ZIP_GUN, PID_SHOTPISTOL_LOW, PID_SAWED_OFF_SHOTGUN, PID_SHOTGUN, PID_COMBAT_SHOTGUN, PID_REMINGTON, PID_SPRINGER_RIFLE,
+		PID_SNIPER_GUN_LOW, PID_GECKO_LOW, PID_BIGGUN_LOW, PID_GRENADELAUNCHER
+	};
+	bool isShotgun = ( TypeShotgun.find(pid) != -1 );
+	
+	int[] TypeRev = {
+		PID_ANACONDA, PID_44_MAGNUM_REVOLVER, PID_REVOLVER_LOW, PID_REV_RIFLE_LOW, PID_14mm_BIGGUN2_LOW
+	};
+	bool isRev = ( TypeRev.find(pid) != -1 );
+	
+	int[] TypeMagaz = {
+		//pist:
+		PID_9MM_MAUSER, PID_10MM_PISTOL, PID_14MM_PISTOL, PID_DESERT_EAGLE, PID_DESERT_EAGLE_EXT_MAG, PID_223_PISTOL,
+		PID_NEEDLER_PISTOL, PID_PISTOL_LOW, PID_SMOKE_GUN_LOW, 
+		//smg:
+		PID_AUTOGUN_LOW, PID_10MM_SMG, PID_HK_P90C, PID_GREASE_GUN, PID_DRUM_GUN_LOW, PID_MAUSER_SMG, 
+		//rifles:
+		PID_HUNTING_RIFLE, PID_SCOPED_HUNTING_RIFLE, PID_ASSAULT_RIFLE, PID_ASSAULT_RIFLE_EXT_MAG, PID_SNIPER_RIFLE, 
+		PID_FN_FAL, PID_RED_RYDER_BB_GUN, PID_RED_RYDER_LE_BB_GUN,
+		//big:
+		PID_FLAMER, PID_GATLING_LOW, PID_SAWGUN_LOW, PID_3GUN_LOW, 
+		//energo:
+		PID_SOUND_BLASTER, PID_LASER_PISTOL, PID_MAGNETO_LASER_PISTOL, PID_LASER_PISTOL_LOW, PID_PLASMA_SMG_LOW, PID_LASER_RIFLE_LOW
+	};
+	bool isMagaz = ( TypeMagaz.find(pid) != -1 );
+	
+	bool isSlow = false;
+	
+	if( !isShotgun && !isRev && !isMagaz ) {
+		player.Say( SAY_NETMSG, "Это оружие невожможно быстро перезарядить." ); 
+		isSlow = true;
+	}
+	
+	int max = weapon.Proto.Weapon_MaxAmmoCount;
+	int charge = weapon.AmmoCount;
+	if( max < 1 || charge >= max )
+		WarnReturn( player, "Оружие итак полностью заряжено." );
+
+	if( !isSlow && isMagaz && charge < 1 ) {
+		player.Say( SAY_NETMSG, "Оружие полностью разряжено, выполняется стандартная перезарядка." );
+		isSlow = true;
+	}
+
+	if( player.GetTimeEvents( CTE_SLOWRELOAD, null, null, null ) > 0 )
+		WarnReturn( player, "Перезарядка в процессе." );
+
+	Item@ ammo = _CritGetItemHandExt( player );
+	if( !valid(ammo) || ( weapon.AmmoPid != ammo.GetProtoId() ) ) {
+		player.Say( SAY_NETMSG, "Возьмите во второй слот 'руки' подходящие патроны." );
+		@ammo = player.GetItem( weapon.AmmoPid, -1 );
+		if( !valid(ammo) ) WarnReturn( player, "Быстрая перезарядка не удалась - вы не нашли патронов под рукой." );
+		isSlow = true;
+	}
+	
+	if( !isSlow && isRev && ammo.GetCount() % max != 0 ) {
+		player.Say( SAY_NETMSG, "В руке должно быть количество патронов кратное ёмкости барабана." ); 
+		isSlow = true;
+	}
+	
+	
+	if( !isSlow && ( isRev || isMagaz ) ) {
+		int min = ( isMagaz ? 1 : 0 );
+		if( charge > min ) {
+			weapon.AmmoCount = min;
+			weapon.Update();
+			map.AddItem( player.HexX, player.HexY, weapon.AmmoPid, charge - min );
+		}
+	}
+	
+	player.ModeBase[ MODE_NO_RUN ] = isSlow ? 0 : 3;
+	player.Say( SAY_EMOTE, ( isSlow ? "" : "быстро " ) + "перезаряжается" );
+	player.Action( ACTION_RELOAD_WEAPON, 0, weapon );
+	player.StatBase[ ST_CURRENT_AP ] = 0;
+	critter_reload_weapon( player, weapon, ammo );
+	player.Wait(500);
+}
+
+#define minDist 2
+#define SK_TIRED TO_SK_STEAL
+void unsafe_itemhit_critter( Critter& player, int targetId, int, int, string@, int[] @ ) {
+    Critter@ target = GetCritter( targetId );
+    if( !valid(target) || player.IsDead() || player.IsBusy() || player.IsKnockout() )
+		WarnReturn( player, "Вы не можете сейчас это сделать." );
+
+	if ( HasTimeout( player, SK_TIRED ) ) WarnReturn( player, "Вы не можете бить так часто." ); 
+
+	Map@ map = player.GetMap();
+	if( !valid(map) ) WarnReturn( player, "На глобале нельзя." ); 
+
+	if( player.Id == target.Id || player.Mode[ MODE_NO_PVP ] != 0 || target.Mode[ MODE_NO_PVP ] != 0 ) 
+		WarnReturn( player, "Вам кажется это бесполезным." );
+
+	if( target.IsDead() ) {
+		DragAndDrop( player, target );
+		SetTimeout( player, SK_TIRED, 3 );
+		return;
+	}
+
+	uint dist = GetDistantion( PosHex(player), PosHex(target) );
+	if( dist > minDist && !isGM(player) )
+		WarnReturn( player, "Далеко." );
+	
+	uint ap = 4, weight = 500, dmg_bonus = player.StatBase[ ST_MELEE_DAMAGE ];
+	int damage = CLAMP( player.Stat[ ST_STRENGTH ] - 6, 1, 10 );
+	Item@ weapon = _CritGetItemHand( player );
+	if( valid(weapon) ) {
+		weight = CLAMP( weapon.Proto.Weight, 2000, 8000 );
+		ap = CLAMP( weight * 0.001, 2, 8 );
+		damage += dmg_bonus;
+		dmg_bonus = 0;
+	}
+
+	if( player.Stat[ ST_CURRENT_AP ] < int( ap ) )
+		WarnReturn( player, "Недостаточно очков действия." );
+
+	opt_CritterAct( player, ANIM2_THROW, PosHex(target) );
+
+	if ( player.Skill[ SK_MELEE_WEAPONS ] - target.Stat[ ST_ARMOR_CLASS ] 
+		- ( weight * 0.002 ) - target.Stat[ ST_BLOCK ] * 50 < Random( 0, 100 ) )
+		WarnReturn( player, "Вы промахнулись." );
+
+	damage = Random( damage, damage + dmg_bonus + ( weight * 0.002 ) );
+	InjureCritter( target, damage, DAMAGE_NORMAL, target.Dir, player.Id );
+
+	SetTimeout( player, SK_TIRED, 2 );
+	SetTimeout( player, TO_AGGRESSOR, 60 );
+	SetTimeout( player, TO_BATTLE, 60 );
+	SetTimeout( target, TO_BATTLE, 60 );
+
+	if( target.IsNpc() && target.IsSee( player ) )
+		target.AddEnemyInStack( player.Id );
+}
+
+void unsafe_itemhit_object( Critter& player, int x, int y, int, string@, int[] @) {
+    if( player.IsDead() || player.IsKnockout() )
+		WarnReturn( player, "Вам кажется это бесполезным." );
+
+	if ( HasTimeout( player, SK_TIRED ) ) WarnReturn( player, "Вы не можете бить так часто." ); 
+
+	Map@ map = player.GetMap();
+	if( !valid(map) ) WarnReturn( player, "На глобале нельзя." ); 
+
+	uint dist = GetDistantion( PosHex( player ), x, y );
+	if( dist > minDist && !isGM(player) )
+		WarnReturn( player, "Далеко." );
+	
+	if( player.Stat[ ST_CURRENT_AP ] < 4 )
+		WarnReturn( player, "Недостаточно очков действия." );
+
+	opt_CritterAct( player, ANIM2_PUNCH_RIGHT, x, y );	
+
+	map.SetText( x, y, COLOR_GRAY, "стук" );
+	player.Say( SAY_NETMSG, "Вы постучали." );
+	SetTimeout( player, SK_TIRED, 3 );
+	
+	opt_CloseDoorsAround( player );
+}

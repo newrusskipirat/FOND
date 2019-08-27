@@ -1,0 +1,14 @@
+#ifndef __DEFINES_EXTERNAL__
+	# define __DEFINES_EXTERNAL__
+
+	#define HasTimeout #(cr,name) ( cr.Timeout[ name ] > 0 )
+	#define SetTimeout #(cr,name,value)  cr.TimeoutBase[ name ] = __FullSecond + REAL_SECOND( value );
+	
+	#define isGM #(cr) ( cr.GetAccess() >= ACCESS_MODER )
+	#define canOpen #(target) ( FLAG( target.LockerCondition, LOCKER_NOOPEN ) == false )
+	#define cantOpen #(target) ( FLAG( target.LockerCondition, LOCKER_NOOPEN ) == true )
+	#define isOpen #(target) ( FLAG( target.LockerCondition, LOCKER_ISOPEN ) == true )
+
+	#define WarnReturn #(cr,text) { cr.Say(SAY_NETMSG,text); return; }
+	#define PosHex #(obj) obj.HexX, obj.HexY
+# endif

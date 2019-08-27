@@ -1,0 +1,5285 @@
+
+# define SOURCE_READER
+# define MODULE_WORLD
+# define SOURCE_EVENT_ROOT
+
+// Инклуды
+# include "_maps.fos"
+# include "_macros.fos"
+# include "_msgstr.fos"
+# include "_math.fos"
+# include "entire.fos"
+# include "_itempid.fos"
+# include "_global_events.fos"
+# include "_global.fos"
+# include "_colors.fos"
+# include "_cell.fos"
+
+// Дефайны
+# define FILE_GLOBAL_BIOM			"./NextDay/world.mapbiom"
+# define MAP_SIZE              		( 150 )
+# define ADD_HEX_COUNT         	( 5 )
+
+namespace Global
+{
+	Kind@[] Kinds;
+	EventTree@ EventRoot = EventTree::Create("root");
+	World World;
+	const	string[] DirChars = { "E", "S", "W", "N" }; //1 3 5 7
+}
+
+namespace Kind
+{
+	enum Data
+	{
+		CurrentLife,
+		TimeEvent,
+		TimeEventIndex,
+		Length,
+		DefaultValue = 0
+	}
+
+	enum Hierarchy
+	{
+		None,
+		Queen,
+		Mob
+	}
+}
+
+namespace Result
+{
+	enum Transit
+	{
+		CellNotFound = -4,
+		NotHiddenContent,
+		MapNotFound,
+		FailGenerated,
+		Okay,
+		MapGenerated,
+	}
+}
+
+namespace Imports 
+{
+	import void SpawnItemCell( Map& map ) from "local_population";
+	import void InjureCritter( Critter& critter, uint dmg, uint dmgType, uint8 dir, uint attackerId )  from "combat";
+}
+
+// Exports
+ManagerObject @get_objectManager(){ return @Global::World; }
+EventTree @get_EventRoot(){ return @Global::EventRoot; }
+
+bool IsKindFriend( Critter& critter, Critter& check )
+{
+	if( critter.KindHierarchy != Kind::Hierarchy::None && Kind::Hierarchy::None != check.KindHierarchy && critter.KindIndex < Global::Kinds.length() )
+	{
+		Kind @kind = @Global::Kinds[ critter.KindIndex ], checkKind = @Global::Kinds[ check.KindIndex ];
+		for( uint i =0, iend = kind.Friends.length(); i < iend; i++ )
+		{
+			if( @kind.Friends[i] is @checkKind )
+				return true;
+		}
+	}
+	return false;
+}
+
+// Source
+interface Reference{ Reference @GetThis( ); }
+
+MapHash @GetMapHash( const uint16&in protoId )
+{	
+	if( Global::World.HashMaps.length() <= protoId )
+		Global::World.HashMaps.resize( protoId + 1 );
+	else if( @Global::World.HashMaps[protoId] !is null )
+		return @Global::World.HashMaps[protoId];
+		
+	MapHash hash( protoId );
+	@Global::World.HashMaps[protoId] = hash;
+	return hash;
+}
+
+class HierarchyLink
+{
+	HierarchyLink( string@ name, int value )
+	{
+		Name = name;
+		Value = value;
+	}
+
+	string 	Name;
+	int 		Value;
+}
+
+class Hierarchy : FileObject
+{
+	
+	string Name;
+	HierarchyLink@[] Links;
+
+	string@ get_DictKey( ) 								override { return Name; }
+	string@ get_ObjectName( ) const						override { return "Hierarchy"; }
+	FileObject @get_Pattern( string& name ) const 	override { return Hierarchy( name ); }
+	FileObject @get_Copy( string& name ) override 
+	{
+		Hierarchy @copy = @Hierarchy( name );
+		
+		copy.Links.resize( this.Links.length() );
+		for( uint i = 0, iend = this.Links.length(); i < iend; i++ )
+			@copy.Links[i] = this.Links[i];
+		return copy;
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			if( args.length() == 1 )
+			{
+				if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+				else
+				{
+					int mem = 0;
+					if( data[0] == ' ' )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					StrToInt( data, mem );
+					Links.insertLast( HierarchyLink( nameData, mem ) );
+				}
+			}
+		}
+	}
+	
+	Hierarchy( string@ name ) { Name = name; GlobalDataList.resize( 0 ); }
+}
+
+class ProtoSettings : SettingsAPI, FileObject
+{
+	bool KindSpawnLogging;
+	
+	string@ get_DictKey( ) 								override { return Name; }
+	string@ get_ObjectName( ) const						override { return "Settings"; }
+	FileObject @get_Pattern( string& name ) const 	override { return ProtoSettings( name ); }
+	FileObject @get_Copy( string& name ) override 
+	{
+		ProtoSettings @copy = @ProtoSettings( name );
+		return copy;
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			if( args.length() == 1 )
+			{
+				if( nameData == "Flags" )
+				{
+					string@[] params = splitEx( data, " " );
+					for( uint i = 0, iend = params.length(); i < iend; i++ )
+					{
+						if( params[i] == "Debug" ) IsDebug = true;
+						else if( params[i] == "Default" ) @Global::World.Settings = this;
+						else if( params[i] == "KindSpawnLogging" ) KindSpawnLogging = true;
+					}
+				}
+				else if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+			}
+		}
+	}
+	
+	ProtoSettings( string@ name )
+	{
+		Name = name;
+		IsDebug = KindSpawnLogging = false;
+		GlobalDataList.resize( 0 );
+	}
+}
+
+class KindReferenceHash : Reference
+{
+	KindReferenceHash( const string&in name ){
+		Name = name;
+	}
+
+	Reference @GetThis( ) override {
+		return cast<Reference@>( @Global::World.ProtoObject[ "Kind:" + Name ] );
+	}
+	
+	string Name;
+}
+
+// SpawnObjectProtoFuncdef
+funcdef void SpawnObjectProtoFuncdef( Critter@ , Kind@, uint16, SpawnHash@ );
+
+void SetQueen( Critter@ critter, Kind @kind, uint16 spawnIndex, SpawnHash @hash )
+{
+	if( @critter !is null )
+	{
+		critter.KindHierarchy = Kind::Hierarchy::Queen;
+		critter.KindIndex = kind.Data[ Kind::Data::TimeEventIndex ];
+		critter.KindQIndex = spawnIndex;
+		critter.AIGroupHierarchy = critter.Id;
+		hash.HashData.set( "AIGroupHierarchy", critter.AIGroupHierarchy );
+		critter.AIWorkRadius = kind.SpawnRadius.Max;
+	}
+}
+
+void DefaultSpawnMob( Critter@ critter, Kind @kind, uint16 spawnIndex, SpawnHash @hash )
+{
+	if( @critter !is null )
+	{
+		critter.KindHierarchy = Kind::Hierarchy::Mob;
+		critter.KindIndex = kind.Data[ Kind::Data::TimeEventIndex ];
+		critter.KindQIndex = spawnIndex;
+		if( hash.HashData.exists( "AIGroupHierarchy" ) )
+			hash.HashData.get( "AIGroupHierarchy", critter.AIGroupHierarchy );
+		else ClearLog( "Ошибка спавндаты" );
+		critter.AIWorkRadius = kind.SpawnRadius.Max;
+	}
+}
+
+class Kind : FileObject, AnyDataObject, Reference
+{
+	uint[]@ get_SaveData( ) override {
+		return Data;
+	}
+	
+	Reference @GetThis( ) override {
+		return @this;
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+	void InitData( uint[]& data ) override
+	{
+		Data = data;
+		
+		// FullSecondEvent
+		if( Data[ Kind::Data::TimeEvent ] == 0 )
+			Data[ Kind::Data::TimeEvent ] = __FullSecond + REAL_MINUTE( TimeMinute.Random );
+		Data[ Kind::Data::TimeEventIndex ] = Global::Kinds.length();
+		CreateTimeEvent( Data[ Kind::Data::TimeEvent ], "e_CreateKinds", Data[ Kind::Data::TimeEventIndex ], false );
+		Global::Kinds.insertLast( @this );
+		
+		for( uint i = 0; i++ < Data[ Kind::Data::CurrentLife ]; )
+			if( !AddLife( ) ) Data[ Kind::Data::CurrentLife ]--;
+
+		InitReferenceListing( Friends );
+		InitReferenceListing( Enemies );
+		
+		Spawn( );
+	}
+
+	void InitReferenceListing( Reference@[] @refList )
+	{
+		for( uint i = 0, iend = refList.length(); i < iend; i++ )
+			@refList[i] = @refList[i].GetThis( );
+			
+		for( uint i0 = 0, iend = refList.length(); i0 < iend; i0++ )
+		{
+			if( @refList[i0] is null )
+			{
+				iend--;
+				refList.removeAt( i0-- );
+				continue;
+			}
+			
+			for( uint i1 = i0 + 1; i1 < iend; i1++ )
+			{
+				if( @refList[i0] is @refList[i1] )
+				{
+					iend--;
+					refList.removeAt( i0-- );
+					break;
+				}
+			}
+		}
+	}
+	
+	Kind( string& name )
+	{
+		ThisIsDebug = ThisSpawnLogging = false;
+		Name = name;
+		AiScript = "Ai@Default";
+		Data.resize( Kind::Data::Length );
+		Friends.resize( 0 );
+		for( uint i = 0; i < uint( Kind::Data::Length ); i++ )
+			Data[i] = Kind::Data::DefaultValue;
+		GlobalDataList.resize( 0 );
+	}
+	
+	void Kill( Cell @cell )
+	{
+		if( @cell !is null )
+		{
+			EventRoot.Run( "Kind.Free.Cell.UID" + cell.Position.UID[Global::World.Width], @cell );
+			Data[ Kind::Data::CurrentLife ]--;
+		}
+	}
+	
+	string @get_DictKey( ) 		override { return Name; }
+	string @get_ObjectName( ) const	override { return "Kind"; }
+	
+	bool GetParamValue( string@ name, int&out value ){ return GetConstantValue( CONSTANTS_PARAM, @name, value ); }
+	bool GetConstantValue( const int&in collection, string@ name, int&out value )
+	{
+		value = ::GetConstantValue( collection, name );
+		return ( value != -1 );
+	}
+	
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			nameData = args[0];
+			if( args.length() == 2 )
+			{
+				if( nameData == "Param" )
+					AddParam( args[1], data, Params );
+				else if( nameData == "UnityParam" )
+					AddParam( args[1], data, UnityParams );
+			}		
+			else
+			{
+				if( nameData == "Bioms" )
+				{
+					string@[] value = splitEx( data, " " );
+					
+					for( uint i = 0, iend = value.length(); i < iend; i++ )
+					{
+						ProtoBiom@ biom = @Global::World.GetProtoBiom( value[i] );
+						if( @biom !is null )
+							KindBioms.insertLast(biom);
+					}
+				}
+				else if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+				else if( nameData == "Pids" )
+				{
+					AddObjectProto( data, Pids );
+				}
+				else if( nameData == "Queens" )
+				{
+					AddObjectProto( data, Queens );
+				}
+				else if( nameData == "CountGroups" )
+				{
+					CountGroups.Set( data );
+				}
+				else if( nameData == "Count" )
+				{
+					CountWorld.Set( data );
+				}
+				else if( nameData == "TimeMinute" )
+				{
+					TimeMinute.Set( data );				
+				}
+				else if( nameData == "Zone" )
+				{
+					string@[] zones = splitEx( data, " " );
+					for( uint i = 0, iend = zones.length(); i < iend; i++ )
+					{
+						FileObject @object = Global::World.ProtoObject["Zone:" + zones[ i ] ];
+						if( @object is null )
+						{
+							Log( "Зона <" + zones[ i ] + "> не найдена." );
+							continue;
+						}
+						Zone @zone = cast<Zone@>(@object);
+						if( @zone is null )
+						{
+							Log( "Объект <" + zones[ i ] + "> не является зоной, ошибка данных." );
+							continue;
+						}
+						ZoneList.insertLast( @zone );
+					}
+				}
+				else if( nameData == "SpawnRadius" )
+				{
+					SpawnRadius.Set( data );				
+				}
+				else if( nameData == "AiScript" )
+				{
+					string module = "Ai";
+					string function = "Default";
+					
+					string@[] value = splitEx( data, " " );
+					if( value.length() == 1 )
+					{
+						function = value[0];
+					}
+					else if( value.length() == 2 )
+					{
+						function = value[1];
+						module = value[0];
+					}
+					
+					AiScript = module + "@" + function;
+				}
+				else if( nameData == "Friends")
+				{
+					AddReference( data, Friends );
+				}
+				else if( nameData == "Enemies")
+				{
+					AddReference( data, Enemies );
+				}
+				else if( nameData == "Flags")
+				{
+					string@[] params = splitEx( data, " " );
+					for( uint i = 0, iend = params.length(); i < iend; i++ )
+					{
+						if( params[i] == "Debug" ) ThisIsDebug = true;
+						else if( params[i] == "SpawnLogging" ) ThisSpawnLogging = true;
+					}
+				}
+				else if( nameData == "Hierarchy")
+				{
+					if( data[0] == ' ' )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					
+					@Hierarchy = cast<Hierarchy@>(@Global::World.ProtoObject[ "Hierarchy:" + data ] );
+				}
+				else Log( "Неопознанные данные " + nameData );
+			}
+		}
+	}
+	
+	void AddReference( string& data, Reference@[] @referenceList )
+	{
+		string@[] value = splitEx( data, " " );
+			
+		for( uint i = 0, iend = value.length(); i < iend; i++ )
+			referenceList.insertLast( KindReferenceHash( value[i] ) );
+	}
+	
+	void AddObjectProto( string& data, ObjectValue@[]& array )
+	{
+		string@[] value = splitEx( data, " " );
+			
+		for( uint i = 0, iend = value.length(); i < iend; i++ )
+		{
+			int protoId = 0;
+			CountValue count;
+		
+			string@[] countStr = splitEx( value[i], ":" );
+			if( countStr.length() == 2 )
+				count.Set( countStr[1] );
+			StrToInt( countStr[0], protoId );			
+			array.insertLast( ObjectValue( protoId, count, this ) );
+		}
+	}
+	
+	FileObject @get_Pattern( string& name ) const override
+	{
+		return @Kind( name );
+	}
+	
+	FileObject @get_Copy( string& name ) override 
+	{
+		Kind @copy = @Kind( name );
+		
+		copy.KindBioms.resize( this.KindBioms.length() );
+		for( uint i = 0, iend = this.KindBioms.length(); i < iend; i++ )
+			@copy.KindBioms[i] = this.KindBioms[i];
+		
+		@copy.Hierarchy = this.Hierarchy;
+		
+		copy.Queens.resize( this.Queens.length() );
+		for( uint i = 0, iend = this.Queens.length(); i < iend; i++ )
+			@copy.Queens[i] = this.Queens[i];
+		
+		copy.Pids.resize( this.Pids.length() );
+		for( uint i = 0, iend = this.Pids.length(); i < iend; i++ )
+			@copy.Pids[i] = this.Pids[i];
+			
+		copy.CountWorld = this.CountWorld;
+		copy.CountGroups = this.CountGroups;
+		copy.TimeMinute = this.TimeMinute;
+		copy.SpawnRadius = this.SpawnRadius;
+		copy.AiScript = this.AiScript;
+			
+		copy.UnityParams.resize( this.UnityParams.length() );
+		for( uint i = 0, iend = this.UnityParams.length(); i < iend; i++ )
+			@copy.UnityParams[i] = this.UnityParams[i];
+			
+		copy.Params.resize( this.Params.length() );
+		for( uint i = 0, iend = this.Params.length(); i < iend; i++ )
+			@copy.Params[i] = this.Params[i];
+			
+		copy.Friends.resize( this.Friends.length() );
+		for( uint i = 0, iend = this.Friends.length(); i < iend; i++ )
+			@copy.Friends[i] = this.Friends[i];
+			
+		copy.Enemies.resize( this.Enemies.length() );
+		for( uint i = 0, iend = this.Enemies.length(); i < iend; i++ )
+			@copy.Enemies[i] = this.Enemies[i];
+		
+		return @copy;
+	}
+	
+	bool AddLife( ProtoBiom @biom )
+	{
+		Cell @cell = null;
+		string info = "";
+		Zone @zone = null;
+		const uint countzone = ZoneList.length();
+		uint currentcountzone = 0;
+		
+		Zone@[] zoneList( countzone );
+		for( ; currentcountzone < countzone; currentcountzone++ )
+			@zoneList[currentcountzone] = ZoneList[currentcountzone];
+		TimeLog timer;
+		do
+		{
+			if( timer.check( 50 ) )
+			{
+				if( SpawnLogging ) Log( "Пойск свободной клетки затянулся, сворачиваем." );
+				return false;
+			}
+			
+			if( countzone == 0 )
+			{
+				Handle@ buffer = biom.RandomFreeCell;
+				@cell = cast<Cell@>(@buffer);
+				if( @cell is null )
+					info = cast<string@>(@buffer);
+			}
+			else 
+			{
+				if( currentcountzone == 0 )
+				{
+					if( SpawnLogging ) Log( "Зоны для обхода закончились, клетка для спавна не найдена.");
+					break;
+				}
+				
+				uint index = Random( 0, currentcountzone - 1 );
+				@cell = zoneList[ index ].RandomFreeCell[biom];
+				
+				if( @cell is null )
+				{
+					info += "В зоне " + zoneList[ index ].Name + " кончились свободные клетки.";
+					zoneList.removeAt( index );
+					currentcountzone--;
+				}
+			}
+			
+			
+			if( @cell !is null )
+			{
+				if( @cell.Content is null )
+				{
+					if( SpawnLogging ) cell.Log( "Контент не валиден, убираем с списка свободных.");
+					@cell = null;
+				}
+				else if ( cell.Content.Info.Flags.Static )
+				{
+					if( SpawnLogging ) cell.Log( "Статик клетка <" + cell.Content.Info.Name + ">, убираем с списка свободных.");
+					@cell = null;
+				}
+				else if ( @cell.Content.CurrentKind !is null )
+				{
+					if( SpawnLogging ) cell.Log( "Клетка уже заселена, убираем с списка свободных.");
+					@cell = null;
+				}
+			}
+			else if( SpawnLogging ) Log( "Клетка не найдена. Причина: " + info );
+		}
+		while( @cell is null && biom.CountFreeCells > 0 );
+		if( @cell !is null )
+		{
+			if( SpawnLogging )
+				Log( "Семейство создано по координатам " + cell.Position.X + " " + cell.Position.Y + " Биом: <" + biom.Name + ">");
+			@cell.Content.CurrentKind = @this;
+			return true;
+		}
+		
+		if( SpawnLogging )
+			Log( "Клетка не найдена.");
+		return false;
+	}
+	
+	bool AddLife( )
+	{
+		ProtoBiom@[] bioms( KindBioms.length() );
+		for( uint i = 0, iend = KindBioms.length(); i < iend; i++ )
+			@bioms[i] = KindBioms[i];
+		
+		while( bioms.length() != 0 )
+		{
+			ProtoBiom@ biom = @FreeBiom[bioms];
+			if( @biom !is null && AddLife( @biom ) )
+				return true;
+			if( SpawnLogging )
+				Log( "Не найдена клетка в биоме " + biom.Name );
+		}
+		
+		if( SpawnLogging )
+			Log( "Не найден свободный биом." );
+		return false;
+	}
+	
+	void Spawn( )
+	{
+		const int count = CountWorld.Random;
+		for( int i = Data[ Kind::Data::CurrentLife ]; i < count; i++ )
+		{
+			if( AddLife( ) )
+				Data[ Kind::Data::CurrentLife ]++;
+			else 
+			{
+				if( SpawnLogging ) 
+					Log( "Ошибка спавна.");
+			}
+		}
+	}
+
+	void SpawnSomeMobs( SpawnHash& hash, Hexagonal&in hex, int[]&in params, uint count )
+	{
+		const uint max = Pids.length() - 1;
+		for( uint i = 0; i < count; i++ )
+			Pids[Random( 0, max)].Spawn( hash, hex, SpawnRadius.Random, AiScript, GetParams( params, Params ), @DefaultSpawnMob );
+	}
+	
+	
+	void SpawnMobs( SpawnHash& hash, Hexagonal&in hex, int[]&in params )
+	{
+		const uint count = Pids.length();
+		for( uint i = 0; i < count; i++ )
+			Pids[i].Spawn( hash, hex, SpawnRadius.Random, AiScript, GetParams( params, Params ), @DefaultSpawnMob );
+	}
+	
+	int[] @GetParams( int[]&in paramsin, ParamValue@[]& params )
+	{
+		for( uint i = 0, iend = params.length(); i < iend; i++ )
+			params[i].Get( paramsin );
+		return paramsin;
+	}
+	
+	void AddParam( string& param, string& count, ParamValue@[]& array )
+	{
+		int paramNum = -1;
+		if( GetParamValue( param, paramNum ) )
+			array.insertLast( ParamValue( paramNum, count ) );
+	}
+	
+	ProtoBiom @get_FreeBiom( ProtoBiom@[]@ bioms )
+	{
+		ProtoBiom@ biom;
+		while( bioms.length() != 0 )
+		{
+			@ biom = @bioms[ Random( 0, bioms.length() - 1 ) ];
+			RemoveBiom( bioms, @biom );
+			if( biom.CountFreeCells != 0 )
+				return @biom;
+		}
+		return null;
+	}
+	
+	void RemoveBiom( ProtoBiom@[]& bioms, ProtoBiom @biom )
+	{
+		for( uint index = 0, iend = bioms.length(); index < iend; index++ )
+			if( @bioms[index] == @biom )
+			{
+				bioms.removeAt( index );
+				return;
+			}
+	}
+	
+	void Log( string& log )	{
+			::ClearLog( "<" + Name + "> : " + log );
+	}
+	
+	ProtoBiom@[] KindBioms;// Список биомов
+	Hierarchy	@Hierarchy; // Тип иерархии
+	
+	ObjectValue@[] Queens;	// Список возможных королев
+	ObjectValue@[] Pids;	// Пиды семейства
+	
+	CountValue CountWorld;	
+	CountValue CountGroups;	//Количество груп в семействе
+	
+	string Name;				// Имя семейства	
+	CountValue TimeMinute;
+	
+	CountValue SpawnRadius;
+	string AiScript;
+	
+	uint[] Data;
+	
+	Zone@[] ZoneList;
+	
+	ParamValue@[] UnityParams;
+	ParamValue@[] Params;
+	
+	Reference@[] Friends;
+	Reference@[] Enemies;
+
+	// Деббагинг
+	bool ThisIsDebug;
+	bool ThisSpawnLogging;
+	
+	bool get_SpawnLogging()
+	{
+		return ThisSpawnLogging || Global::World.Settings.KindSpawnLogging || IsDebug;
+	}
+	
+	bool get_IsDebug()
+	{
+		return ThisIsDebug || Global::World.Settings.IsDebug;
+	}
+}
+
+class KindInstance
+{
+	Kind @Proto;
+	uint[] LifeQueen;
+	ObjectValue@[] Queens;
+	Cell @MyCell;
+	
+	KindInstance( Kind& kind, Cell @cell )
+	{
+		@Proto = kind;
+		@MyCell = cell;
+		// Count
+		const uint count = kind.CountGroups.Random;
+		LifeQueen.resize( count );
+		Queens.resize( count );
+		for( uint i = 0; i < count; i++ )
+		{
+			ObjectValue @proto = Proto.Queens[Random( 0, Proto.Queens.length() - 1 )];
+			@Queens[i] = proto;
+			LifeQueen[i] = proto.Count.Random;
+		}
+	}
+	
+	KindInstance( Kind& kind, uint count )
+	{
+		@Proto = kind;
+		@MyCell = null;
+
+		LifeQueen.resize( count );
+		Queens.resize( count );
+		for( uint i = 0; i < count; i++ )
+		{
+			ObjectValue @proto = Proto.Queens[Random( 0, Proto.Queens.length() - 1 )];
+			@Queens[i] = proto;
+			LifeQueen[i] = proto.Count.Random;
+		}
+	}
+	
+	void DeadQueen( Critter& queen, CellContent& content )
+	{
+		if( queen.KindHierarchy == Kind::Hierarchy::Queen ) 
+		{
+			LifeQueen[queen.KindQIndex]--;
+			const uint count = LifeQueen.length();
+			for( uint i = 0; i < count; i++ )
+				if( LifeQueen[i] != 0 )
+					return;
+			
+			@content.CurrentKind = null;
+		}
+	}
+	
+	~KindInstance(){
+		Kill( );
+	}
+	
+	void Kill( )
+	{
+		if( @Proto !is null )
+		{
+			Proto.Kill( MyCell );
+			@Proto = null;
+		}
+	}
+	
+	ParamValue@[] UnityParams;
+	ParamValue@[] Params;
+	
+	void Spawn( Map& map )
+	{
+		MapHash @hash = GetHash( map );
+		SpawnHash spawnHash( map );
+		const int count = LifeQueen.length();
+		
+		int[] unityParams = {};
+		unityParams = Proto.GetParams( unityParams, Proto.UnityParams );
+		for( int i = 0; i < count; i++ )
+		{
+			Hexagonal hex( Random( hash.Min.X, hash.Max.X ), Random( hash.Min.Y, hash.Max.Y ) );
+			Queens[i].Spawn( spawnHash, hex, Proto.SpawnRadius.Random, Proto.AiScript, LifeQueen[i], Proto.GetParams( unityParams, Proto.Params ), @SetQueen );
+			Proto.SpawnMobs( spawnHash, hex, unityParams );
+		}
+	}
+	
+	void Spawn( Map& map, Hexagonal@[]& hexs )
+	{
+		MapHash @hash = GetHash( map );
+		SpawnHash spawnHash( map );
+		if( hexs.length() > LifeQueen.length() )
+		{
+			Log( "Error, invalid count groups" );
+			hexs.resize( LifeQueen.length() );
+		}
+		
+		const int count = hexs.length();
+		int[] unityParams = {};
+		unityParams = Proto.GetParams( unityParams, Proto.UnityParams );
+		for( int i = 0; i < count; i++ )
+		{
+			Hexagonal @hex = hexs[i]; //( Random( hash.Min.X, hash.Max.X ), Random( hash.Min.Y, hash.Max.Y ) );
+			Queens[i].Spawn( spawnHash, hex, Proto.SpawnRadius.Random, Proto.AiScript, LifeQueen[i], Proto.GetParams( unityParams, Proto.Params ), @SetQueen );
+			Proto.SpawnMobs( spawnHash, hex, unityParams );
+		}
+	}
+
+	void Spawn( Map& map, Hexagonal@[]& hexs, uint16 countMobs )
+	{
+		MapHash @hash = GetHash( map );
+		SpawnHash spawnHash( map );
+		if( hexs.length() > LifeQueen.length() )
+		{
+			Log( "Error, invalid count groups" );
+			hexs.resize( LifeQueen.length() );
+		}
+		
+		const int count = hexs.length();
+		int[] unityParams = {};
+		unityParams = Proto.GetParams( unityParams, Proto.UnityParams );
+		for( int i = 0; i < count; i++ )
+		{
+			Hexagonal @hex = hexs[i]; //( Random( hash.Min.X, hash.Max.X ), Random( hash.Min.Y, hash.Max.Y ) );
+			Queens[i].Spawn( spawnHash, hex, Proto.SpawnRadius.Random, Proto.AiScript, LifeQueen[i], Proto.GetParams( unityParams, Proto.Params ), @SetQueen );
+			Proto.SpawnSomeMobs( spawnHash, hex, unityParams, countMobs );
+		}
+	}	
+}
+
+class SpawnHash
+{
+	uint[] UIDs;
+	Map@ Map;
+	uint Width;
+	
+	dictionary HashData;
+	
+	SpawnHash( Map& map )
+	{
+		@this.Map = map;
+		Width = map.GetWidth();
+	}
+	
+	bool ReserveHex( Hexagonal& hex, Hexagonal& hexCheck, Hexagonal@[]& hexs, const uint& radius  )
+	{
+		if( IsFreeHex( hex, hexCheck, radius ) )
+		{
+			hexs.insertLast( hexCheck );
+			UIDs.insertLast( hexCheck.UID[Width] );
+			return true;
+		}
+		return false;
+	}
+	
+	bool IsFreeHex( Hexagonal& hex, Hexagonal& hexCheck, const uint& radius )
+	{
+		if( UIDs.find( hexCheck.UID[Width] ) == -1 )
+		{
+			uint length = this.Map.GetPathLength( hex.X, hex.Y, hexCheck.X, hexCheck.Y, 0 );
+			return ( hex == hexCheck || ( length != 0 && length <= radius ) );
+		}
+		return false;
+	}
+}
+
+uint e_CreateKinds( uint[] @values )
+{
+	if( @values is null || values[0] == uint( -1 ) ) 
+		return 0;
+		
+	Kind @kind = Global::Kinds[values[0]];
+	if( @kind is null)
+	{
+		Log( "Что-то пошло не так, семейства не будут созданы.");
+		return 0;
+	}
+	kind.Spawn( );
+	kind.Data[ Kind::Data::TimeEvent ] += REAL_MINUTE( kind.TimeMinute.Random );
+	return REAL_MINUTE( kind.TimeMinute.Random );
+}
+
+class ObjectValue : ValueAPI
+{
+	ObjectValue( uint16 protoId, CountValue count, Kind @kind  )
+	{
+		ProtoId = protoId;
+		Count = count;
+		@BaseKind = @kind;
+	}
+	
+	void Spawn( SpawnHash& hash, Hexagonal& hex, uint radius, string@ script, int[] params, SpawnObjectProtoFuncdef @function )
+	{
+		uint count = Count.Random;
+		Spawn( hash, hex, radius, script, count, params, function );
+	}
+	
+	void Spawn( SpawnHash& hash, Hexagonal& hex, uint radius, string@ script, uint& count, int[] params, SpawnObjectProtoFuncdef @function  )
+	{			
+		Hexagonal@[] hexs;
+		
+		for( uint i = 0; i < count; i++ )
+		{
+			uint try = 10;
+			while( try-- != 0 )
+				if( hash.ReserveHex( hex, Hexagonal( hex.X + Random( 0 - radius, radius ) , hex.Y + Random( 0 - radius, radius ) ), hexs, radius ) )
+					break;
+		}
+		
+		count = hexs.length();
+		for( uint i = 0; i < count; i++ )
+		{
+			if( @function is null ) 
+				hash.Map.AddNpc( ProtoId, hexs[i].X , hexs[i].Y, 0, params, null, script );
+			else 
+				function( @hash.Map.AddNpc( ProtoId, hexs[i].X , hexs[i].Y, 0, params, null, script ), @BaseKind, i, hash );
+		}
+	}
+	
+	Kind @BaseKind;
+	uint16 ProtoId;
+	CountValue Count;
+}
+
+class ParamValue : ValueAPI
+{
+	ParamValue( int param, string& count )
+	{
+		Param = param;
+		Value.Set(count);
+	}
+
+	void Get( int[]& params )
+	{
+		params.insertLast( Param );
+		params.insertLast( Value.Random );
+	}
+	
+	int Param;
+	CountValue Value;
+}
+
+class CountValue : ValueAPI
+{
+	CountValue( )				{ Min = Max = 1; }
+	CountValue( ::string& data ){ Set( data ); }
+	
+	void Set( ::string& data )
+	{
+		::string@[] str = splitEx( data, "-" );
+		if( str.length() > 0 )
+		{
+			if( str.length() == 2 )
+			{
+				::StrToInt( str[0], Min );
+				::StrToInt( str[1], Max );
+			}
+			else if ( str.length() == 1 )
+			{
+				::StrToInt( str[0], Min );
+				Max = Min;
+			}
+		}
+		else Min = Max = 0;
+	}
+
+	void Set( int value )
+	{
+		Min = Max = value;
+	}
+	
+	int Min;
+	int Max;
+	
+	int get_Random(){ return Random( Min, Max ); }
+	string get_Debug( )	{ return "" + Min + "-" + Max; }
+}
+
+class MapPacket
+{
+	MapPacket( string& name )
+	{
+		MapsLastIndex = -1;
+		Name = name;
+	}
+	
+	private MapHash@[] Maps;
+	private int MapsLastIndex;
+	string Name;
+	
+	const int get_End( ) const { return MapsLastIndex; }
+	
+	const uint16 get_MapPid( uint16[]@ ignore )
+	{
+		MapHash@[]@ maps = @Maps;
+		int mapsLastIndex = MapsLastIndex;
+		if( @ignore !is null && ignore.length() != 0 && mapsLastIndex != 0 )
+		{
+			@maps = array<MapHash@>(0);
+			mapsLastIndex = -1;
+			for( uint i = 0, iend = MapsLastIndex+1; i < iend; i++ )
+			{
+				if( ignore.find( Maps[i].ProtoId ) == -1 )
+				{
+					maps.insertLast( Maps[i] );
+					mapsLastIndex++;
+				}
+			}
+			
+			if( mapsLastIndex == -1 )
+			{
+				@ maps = @Maps;
+				mapsLastIndex = MapsLastIndex;
+			}
+		}
+		if( mapsLastIndex == -1 )
+			return 0;
+			
+			
+		MapHash@ hash = @maps[Random( 0, mapsLastIndex )];
+			
+		if( @hash is null )
+		{
+			Log( "WTF? Не валиден хэш карты " + mapsLastIndex + " " + maps.length() );
+			for( uint i = 0; i < maps.length(); i++ )
+				Log( "i<"+ i + "> " + ( @maps[i] !is null ) );
+		}
+			
+		return hash.ProtoId;
+	}
+	
+	const uint16 opIndex( uint index ) const
+	{
+		return 	( int( index ) <= MapsLastIndex )
+				?	Maps[index].ProtoId
+				:	0;
+	}
+	
+	uint16 opAddAssign(const uint16 &in protoId)
+	{
+		MapsLastIndex = Maps.length();
+		Maps.insertLast( @Global::World.Hash[ protoId ] );
+		return protoId;
+	}
+	
+	uint16 opAddAssign( string &in protoId)
+	{
+		int temp = -1;
+		StrToInt( protoId, temp );
+		if( temp > 0 )
+			return opAddAssign( temp );
+		return 0;
+	}
+	
+	bool IsProtoId( uint16 protoId )
+	{
+		for( uint i = 0; i <= uint( MapsLastIndex ); i++ )
+			if( protoId == Maps[i].ProtoId )
+				return true;
+		return false;
+	}
+}
+
+class BiomConversion
+{
+	string IfBiom;		// Если такой биом "зажал"
+	string ToConvert;  	// То превратиться в этот биом
+
+	BiomConversion( string& ifbiom, string& tobiom )
+	{
+		IfBiom = ifbiom;
+		ToConvert = tobiom;
+	}
+	
+	bool opEquals( const ProtoBiom& biom ){ return (IfBiom == biom.Name); }
+}
+
+class ProtoBiomReference : Reference
+{
+	ProtoBiomReference( const string&in name ){
+		Name = name;
+	}
+
+	Reference @GetThis( ) override {
+		return cast<Reference@>( @Global::World.GetProtoBiom( Name ) );
+	}
+	
+	string Name;
+}
+
+class ProtoBiom : FileObject, Reference
+{
+	string Name;
+	string ParseSymbol;
+	string@ ClientSymbol;
+	
+	uint ColorSymbol;
+	uint ColorCell;
+	
+	float Speed;
+	
+	BiomConversion@[] ConversionsData;
+	MapPacket @Default;
+	
+	dictionary MapPackets;
+	
+	private Cell@[] Cells;
+	private Cell@[] FreeCells;
+	
+	Reference@[] Mimic;
+	BiomFlags Flags;
+	
+	void FreeCell( string&in, Handle@ cellHandle )
+	{
+		Cell @cell = cast<Cell@>( @cellHandle );
+		if( @cell !is null )
+			FreeCells.insertLast( cell );
+	}
+	
+	void BusyCell( string&in, Handle@ cellHandle )
+	{
+		Cell @cell = cast<Cell@>( @cellHandle );
+		if( @cell !is null )
+		{
+			for( uint i = 0, iend = FreeCells.length(); i < iend; i++ )
+				if( cell == FreeCells[i] )
+				{
+					FreeCells.removeAt( i );
+					break;
+				}
+		}
+	}
+	
+	Reference @GetThis( ) override {
+		return @this;
+	}
+	
+	void AddReference( string& data, Reference@[] @referenceList )
+	{
+		string@[] value = splitEx( data, " " );
+			
+		for( uint i = 0, iend = value.length(); i < iend; i++ )
+			referenceList.insertLast( ProtoBiomReference( value[i] ) );
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+	void EraseCell( Cell @cell )
+	{
+		for( uint i = 0, iend = Cells.length(); i < iend; i++ )
+		{
+			if( @Cells[i] is @cell )
+			{
+				Cells.removeAt( i );
+				break;
+			}
+		}
+		for( uint i = 0, iend = FreeCells.length(); i < iend; i++ )
+		{
+			if( @FreeCells[i] is @cell )
+			{
+				FreeCells.removeAt( i );
+				break;
+			}
+		}
+	}
+	
+	void AddBiom( Cell @cell )
+	{
+		Cells.insertLast( @cell );
+		FreeCells.insertLast( @cell );
+		EventRoot.SetCallback( "Kind.Free.Cell.UID" + cell.Position.UID[Global::World.Width], "FreeCell", @this );
+		EventRoot.SetCallback( "Kind.Busy.Cell.UID" + cell.Position.UID[Global::World.Width], "BusyCell", @this );
+	}
+	
+	Handle get_RandomFreeCell( )
+	{
+		if( CountFreeCells == 0 )
+		{
+			string@ reason = "отсутствуют свободные клетки";
+			return Handle::Create( @reason );
+		}
+		return Handle::Create( @FreeCells[ Random( 0, CountFreeCells - 1 ) ] );
+	}
+	
+	uint get_CountFreeCells()
+	{
+		return FreeCells.length();
+	}
+	
+	ProtoBiom( string& name )
+	{
+		Name = name;
+		ParseSymbol = substring (name, 0, 1);
+		@Default = null;
+		@ClientSymbol = null;
+		Speed = 1.0f;
+		ColorCell = 0;
+		GlobalDataList.resize( 0 );
+		Flags = false;
+	}
+	
+	const uint16 get_DefaultMapPid( )
+	{
+		return Default.MapPid[null];
+	}
+	
+	MapPacket @FormatMapPacket( MapPacket& packet, string& data )
+	{
+		string@[] args = splitEx( data, " " );
+		for( uint i = 0, iend = args.length(); i < iend; i++ )
+		{
+			string@[] args2 = splitEx( args[i], "-" );
+			if( args2.length() == 2 )
+			{
+				int temp0 = -1, temp1 = -1;
+				StrToInt( args2[0], temp0 );
+				StrToInt( args2[1], temp1 );
+				
+				for( temp1++; temp0 < temp1; temp0++ )
+					packet += temp0;
+			}
+			else
+				packet += args[i];
+		}
+		return @packet;
+	}
+	
+	private void ReloadDefaultMaps( )
+	{
+		@Default = MapPacket( Name + ":Default" );	
+	}
+	
+	uint FormatColor( const string& data )
+	{
+		uint8 colorCount = 0;
+		uint8[] colors = {};
+		int buffer = 0;
+		::string@[] colorsStr = ::splitEx( data, " " );
+		for( uint i = 0, iend = colorsStr.length(); i < iend; i++ )
+		{
+			if( ::StrToInt( colorsStr[ i ], buffer ) )
+				if( colorCount++ < 4 )
+					colors.insertLast( uint8( buffer ) );
+		}
+		
+		if( colorCount >= 3 )
+		{
+			if( colorCount == 4 )
+				return COLOR_CHANGE_ALPHA( COLOR_RGB( colors[0], colors[1], colors[2] ), colors[3] );
+			else return COLOR_RGB( colors[0], colors[1], colors[2] );
+		}
+		return 0;
+	}
+	
+	FileObject @get_Pattern( string& name ) const 	override { return @ProtoBiom(name); }
+	FileObject @get_Copy( string& name ) override 
+	{
+		ProtoBiom @copy = @ProtoBiom(name);
+		copy.Flags = this.Flags;
+		return copy;
+	}
+	
+	string@ get_DictKey( ) 								override { return ParseSymbol; }
+	string@ get_ObjectName( ) const						override { return "ProtoBiom"; }
+	
+	void FormatStringData( string& nameData, string& data ) override
+											override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 && args[0] == "Maps" )
+		{
+			if( args.length() == 1 || args[1] == "Default" )
+			{
+				if( @Default is null )
+					ReloadDefaultMaps( );
+				FormatMapPacket( Default, data );
+			}
+			else if( args.length() == 2 )
+			{
+				MapPacket@ maps = @FormatMapPacket( MapPacket(  Name + ":" + args[1] ), data );
+				if( @Default is null )
+					@Default = @maps;
+				Flags.Direction = true;
+				MapPackets.set( args[1], @maps );
+			}
+		}
+		else if( args.length() == 2 )
+		{
+			if( args[0] == "Symbol" )
+			{
+				if( args[1] == "Parse" )
+				{
+					if( data.length() != 1 )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					
+					ParseSymbol = data;
+				}
+				else if( args[1] == "Color" )
+				{
+					ColorSymbol = FormatColor( data );
+				}
+				else if( args[1] == "Client" )
+				{
+					if( data.length() != 1 )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					
+					@ClientSymbol = "";
+					ClientSymbol = data;
+				}
+			}
+			else if( args[0] == "Cell" )
+			{
+				if( args[1] == "Color" )
+				{
+					ColorCell = FormatColor( data );
+				}
+			}
+			else if( args[0] == "Conversion" )
+			{
+				if( data[0] == ' ' )
+				{
+					string@[] check = splitEx( data, " " );
+					data = join( check, "" );
+				}
+				ConversionsData.insertLast( @BiomConversion( args[1], data ) );
+			}
+		}
+		else if( nameData == "GlobalData" )
+		{
+			string@[] globals = splitEx( data, " " );
+			for( uint i = 0, iend = globals.length(); i < iend; i++ )
+				GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+		}
+		else if( nameData == "Speed" )
+		{
+			if( data[0] == ' ' )
+			{
+				string@[] check = splitEx( data, " " );
+				data = join( check, "" );
+			}
+			
+			Speed = data.ToFloat();
+		}
+		else if( nameData == "Flags" )
+		{
+			Flags = data;
+		}
+		else if( nameData == "Mimic")
+		{
+			AddReference( data, Mimic );
+		}
+	}
+	
+	int opCmp( ProtoBiom@ other )
+	{
+		if( other.Name == this.Name )
+			return 0;
+			
+		for( uint i = 0, iend = Mimic.length(); i < iend; i++ )
+		{
+			ProtoBiom@ mimic = cast<ProtoBiom@>(@Mimic[i].GetThis());
+			if( @mimic !is null && mimic.Name == other.Name )
+				return 1;
+		}
+		
+		for( uint i = 0, iend = other.Mimic.length(); i < iend; i++ )
+		{
+			ProtoBiom@ mimic = cast<ProtoBiom@>(@other.Mimic[i].GetThis());
+			if( @mimic !is null && mimic.Name == Name )
+				return 1;
+		}
+		
+		return -1;
+	}
+}
+
+class ContentFlags
+{
+	ContentFlags()	{ this = false;	}
+	
+	private void Set( string&in data )
+	{
+		this = false;
+		string@[] args = splitEx( data, " " );
+		for( uint i = 0, iend = args.length(); i < iend; i++ )
+		{
+			if( args[i] == "Static" ) Static = true;
+			else if( args[i] == "Encounter" ) Encounter = true;
+			else if( args[i] == "Hidden" ) Hidden = true;
+			else if( args[i] == "Ignored" ) Ignored = true;
+			else if( args[i] == "SpawnItems" ) SpawnItems = true;
+		}
+	}
+	
+	ContentFlags& opAssign( bool&in value )
+	{
+		Hidden = 
+		Ignored = 
+		Encounter = 
+		SpawnItems =
+		Static = value;
+		return this;
+	}
+	
+	ContentFlags& opAssign( ContentFlags&in value )
+	{
+		this.Hidden = value.Hidden;
+		this.Ignored = value.Ignored;
+		this.Encounter = value.Encounter;
+		this.SpawnItems = value.SpawnItems;
+		this.Static = value.Static;
+		return this;
+	}
+	
+	ContentFlags& opAssign( string&in value )
+	{
+		Set( value );
+		return this;
+	}
+	
+	string@ get_Debug()
+	{
+		string result = "";
+		if( Hidden ) result += "Hidden ";
+		if( Ignored ) result += "Ignored ";
+		if( Encounter ) result += "Encounter ";
+		if( SpawnItems ) result += "SpawnItems ";
+		if( Static ) result += "Static ";
+		return result;
+	}
+	
+	bool Static;
+	bool Encounter;
+	bool Ignored;
+	bool Hidden;
+	bool SpawnItems;
+}
+
+class BiomFlags
+{
+	BiomFlags()	{ this = false;	}
+	
+	private void Set( string&in data )
+	{
+		string@[] args = splitEx( data, " " );
+		for( uint i = 0, iend = args.length(); i < iend; i++ )
+		{
+			if( args[i] == "Orientation" ) Orientation = true;
+			else if( args[i] == "Direction" ) Direction = true;
+		}
+	}
+	
+	BiomFlags& opAssign( bool&in value )
+	{
+		Orientation =
+		Direction = value;
+		return this;
+	}
+	
+	BiomFlags& opAssign( BiomFlags&in value )
+	{
+		this.Orientation = value.Orientation;
+		this.Direction = value.Direction;
+		return this;
+	}
+	
+	BiomFlags& opAssign( string&in value )
+	{
+		Set( value );
+		return this;
+	}
+	
+	bool Direction;
+	bool Orientation;
+}
+
+ContentInfo @CreateStaticContent( const string&in name )
+{
+	ContentInfo info( name );
+	info.Flags.Static = true;
+	return @info;
+}
+
+ContentInfo @CreateEncounterContent( const string&in name )
+{
+	ContentInfo info( name );
+	info.Flags.Encounter = 
+	info.Flags.SpawnItems =
+								 true;
+	info.Visible = 100;
+	return @info;
+}
+
+class ContentInfo : FileObject, AnyDataObject
+{
+	uint16 LocationPid;
+	int8 Visible;
+	string Name;
+	string ClientSymbol;
+	Hexagonal Size;
+	
+	uint ColorSymbol;
+	uint ColorCell;
+	ContentFlags Flags;
+	
+	ContentInfo( const string& name )
+	{
+        Size.Set( 1, 1 );
+		Name = name;
+		Visible = 0;
+		ClientSymbol = "S";
+		ColorSymbol = COLOR_RGB( 16, 230, 130 );
+		ColorCell = 0x442222DD;
+		LocationPid = 0;
+		Flags = false;
+		GlobalDataList.resize( 0 );
+	}
+	
+	uint[]@ get_SaveData( ) override
+	{
+		uint[] data;
+		uint position = 0;
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			GlobalDataList[i].SaveData( data, position );
+		return data;
+	}
+	
+	void InitData( uint[]& data ) override
+	{
+		uint position = 0;
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			GlobalDataList[i].LoadData( data, position );
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	// Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+	string@ get_DictKey( ) 		override { return ""+LocationPid; }
+	string@ get_ObjectName( ) const 	override { return "ContentInfo"; }
+	FileObject @get_Pattern( string& name ) const override { return ContentInfo(name); }
+	
+	FileObject @get_Copy( string& name ) override 
+	{
+		ContentInfo @copy = ContentInfo(name);
+		
+		copy.LocationPid = this.LocationPid;
+		copy.Flags = this.Flags;
+		copy.Visible = this.Visible;
+		copy.Size = this.Size;
+		
+		return @copy;
+	}
+	
+	uint FormatColor( const string& data )
+	{
+		uint8 colorCount = 0;
+		uint8[] colors(0);
+		int buffer = 0;
+		::string@[] colorsStr = ::splitEx( data, " " );
+		for( uint i = 0, iend = colorsStr.length(); i < iend; i++ )
+		{
+			if( ::StrToInt( colorsStr[ i ], buffer ) )
+				if( colorCount++ < 4 )
+					colors.insertLast( uint8( buffer ) );
+		}
+		
+		if( colorCount >= 3 )
+		{
+			if( colorCount == 4 )
+				return COLOR_CHANGE_ALPHA( COLOR_RGB( colors[0], colors[1], colors[2] ), colors[3] );
+			else return COLOR_RGB( colors[0], colors[1], colors[2] );
+		}
+		return 0;
+	}
+	
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			if( args.length() == 1 )
+			{
+				if( nameData == "LocationPid" )
+				{
+					int mem = 0;
+					if( data[0] == ' ' )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					StrToInt( data, mem );
+					LocationPid = mem;
+				}
+				else if( nameData == "Size" )
+				{
+					string@[] xy = splitEx( data, " " );
+					int mem = 0;
+					if( xy[0][0] == ' ' )
+					{
+						string@[] check = splitEx( xy[0], " " );
+						xy[0] = join( check, "" );
+					}
+					StrToInt( xy[0], mem );
+					Size.X = mem;
+					if( xy[1][0] == ' ' )
+					{
+						string@[] check = splitEx( xy[1], " " );
+						xy[1] = join( check, "" );
+					}
+					StrToInt( xy[1], mem );
+					Size.Y = mem;
+				}
+				else if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+				else if( nameData == "Flags" )
+				{
+					Flags = data;
+				}
+				else if( nameData == "Name" )
+				{
+					if( data[0] == ' ' )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					
+					Name = data;
+				}
+				else if( nameData == "Visible" )
+				{			
+					int mem = 0;
+					if( data[0] == ' ' )
+					{
+						string@[] check = splitEx( data, " " );
+						data = join( check, "" );
+					}
+					
+					StrToInt( data, mem );
+					Visible = mem;
+				}
+			}
+			else if( args.length() == 2 )
+			{
+				if( args[0] == "Create" )
+				{
+					WorldLocation location;
+					location.Name = args[1];
+					
+					string@[] xy = splitEx( data, " " );
+					int mem = 0;
+					if( xy[0][0] == ' ' )
+					{
+						string@[] check = splitEx( xy[0], " " );
+						xy[0] = join( check, "" );
+					}
+					StrToInt( xy[0], mem );
+					location.Position.X = mem;
+					if( xy[1][0] == ' ' )
+					{
+						string@[] check = splitEx( xy[1], " " );
+						xy[1] = join( check, "" );
+					}
+					StrToInt( xy[1], mem );
+					location.Position.Y = mem;
+					
+					@location.Content = this;
+					
+					if( Flags.Static )
+					{
+						if( Flags.Hidden )
+							Global::World.HiddenLocations.insertLast( @location );
+						Global::World.StaticLocations.insertLast( @location );
+					}
+				}
+				else if( args[0] == "Cell" )
+				{
+					if( args[1] == "Color" )
+					{
+						ColorCell = FormatColor( data );
+					}
+				}
+				else if( args[0] == "Symbol" )
+				{
+					if( args[1] == "Color" )
+						ColorSymbol = FormatColor( data );
+					else if( args[1] == "Client" )
+					{
+						if( data.length() != 1 )
+						{
+							string@[] check = splitEx( data, " " );
+							data = join( check, "" );
+						}
+						
+						Log( Name + " ClientSymbol = " + data );
+						ClientSymbol = data;
+					}
+				}
+			}
+		}
+	}
+}
+
+class CellContent
+{
+	void DeadQueen( Critter& critter )
+	{
+		if( @prv_MainKind !is null )
+			prv_MainKind.DeadQueen( critter, this );
+	}
+
+	void Drop( Hexagonal& position, ContentInfo @info )
+	{
+		Drop( position, @info, @prv_MainKind );
+	}
+
+	void Drop( Hexagonal& position, ContentInfo @info, KindInstance @kind )
+	{
+		@prv_MainKind = @kind;
+		@Info = @info;
+		RealPosition = position;
+		
+		MapId = 0;
+	}
+// property
+
+	ContentInfo @Info;
+
+	private Hexagonal RealPosition;
+	private uint RealMapId;
+
+	private KindInstance @prv_MainKind;
+
+// destructors
+	~CellContent( ){	@CurrentKind = null; }
+	
+// constructors
+	CellContent( Hexagonal& position ){ Drop( position, @Global::World.DefaultContent ); }
+    CellContent( Hexagonal& position, ContentInfo @info ){ Drop( position, @info ); }
+    CellContent( Hexagonal& position, ContentInfo @info, uint mapId )
+	{ 
+		Drop( position, @info ); 
+		MapId = mapId;
+		
+	}
+    CellContent( Hexagonal& position, ContentInfo @info, uint mapId, KindInstance @kind )
+    {
+		Drop( position, @info, @kind );
+		MapId = mapId;
+    }
+
+// getters
+    Map@ GetMap() 		{ uint mapid = MapId; if( mapid == 0 ) return null; return ::GetMap( mapid ); }
+	uint get_MapId( ) 	{ return RealMapId; }
+	Location@ get_Location( ) 
+	{
+		Map@ map = this.GetMap();
+		if( @map !is null )
+			return map.GetLocation( );
+		return null; 
+	}
+	
+	Cell		@get_Cell( )			{ return @Global::World.GetCell( RealPosition ); }
+	Hexagonal	@get_Position( )	{ return @Hexagonal( RealPosition ); }
+	void set_Position( Hexagonal& value )
+	{
+		for( uint x = 0; x < Info.Size.X; x++ )
+			for( uint y = 0; y < Info.Size.Y; y++ )
+			{
+				Cell @cell = Global::World.GetCell( x, y );
+				if( @cell !is null )
+					cell.DeleteContent( this );
+			}
+			
+		RealPosition = value;
+		this.Cell = this;
+	}
+
+	Kind @get_CurrentKind( )
+	{
+		if( @prv_MainKind !is null )
+			return @prv_MainKind.Proto;
+		return null;
+	}
+
+// setters
+	uint set_MapId( uint mapid )
+	{
+		if( mapid != RealMapId )
+		{
+			RealMapId = mapid;
+			Map@ map = this.GetMap();
+			if( @map is null )
+			{
+				RealMapId = 0;
+				return 0;
+			}
+			
+			if( @prv_MainKind !is null )
+				prv_MainKind.Spawn( map );
+		}
+		return RealMapId;
+	}
+
+	void set_CurrentKind( Kind @value )
+	{
+		if( @prv_MainKind is null && @value is null )
+			return;
+			
+		if( @prv_MainKind !is null )
+		{
+			if( @prv_MainKind.Proto is @value )
+				return;
+				
+			EventRoot.Run( "Kind.Free.Cell.UID" + Position.UID[Global::World.Width], @this );
+			prv_MainKind.Kill( );
+		}
+		if( @value is null )
+			@prv_MainKind = null;
+		else  
+		{
+			@prv_MainKind = KindInstance( value, @this.Cell );
+			EventRoot.Run( "Kind.Busy.Cell.UID" + Position.UID[Global::World.Width], @this );
+			if( MapId != 0 )
+			{
+				Map@ map = ::GetMap( MapId );
+				if( @map !is null )
+				{
+					prv_MainKind.Spawn( map );
+				}
+			}
+		}
+	}
+
+	CellContent& opAssign( Map& map )
+	{
+		MapId = map.Id;
+		return this;
+	}
+	
+	
+}
+
+class Cell
+{
+	Hexagonal	  Position;
+
+	MapPacket @MapPack;
+	private ProtoBiom @CurrentBiom;
+	
+    CellContent @Content;
+    CellContent @HiddenContent;
+	
+	Zone@[] ZoneList;
+	
+	OrientationFigure@ Figure;
+	int FigureDirection;
+	bool Invert;
+	bool FigureFill;
+	
+	string FormatSubBiomName( string@ str )
+	{
+		if( Invert )		str += " inv";
+		if( FigureFill )	str = "fill";
+		return 			str;
+	}
+	
+	void Log( string@ str )
+	{
+		::ClearLog( "Cell<" + Position.X + " " + Position.Y + "> : " + str );
+	}
+	
+	private bool conversion( )
+	{
+		for( uint index = 0, iend = Biom.ConversionsData.length(); index < iend; index++ )
+		{
+			BiomConversion @conv = Biom.ConversionsData[index];
+			ProtoBiom @ifBiom = Global::World.GetProtoBiom( conv.IfBiom );
+			ProtoBiom @convBiom = Global::World.GetProtoBiom( conv.ToConvert );
+			if( @convBiom is null )
+				Log( "Не найден биом <" + conv.ToConvert + ">, конвертация невозможна." );
+			else if( @ifBiom is null )
+				Log( "Не найден биом <" + conv.IfBiom + ">, конвертация невозможна." );
+			else
+			{
+				uint[]@ dirsInvert = GetBiomDirs( Position, ifBiom, true, true );
+				if( dirsInvert.length() > 0 )
+				{
+					string@ mapPacketNameConv = FormatDirStr( dirsInvert );
+					if( @mapPacketNameConv !is null && convBiom.MapPackets.exists( mapPacketNameConv ) )
+					{
+						Log( "Convers: " + mapPacketNameConv + " " + Biom.Name + " to " + convBiom.Name );
+						@Biom = convBiom;
+						Biom.MapPackets.get( mapPacketNameConv, @this.MapPack );
+						
+						EventRoot.Run( "World.Rebuild.Cell.UID" + ( ( Position.X - 1 ) + ( Position.Y * Global::World.Width ) ) );
+						EventRoot.Run( "World.Rebuild.Cell.UID" + ( Position.X + ( ( Position.Y - 1 ) * Global::World.Width ) ) );
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
+	private void build( )
+	{
+		uint[]@dirs = GetBiomDirs( Position, Biom );
+		if( dirs.length() != 4 )
+		{
+			string@ mapPacketName = FormatDirStr( dirs );
+			if( @mapPacketName !is null )
+			{
+				mapPacketName = FormatSubBiomName( mapPacketName );
+				if( Biom.MapPackets.exists( mapPacketName ) )
+						Biom.MapPackets.get( mapPacketName, @this.MapPack );
+			}
+		}
+		else
+		{
+			if( FigureFill && Biom.MapPackets.exists( "fill" ) )
+				Biom.MapPackets.get( "fill", @this.MapPack );
+		}
+	}
+	
+	private void parsefigure()
+	{
+		if( @this.Figure is null && Biom.Flags.Orientation )
+		{
+			uint figureid = Global::World.Figures.length();
+			OrientationFigure figure( Biom, figureid );
+			figure.Fill( this );
+			figure.hashclear( );
+			figure.Parse( this, null, true );
+			Global::World.Figures.insertLast( figure );
+		}
+	}
+	
+	void Rebuild( string&in, Handle@ )
+	{		
+		if( !conversion() )
+			build( );
+		EventRoot.Run( "World.Rebuild.Cell", @this );
+	}
+	
+	void Build( string&in, Handle@ )
+	{
+		EventRoot.SetCallback( "World.Rebuild.Cell.UID" + Position.UID[Global::World.Width], "Rebuild", @this );
+		parsefigure();
+		if(!conversion())
+			build( );
+		EventRoot.Run( "World.Build.Cell", @this );
+	}
+	
+	ProtoBiom @Biom
+	{
+		set
+		{
+			if( @CurrentBiom !is null )
+				CurrentBiom.EraseCell( @this );
+				
+			@CurrentBiom = value;
+			if( @value !is null )
+				value.AddBiom( @this );
+		}
+		
+		get
+		{
+			return @CurrentBiom;
+		}
+	}
+	
+    Cell()
+    {
+		@MapPack = null;
+		@CurrentBiom = null;
+        @Content = null;
+		@HiddenContent = null;
+		@Figure = null;
+		FigureDirection = -1;
+		Invert = FigureFill = false;
+		//Log( "Пилим!" );
+    }
+	
+    bool SetLocation( uint16 protoId )
+    {
+		Content.Drop( Position, @Global::World.DefaultContent );
+		
+        Location@ location = @GetLocation( CreateLocation( Position, protoId ) );
+        if( @location is null )
+            return false;
+
+        Content = location.GetMapByIndex( 0 );
+
+        return true;
+    }
+
+    int CellCreate( uint16 protoId, bool force )
+    {
+        if( !force )
+            return -1;
+
+        if( !SetLocation( protoId ) )
+            return -2;
+
+        return 0;
+    }
+
+    int CellCreate( uint16 protoId, int wildness, int livetime, bool force )
+    {
+        if( !force )
+            return -1;
+
+        if( !SetLocation( protoId ) )
+            return -2;
+
+        return 0;
+    }
+
+    void CellDelete()
+    {		
+		Map@ map = @Content.GetMap( );
+		if( @map !is null )
+			DeleteLocation( map.GetLocation().Id );
+		Content.Drop( Position, @ContentInfo( ) );
+    }
+
+    void SetSize( uint x, uint y )
+    {
+		if( @Content !is null && Position == Content.Position )
+		{
+			for( uint i = 0; i < y; ++i ) 
+				for( uint j = 0; j < x; ++j )
+				{
+					Cell @cell = @Global::World.GetCell( Position.X - j, Position.Y + i );
+					if( @cell is null || @cell is @this )
+						continue;
+
+					cell = Content;
+				}
+		}
+	}
+	
+	void DeleteContent( CellContent& content )
+	{
+		if( content.Info.Flags.Hidden && @content is @HiddenContent )
+			@HiddenContent = null;
+		else if( @content is @Content ) @Content = null;
+	}
+	
+	Cell& opAssign( CellContent& content )
+	{
+		if( content.Info.Flags.Hidden )
+			@HiddenContent = content;
+		else @Content = content;
+		
+		SetSize( content.Info.Size.X, content.Info.Size.Y );		
+		return this;
+	}
+	
+	CellContent @GetMapContent( Map& map ){ return GetMapContent( map.Id ); }
+	CellContent @GetMapContent( uint mapId )
+	{
+		if( Content.MapId == mapId )
+			return Content;
+		else 
+		{
+			Map@ map = GetMap( Content.MapId );
+			if( @map !is null )
+			{
+				Location@ location = map.GetLocation();
+				for( uint i = 0, iend = location.GetMapCount(); i < iend; i++ )
+					if( location.GetMapByIndex(i).Id == mapId )
+						return Content;
+			}
+		}
+		if( @HiddenContent !is null )
+		{
+			if( HiddenContent.MapId == mapId )
+				return HiddenContent;
+			Map@ map = GetMap( HiddenContent.MapId );
+			if( @map !is null )
+			{
+				Location@ location = map.GetLocation();
+				for( uint i = 0, iend = location.GetMapCount(); i < iend; i++ )
+					if( location.GetMapByIndex(i).Id == mapId )
+						return HiddenContent;
+			}
+		}
+		return null;
+	}
+	
+	int opCmp( Zone @zone )
+	{
+		for( uint i = 0, iend = ZoneList.length(); i < iend; i++ )
+			if( zone.Name == ZoneList[i].Name )
+				return 0;
+		return -1;
+	}
+	
+	int opCmp( Cell @other )
+	{
+		if( this.Position == other.Position )
+				return 0;
+		return -1;
+	}
+}
+
+class ZoneListCell
+{
+	array<Cell@> free;
+	array<Cell@> busy;
+	
+	void opAddAssign( Cell@ cell )
+	{
+		free.insertLast( @cell );
+		EventRoot.SetCallback( "Kind.Free.Cell.UID" + cell.Position.UID[Global::World.Width], "FreeCell", @this );
+		EventRoot.SetCallback( "Kind.Busy.Cell.UID" + cell.Position.UID[Global::World.Width], "BusyCell", @this );
+	}
+	
+	void FreeCell( string&in, Handle@ cellHandle )
+	{
+		Cell @cell = cast<Cell@>( @cellHandle );
+		if( @cell !is null )
+		{
+			free.insertLast( cell );
+			for( uint i = 0, iend = busy.length(); i < iend; i++ )
+				if( cell == busy[i] )
+				{
+					busy.removeAt( i );
+					break;
+				}
+		}
+	}
+	
+	void BusyCell( string&in, Handle@ cellHandle )
+	{
+		Cell @cell = cast<Cell@>( @cellHandle );
+		if( @cell !is null )
+		{
+			for( uint i = 0, iend = free.length(); i < iend; i++ )
+				if( cell == free[i] )
+				{
+					free.removeAt( i );
+					busy.insertLast( cell );
+					break;
+				}
+		}
+	}
+}
+
+class Zone : FileObject
+{
+	Zone( string@ name )
+	{
+		Name = name;
+		X.Set( 0 );
+		Y.Set( 0 );
+	}
+
+	CountValue X;
+	CountValue Y;
+	string Name;
+	
+	dictionary Listing;
+	
+	void Log( string&in log )
+	{
+		ClearLog( "Zone <" + Name + ">: " + log );
+	}
+	
+	void opAddAssign( Cell@ cell )
+	{
+		ZoneListCell @cells = null;
+		if( !Listing.exists( cell.Biom.Name ) )
+		{
+			@cells = ZoneListCell();
+			Listing.set( cell.Biom.Name, @cells );
+		}
+		else
+			Listing.get( cell.Biom.Name, @cells );
+		cells += @cell;
+	}
+	
+	Cell @get_RandomFreeCell( ProtoBiom&in biom )
+	{
+		if( Listing.exists( biom.Name ) )
+		{
+			ZoneListCell @cells = null;
+			Listing.get( biom.Name, @cells );
+			if( cells.free.length() != 0 )
+				return cells.free[ Random( 0, cells.free.length() - 1 ) ];
+		}
+		return null;
+	}
+	
+	string@ get_DictKey( ) override { return Name; }
+	string@ get_ObjectName( ) const override { return "Zone"; }
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			if( args.length() == 1 )
+			{
+				if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+				else if( nameData == "X" )	X.Set( data );
+				else if( nameData == "Y" )	Y.Set( data );
+			}
+		}
+	}
+	
+	FileObject@ get_Pattern( string& name ) const override { return Zone( name ); }
+	FileObject@ get_Copy( string& name ) override
+	{ 
+		Zone copy( name );
+		return copy;	
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+
+}
+
+class WorldLocation
+{
+	ContentInfo @Content;
+	Hexagonal Position;
+	
+	private string _Name;
+	string Name
+	{
+		get { return _Name; }
+		set { _Name = value; HashName = GetStrHash( value ); }
+	}
+	
+	void Create( )
+	{
+		if( Content.LocationPid != 0 )
+		{
+			if( ( Id = CreateLocation( Position, Content.LocationPid ) ) == 0 )
+				Log( "error create" );
+			else
+			{
+				Location@ location = this.Location;
+				if( @location !is null )	location.HashStaticName = HashName;
+				else							Log( "error checked" );
+			}
+		}
+		else Log( "error content locpid is 0" );
+	}
+	
+	WorldLocation@ opAssign( Location@ value )
+	{
+		Id = value.Id;
+		return this;
+	}
+	
+	void Log( string&in log )
+	{
+		ClearLog( "Static location <" + _Name + ">: " + log );
+	}
+	
+	Location@ get_Location( )	{ return GetLocation( Id ); }
+	Map@ get_Map( ) { return this.Location.GetMapByIndex( 0 ); }
+	
+	uint HashName;
+	uint Id;
+}
+
+class OrientationFigureElement : FileObject // figureelement
+{
+	string Name;
+	
+	uint[] Dirs;
+	uint Direction;
+	uint InvertDirection;
+	
+	OrientationFigureElement( string name )
+	{
+		Name = name;
+		Dirs.resize(0);
+		Direction = InvertDirection = 0;
+	}
+	
+	string@ get_DictKey( ) override { return Name; }
+	string@ get_ObjectName( ) const override { return "FigureElement"; }
+	void FormatStringData( string& nameData, string& data ) override
+	{
+		string@[] args = splitEx( nameData, ":" );
+		if( args.length() >= 1 )
+		{
+			if( args.length() == 1 )
+			{
+				if( nameData == "GlobalData" )
+				{
+					string@[] globals = splitEx( data, " " );
+					for( uint i = 0, iend = globals.length(); i < iend; i++ )
+						GlobalDataList.insertLast( GlobalData( globals[ i ] ) );
+				}
+				else if( nameData == "Dirs" )
+				{
+					string@[] dirs = splitEx( data, " " );
+					for( uint i = 0, iend = dirs.length(); i < iend; i++ )
+					{
+						int find = Global::DirChars.find( dirs[i] );
+						if( find != -1 )
+						 	Dirs.insertLast( uint( find * 2 + 1 ) );
+					}
+				}
+				else if( nameData == "Direction" )
+				{
+					string@[] dirs = splitEx( data, " " );
+					for( uint i = 0, iend = dirs.length(); i < iend; i++ )
+					{
+						int find = Global::DirChars.find( dirs[i] );
+						if( find != -1 )
+						 	Direction = uint( find * 2 + 1 );
+					}
+				}
+				else if( nameData == "InvertDirection" )
+				{
+					string@[] dirs = splitEx( data, " " );
+					for( uint i = 0, iend = dirs.length(); i < iend; i++ )
+					{
+						int find = Global::DirChars.find( dirs[i] );
+						if( find != -1 )
+						 	InvertDirection = uint( find * 2 + 1 );
+					}
+				}
+			}
+		}
+	}
+	
+	FileObject@ get_Pattern( string& name ) const override { return OrientationFigureElement( name ); }
+	FileObject@ get_Copy( string& name ) override
+	{ 
+		OrientationFigureElement copy( name );
+		return copy;	
+	}
+	
+	void set_GlobalData( string@ name, string@ value ) override
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	
+	string@ get_GlobalData( string@ name ) override
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iend = GlobalDataList.length(); i < iend; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	
+}
+
+class OrientationFigure
+{
+	Cell@[]@ cells;
+	private uint[] hash;
+	ProtoBiom@ biom;
+	uint id;
+	
+	OrientationFigure( ProtoBiom @_biom, uint index )
+	{
+		@cells = array<Cell@>(0);
+		@biom = _biom;
+		id = index;
+	}
+	
+	void Fill( Cell @cell )
+	{
+		if( hashuid( cell ) )
+		{
+			for( uint direction = 0; direction < 4; direction++ )
+			{
+				Cell @icell = Global::World.CellToDir( cell, direction * 2 + 1 );
+				if( @icell !is null && @icell.Figure is null && icell.Biom == biom )
+					Fill( icell );
+			}
+			if( Global::World.CountBiomDirs( cell, true ) == 8 )
+			{
+				this += cell;
+				cell.FigureFill = true;
+			}
+		}
+	}
+	
+	void Parse( Cell @cell, Cell @lastCell, bool definvert )
+	{
+		if( !hashuid( cell ) )
+			return;
+
+		// S = 3 = низ = definvert
+		// E = 1 = право = !definvert
+		// N = 7 = верх = !definvert
+		// W = 5 = лево = definvert
+		
+		uint[]@ dirs = GetBiomDirs( cell.Position, biom );
+		string@ dirsName = FormatDirStr( dirs );
+		if( dirs.length() == 0 || @dirsName is null )
+		{
+			Log( "Error no find directions FigureElement " + biom.Name + " " + cell.Position.Debug );
+			return;
+		}
+		else if( dirs.length() != 2 )
+		{
+			Log( "Error more find directions FigureElement <" + dirsName + ">" + biom.Name + " " + cell.Position.Debug );
+			return;
+		}
+		if( @dirsName is null )
+		{
+			Log( "Error no find directions FigureElement " + biom.Name + " " + cell.Position.Debug );
+			return;
+		}
+		
+		FileObject @object = null;
+		Global::World.Prototypes.get( "FigureElement:" + dirsName, @object );
+		if( @object is null )
+		{
+			Log( "Error parse figure, no find FigureElement <" + dirsName + ">" + biom.Name );
+			return;
+		}
+		
+		OrientationFigureElement@ element = cast<OrientationFigureElement@>( @object );
+		if( @element is null )
+		{
+			Log( "Error parse figure, no cast to FigureElement " );
+			return;
+		}
+
+		Cell @icell = Global::World.CellToDir( cell, element.Direction ); // идем вниз, не инвертированные
+		if( @icell !is null || @lastCell is null )
+		{
+			if( @icell !is null && @lastCell !is @icell && @icell.Figure is null )
+			{
+				cell.Invert = definvert;
+				cell.FigureDirection = element.Direction;
+				Parse( icell, cell, definvert );
+			}
+			else 
+			{
+				@icell = Global::World.CellToDir( cell, element.InvertDirection );
+				if( @icell !is null )
+				{
+					if( @lastCell !is @icell && @icell.Figure is null )
+					{
+						cell.Invert = !definvert;
+						cell.FigureDirection = element.InvertDirection;
+						Parse( icell, cell, definvert );
+					}
+				}
+				else if( !definvert )
+				{
+					cell.Invert = !definvert;
+					cell.FigureDirection = element.InvertDirection;
+				}
+				else
+				{
+					hashclear();
+					Parse( cell, null, !definvert );
+				}
+			}
+		}
+		else if( !definvert )
+		{
+			cell.Invert = definvert;
+			cell.FigureDirection = element.Direction;
+		}
+		else 
+		{
+			hashclear();
+			Parse( cell, null, !definvert );
+		}
+		
+		// весь парс уже прошел, можно вписывать клетки в фигуру
+		if( @cell.Figure is null )
+			this += cell;
+	}
+	
+	void hashclear( )
+	{
+		hash.resize(0);
+	}
+	
+	bool hashuid( Cell& cell )
+	{
+		uint uid = cell.Position.UID[Global::World.Width];
+		if( hash.find( uid ) == -1 )
+		{
+			hash.insertLast( uid );
+			return true;
+		}
+		return false;
+	}
+	
+	void opAddAssign( Cell& cell )
+	{
+		if( @cell.Figure !is @this )
+		{
+			cells.insertLast( @cell );
+			@cell.Figure = this;
+		}
+	}
+}
+
+class World : ManagerObject, iManagerModule, iManager_map_critter_in, iManager_world_save, iManager_critter_dead, iManager_critter_init, iManager_critter_respawn
+{
+    Cell[]@ Cells;
+	
+	bool IsStart;
+	
+    uint16 Width;
+    uint16 Height;
+	private AnyDataObject@[] AnyDataList;
+	Zone@[] ZoneList;
+	WorldLocation@[] StaticLocations;
+	WorldLocation@[] HiddenLocations;
+	OrientationFigure@[] Figures;
+	
+	dictionary Prototypes;
+	
+	WorldLocation @get_HiddenLocation( uint hash )
+	{
+		for( uint i = 0, iend = HiddenLocations.length(); i < iend; i++ )
+			if( HiddenLocations[i].HashName == hash )
+				return HiddenLocations[i];
+		return null;
+	}
+	
+	WorldLocation @get_StaticLocation( uint hash )
+	{
+		for( uint i = 0, iend = StaticLocations.length(); i < iend; i++ )
+			if( StaticLocations[i].HashName == hash )
+				return StaticLocations[i];
+		return null;
+	}
+	
+	WorldLocation @get_WorldLocation( uint hash )
+	{
+		WorldLocation @location = StaticLocation[hash];
+		
+		if( @location is null )
+			@location = HiddenLocation[hash];
+			
+		return location;
+	}
+	
+	ContentInfo @DefaultContent;
+	MapHash@[] HashMaps;
+	
+	ProtoSettings @Settings;
+	
+    World()
+    {
+		IsStart = false;
+		@DefaultContent = @CreateEncounterContent( "Encounter" );
+		@Settings = @ProtoSettings("Default");
+		
+        Width = 35; //7 * 5;
+        Height = 60; //12 * 5;
+        @Cells = array<Cell>( Width * Height );
+        for( uint y = 0; y < Height; y++ )
+        {
+            const uint cy = y * Width;
+            for( uint x = 0; x < Width; x++ )
+			{
+                Cells[ x + cy ].Position.Set( x, y );
+			}
+        }		
+    }
+
+	MapHash @get_Hash( const uint16& mapPid )
+	{
+		if( HashMaps.length() <= mapPid )
+			GetMapHash( mapPid );
+		if( @HashMaps[mapPid] is null )
+			@HashMaps[mapPid] = MapHash( mapPid );
+		return @HashMaps[mapPid];
+	}
+	
+	ProtoBiom @GetBiom( const Hexagonal&in hex )
+	{
+		Cell@ cell = GetCell( hex );
+		if( @cell !is null )
+			return @cell.Biom;
+		return null;
+	}
+	
+	Cell @CellToDir( Cell& cell, uint8 direction )
+	{
+		return @CellToDir( cell.Position, direction );
+	}
+	
+	Cell @CellToDir( Hexagonal&in position, uint8 direction )
+	{
+		if( !CoordinateToDir( direction, position ) )
+			return null;
+		return @GetCell( position );
+	}
+	
+    bool manager_init()
+	{
+		ParseProtoTypes( "cfg", ProtoSettings("Pattern"), "./NextDay/" );
+		
+		ParseProtoTypes( "biom", ProtoBiom("Pattern"), "./NextDay/" );
+		ParseProtoTypes( "zone", Zone("Pattern"), "./NextDay/" );
+		ParseProtoTypes( "content", DefaultContent, "./NextDay/" );
+		ParseProtoTypes( "hierarchy", Hierarchy("Pattern"), "./NextDay/" );
+		ParseProtoTypes( "kind", Kind("Pattern"), "./NextDay/" );
+		ParseProtoTypes( "figureelement", OrientationFigureElement("Pattern"), "./NextDay/" );
+		return true;
+	}
+	
+	bool manager_start()
+    {
+		IsStart = true;
+		
+		ClearLog( "Сборка мира: " + ParseCellSet() );
+        Start();
+		
+		for( uint i = 0, iend = AnyDataList.length(); i < iend; i++ )
+		{
+			AnyDataObject @anyD = AnyDataList[i];
+			if( @anyD !is null )
+			{
+				uint[] data;
+				if( IsAnyData( anyD.ObjectName + ":" + anyD.DictKey ) && GetAnyData( anyD.ObjectName + ":" + anyD.DictKey , data ) )
+					anyD.InitData( data );
+				else anyD.InitData( anyD.SaveData );
+			}
+		}
+		
+        return true;
+    }
+	
+	string ParseCellSet()
+	{
+		TimeLog timer;
+		string@ txt = @LoadFile(FILE_GLOBAL_BIOM);
+		if( @txt is null || txt.length() == 0 )
+			return "Ошибка загрузки файла <" + FILE_GLOBAL_BIOM + ">";
+		
+		string@[] fileH = splitEx(txt, "\n");
+		uint maxH = fileH.length();
+		for( uint i = 0; i < maxH; i++ )
+		{
+			if( fileH[i].length() == 0 )
+			{
+				fileH.removeAt( i-- );
+				maxH--;
+			}
+		}
+		if( maxH != Height )
+			return "Высота мира не корректена. ParseFile " + maxH + " world " + Height;
+			
+		for( uint y = 0; y < maxH; y++ )
+		{
+			string@[] fileW = splitEx(fileH[y], "\t");
+			uint maxW = fileW.length();
+			if( maxW != Width )
+				return ( "Ширина мира не корректена. Строка " + y +" ParseFile " + maxW + " world " + Width  );
+			
+			for( uint x = 0; x < maxW; x++ )
+				if( !Prototypes.exists( "ProtoBiom:" + fileW[x] ) )
+					Log( "Не установленный символ биома: <" + fileW[x] + ">" );
+				else
+				{
+					Cell @cell = @Cells[ x + ( y * maxW ) ];
+					Prototypes.get( "ProtoBiom:" + fileW[x], @cell.Biom );
+					@cell.MapPack = @cell.Biom.Default;
+					EventRoot.SetCallback( "World.Build", "Build", @cell );
+				}
+		}
+		
+		EventRoot.Run( "World.Build" );
+		return "Успешно [" + timer.get() + "ms]";
+	}
+	
+	uint CountBiomDirs( Cell @cell, bool isBorder )
+	{
+		uint result = 0;
+		for( uint direction = 0; direction < 8; direction++ )
+		{
+			Cell @icell = CellToDir( cell, direction );
+			if( @icell !is null )
+			{
+				if( icell.Biom == cell.Biom )
+					result++;
+			}
+			else if( isBorder )	result++;		
+		}
+		return result;
+	}
+	
+	void PrepareCell( string&in, Handle@ handle )
+	{
+		Cell@ cell = cast<Cell@>(handle);
+		Zone@ zone = null;
+		for ( uint i = 0, iend = ZoneList.length(); i < iend; i++ )
+		{
+			@zone = ZoneList[i];
+			if( zone.X.Min <= cell.Position.X && zone.X.Max >= cell.Position.X &&  
+				zone.Y.Min <= cell.Position.Y && zone.Y.Max >= cell.Position.Y )
+				{
+					cell.ZoneList.insertLast( zone );
+					zone += cell;
+				}
+		}
+	}
+	
+	void PrepareZone( string&in, Handle@ data ) 
+	{
+		ZoneList.insertLast( cast<Zone@>(data) );
+	}
+	
+	bool global_critter_respawn( Critter& critter ) override
+	{
+		if( critter.IsNpc() && critter.KindHierarchy != Kind::Hierarchy::None )
+			DeleteNpc( critter );
+		return true;
+	}
+	
+	bool global_critter_init( Critter& critter, bool firstTime )
+    {
+        if( critter.IsNpc() && critter.KindHierarchy != Kind::Hierarchy::None && !firstTime )
+		{
+			critter.KindHierarchy = Kind::Hierarchy::None;
+			critter.KindIndex = 0;
+			DeleteNpc( critter );
+			return false;
+		}
+        return true;
+    }
+	
+    bool global_critter_dead( Critter& critter, Critter@ killer )
+	{
+		if( critter.IsNpc() && critter.KindHierarchy != Kind::Hierarchy::None )
+		{
+			Cell @cell = @GetCell( critter );
+			if( @cell !is null )
+				cell.Content.DeadQueen( critter );
+		}
+		return true;
+	}
+	
+	void ParseProtoTypes( const string& ex, const FileObject& pattern, const string@ path ) override
+	{
+		TimeLog time;
+		string fileNames;
+		if( GetFolders( path + "*" , fileNames ) )
+		{
+			string@[] paths = splitEx( fileNames, "\n" );
+			for( uint i = 0, iend = paths.length(); i < iend; i++ )
+				if( paths[i].length() > 0 && paths[i] != "." && paths[i] != ".." )
+					this.ParseProtoTypes( ex, pattern, path + paths[i] + "\\" );
+		}
+		fileNames = "";
+		if( GetFolderFiles( path + "*." + ex , fileNames ) )
+		{
+			string@[] namesFile = splitEx( fileNames, "\n" );
+			for( uint i = 0, iend = namesFile.length(); i < iend; i++ )
+			{
+				string@[] names = splitEx( namesFile[i], "." );
+				ParseProtoTypeFile( names[0], ex, pattern, path );
+			}
+		}
+		Log( "Parse <" + pattern.ObjectName + "><" + ex + "> " + time.get() + "ms"  );
+	}
+	
+	FileObject @ParseProtoTypeFile( string& name, const string& ex, const FileObject& pattern, const string@ path ) override
+	{
+		string@ txt = @LoadFile( path + name + "." + ex );
+		if( @txt !is null )
+		{
+			::string@[] data = ::splitEx( name, " " );
+			return AddPrototype( @StringToFileObject( join( data, "" ), txt, pattern ) );
+		}
+		return null;
+	}
+	
+	FileObject @AddPrototype( FileObject @proto ) override
+	{
+		if( EventRoot.Run( "Content.Create." + proto.ObjectName, @proto ) )
+		{
+			Prototypes.set( proto.ObjectName + ":" + proto.DictKey, @proto );
+			AnyDataObject @anyD = cast<AnyDataObject@>(@proto);
+			if( @anyD !is null )
+				AnyDataList.insertLast( @anyD );
+			Log( "Add proto : <" + proto.ObjectName + "> : <" + proto.DictKey + ">" );
+			return proto;
+		}
+		return null;
+	}
+	
+	FileObject @StringToFileObject( string& name, string& txt, const FileObject& pattern ) override
+	{
+		string@[] lines = splitEx( txt, "\n" );
+		const uint countLine = lines.length();
+		
+		//Empty
+		if( countLine == 0 )
+			return null;
+		
+		FileObject @proto = @pattern.Pattern[ name ];
+		::string@ currentLine = null;
+		for( uint i = 0; i < countLine; i++ )
+		{
+			@currentLine = lines[i];
+			if( @currentLine is null || currentLine.length() == 0  )
+				continue;
+				
+			if( currentLine[0] == '#' )
+			{
+				continue;
+			}
+			
+			::string@[] data = ::splitEx( currentLine, "#" );
+			if( data.length() > 1 )
+				@currentLine = data[0];
+			data = ::splitEx( currentLine, "=" );
+			if( data.length() == 2 )
+			{
+				string@[] check = splitEx( data[1], "\t" );
+				data[1] = join( check, " " );
+				
+				check = splitEx( data[1], " " );
+				data[1] = join( check, " " );
+				
+				proto.FormatStringData( data[0], data[1] );
+			}
+			else if( data.length() == 1 )
+			{
+				data = ::splitEx( data[0], " " );
+				if( data.length() >= 1 )
+				{
+					if( data[0] == "new" )
+					{
+						data.removeAt( 0 );
+						AddPrototype( @proto );
+						@proto = @pattern.Pattern[ join( data, "" ) ];
+					}
+					else if( data[0] == "copy" )
+					{
+						data.removeAt( 0 );
+						AddPrototype( @proto );
+						@proto = @proto.Copy[ join( data, "" ) ];
+					}
+				}
+			}
+		}
+		return proto;
+	}
+	
+    uint GetCells( Cell@[]& cells, const Hexagonal&in position, uint8 radius )
+    {
+        uint length = cells.length(),
+             lengthMax = length;
+
+        if( radius == 0 )
+            return length;
+
+        for( uint8 i = 1; i <= radius; i++ )
+            lengthMax += i * 8;
+
+        cells.resize( lengthMax );
+        int x0 = position.X, y0 = position.Y;
+
+        int h = 1, g = 0, u = 0, r = 1;
+
+        for( uint i = length; i < lengthMax; i++ )
+        {
+            u = ( g / h );
+
+            x0 += ( 1 - u ) * r;
+            y0 += u * r;
+
+            @cells[ i ] = @GetCell( x0, y0 );
+            g++;
+            if( g >= h * 2 )
+            {
+                g = 0;
+                h += 1;
+                r *= -1;
+            }
+        }
+
+        return cells.length();
+    }
+
+	Cell @GetCell( Location& location ) { return @GetCell( location.WorldX/10 + location.WorldY/10 * Width ); }
+    Cell @GetCell( Map& map ) { return @GetCell( map.GetLocation() ); }
+    Cell @GetCell( uint16 x, uint16 y ) { return @GetCell( x + y * Width ); }
+    Cell @GetCell( const Hexagonal&in hex ) { return @GetCell( hex.UID[ Width ] ); }
+    Cell @GetCell( uint i )
+    {
+        if( i >= Cells.length() )
+            return null;
+        return @Cells[ i ];
+    }
+	
+    Cell @GetCell( Critter& critter ) 
+	{
+		Map@ map = critter.GetMap();
+		if( @map !is null )
+		{
+			Cell @cell = GetCell( map );
+			CellContent @content = cell.GetMapContent( map );
+			if( @content !is null )
+			{
+				if( content.Info.Size.X > 1 || content.Info.Size.Y > 1 )
+				{
+					Hexagonal globalPosition = content.Position,
+								mapHex, 
+								playerHex( critter );
+					mapHex.Entire( map, ENTIRE_NUM );
+					
+					playerHex.X -= mapHex.X;
+					if( playerHex.Y >= mapHex.Y )
+						playerHex.Y -= mapHex.Y;
+					else playerHex.Y = 0;
+					
+					globalPosition.X -= playerHex.X / MAP_SIZE;
+					globalPosition.Y += playerHex.Y / MAP_SIZE;
+					
+					@cell = GetCell( globalPosition );
+				}
+				return @cell;
+			}
+		}
+		return @GetCell( critter.WorldX/10 + critter.WorldY/10 * Width ); 
+	}
+
+    void ShowCells( Critter& critter, Cell& cell )
+    {
+		if( critter.IsPlayer() )
+		{
+			const bool admin = critter.GetAccess() == ACCESS_ADMIN,
+						showStatic = ( admin || critter.Param[ QST_GAMEMODE ] != GAME_ARCADE );
+
+			uint8 radius = ( critter.Skill[ SK_OUTDOORSMAN ] / 100 ) + 1;
+			int   vision = critter.Skill[ SK_OUTDOORSMAN ] / 4;
+
+			if( admin )
+			{
+				radius = 40;
+				vision = 255;
+			}
+			else if( critter.Param[ QST_GAMEMODE ] == GAME_ARCADE )
+				radius = 5;
+
+			Cell@[] cells = { @cell };
+			const uint length = GetCells( cells, cell.Position, radius );
+			
+			int[] data_color( length * 2 ),
+			data_char( length * 3 );
+
+			uint         	dc = 0, dn = 0, dch = 0, color = 0,
+							symbol = uint( -1 ), symbolColor = uint( -1 ), 
+							r = 0, nr = 0;
+			Cell				@iCell = null;
+			CellContent	@iContent = null;
+			
+			for( uint i = 0; i < length; i++ )
+			{
+				if( i > nr )
+				{
+					r++;
+					nr += r * 8;
+				}
+
+				@iCell = @cells[ i ];
+				if( @iCell is null )
+					continue;
+				ProtoBiom @biom = @iCell.Biom;
+
+				color = biom.ColorCell;
+				symbol = uint(-1);
+				
+				@iContent = @iCell.Content;
+				
+				if( showStatic && @iContent !is null && iContent.Info.Flags.Static && iContent.Info.Visible != 0 && ( admin || ( vision + iContent.Info.Visible > int(r) * 20 ) ) )
+				{
+					color = iContent.Info.ColorCell;
+					symbolColor = iContent.Info.ColorSymbol;
+					
+					if( iContent.Info.ClientSymbol.length() == 0 )
+					{
+						ClearLog( "Error ClientSymbol" );
+						symbol = 'S';
+					}
+					else
+						symbol = iContent.Info.ClientSymbol[0];
+				}
+				else
+				{
+					if( @biom.ClientSymbol !is null )
+					{
+						symbol = biom.ClientSymbol[0];
+						symbolColor = biom.ColorSymbol;
+					}
+				}
+				
+				if( color != 0 )
+				{
+					data_color[ dc++ ] = int( ( iCell.Position.X & 0xFFFF ) | ( iCell.Position.Y << 16 ) );
+					data_color[ dc++ ] = int(color);
+				}
+
+				if( symbol != uint( -1 ) )
+				{
+					data_char[ dch++ ] = int( ( iCell.Position.X & 0xFFFF ) | ( iCell.Position.Y << 16 ) );
+					data_char[ dch++ ] = int(symbolColor);
+					data_char[ dch++ ] = int(symbol);
+				}
+
+			}
+
+			data_color.resize( dc );
+			critter.RunClientScript( "_dr", 1, 0, 0, null, data_color );
+			
+			data_char.resize( dch );
+			critter.RunClientScript( "_dr", 3, 0, 0, null, data_char );
+		}
+    }
+
+    // pm added
+    uint CreateCell( const Hexagonal&in position, uint mapId ) { return CreateCell( position.X, position.Y, mapId ); }
+    uint CreateCell( const uint16&in x, const uint16&in y, uint mapId ) 
+	{
+		Cell @cell = @GetCell( x, y );
+        if( @cell is null )
+        {
+			Log( "null cell" );
+            return 0;
+        }
+		return CreateCell( cell, mapId );
+	}
+
+    uint CreateCell( Cell& cell, uint mapId )
+    {
+        Map@ map = null;
+		uint locationId = 0;
+
+        if(mapId != 0)
+		{
+            @map = GetMap( mapId );
+            if( @map is null )
+			{
+				Log( "Map no valid - mapId");
+                return 0;
+			}
+        } 
+		else 
+		{
+			uint16[] ignorePids;
+			
+			int 	ix = cell.Position.X - 1, ixend = cell.Position.X + 2,
+					iy = cell.Position.Y - 1, iyend = cell.Position.Y + 2;
+			if( ix < 0 ) ix = 0;
+			if( iy < 0 ) iy = 0;
+			if( ixend > Width ) ixend = Width;
+			if( iyend > Height )iyend = Height;
+			for( uint x = uint( ix ), xend = uint( ixend ); x < xend; x++ )
+				for( uint y = uint( iy ), yend = uint( iyend ); y < yend; y++ )
+				{
+					Cell@ cell = GetCell( x, y );
+					if( @cell !is null )
+					{
+						Location@ location = cell.Content.Location;
+						if( @location !is null )
+							ignorePids.insertLast( location.GetProtoId () );
+					}
+				}
+			
+			
+			if( (locationId = cell.MapPack.MapPid[ignorePids]) != 0 )
+			{
+				locationId = CreateLocation( cell.Position, locationId );
+				if( locationId != 0 )
+				{
+					Location@ location = @GetLocation( locationId );
+					if( @location !is null )
+					{
+						@map = location.GetMapByIndex(0);
+						mapId = map.Id;
+					}
+					else
+						Log( "Location no valid");
+				}
+				else
+					Log( "locationId is null LocationPid<" + locationId + ">");
+			}
+			else
+				Log( "locationId is null <" + cell.MapPack.Name + ">" + cell.MapPack.End);
+		}
+		if( @map is null )
+		{
+			Log( "Map no valid");
+			return 0;
+		}
+		
+		cell.Content.MapId = mapId;
+		map.SetData( 56, 1 );
+
+		return map.Id;
+    }
+	
+	void FormatLocation( Location& location )
+	{
+		Hexagonal locWorld( location.WorldX * 0.1, location.WorldY * 0.1 );
+        Cell @cell = @GetCell( locWorld );
+		
+		if( __StartServerVersion != 0 )
+		{
+			if( location.HashStaticName != 0 )
+			{
+				WorldLocation @worldLocation = this.WorldLocation[ location.HashStaticName ];
+				if( @worldLocation !is null )
+				{
+					worldLocation = location;
+				}
+			}
+		}
+			
+		ContentInfo @info = null;
+		if( Prototypes.exists( "ContentInfo:" + location.GetProtoId() ) )
+		{
+			Prototypes.get( "ContentInfo:" + location.GetProtoId(), @info );
+			Log( "Найден контент: " + info.Name + " " + location.GetProtoId() + " координаты: " + uint( location.WorldX * 0.1 ) + " " + uint( location.WorldY * 0.1 ) );
+        }
+		else
+			@info = DefaultContent;
+		// CreateCell( Cell& cell, uint mapId )
+		if( info.Flags.Ignored ) return;
+		
+        if( @cell is null )
+		{
+			ClearLog( "Клетка не найдена " + ( location.WorldX * 0.1 ) + " " + ( location.WorldY * 0.1 ) + " удаляем контент " + info.Name );
+			DeleteLocation( location.Id );
+			return;
+		}
+
+		if( info.Flags.Encounter && ( @cell.MapPack is null || !cell.MapPack.IsProtoId( location.GetProtoId() ) ) )
+		{
+			ClearLog( "Контент не соответствует биому, удаляем " + info.Name );
+			ClearLog( "Флаги: " + info.Flags.Debug );
+			DeleteLocation( location.Id );
+			return;
+		}
+		
+		if( IsStart && info.Flags.SpawnItems )
+		{
+			Map@[] maps;
+			for( uint i = 0, iend = location.GetMaps( maps ); i < iend; i++ )
+				SpawnItemCell( maps[i] );
+		}
+			
+		KindInstance @instance = null;
+		if( info.Flags.Hidden )
+		{
+			if( @cell.HiddenContent !is null )
+			{
+				cell.HiddenContent.Drop( locWorld, @info );
+				cell.HiddenContent.MapId = location.GetMapByIndex(0).Id;
+				return;
+			}
+		}	
+		else if( @cell.Content !is null )
+		{
+			cell.Content.Drop( locWorld, @info );
+			cell.Content.MapId = location.GetMapByIndex(0).Id;
+			return;
+		}
+		cell = CellContent( locWorld, @info, location.GetMapByIndex(0).Id, @instance );
+	}
+	
+    void Start(  )
+    {
+		for( uint uid = 0, uidend = Height * Width; uid < uidend; uid++ )
+			@Cells[ uid ].Content = null;
+	
+		if( __StartServerVersion == 0 )
+			EventRoot.Run( "World.Generation" );
+			
+        Map@[] maps;
+		Map@ map = null;
+        for( uint i = 0, iend = GetAllMaps( 0, maps ); i < iend; i++ )
+        {
+            @map = @maps[ i ];
+            map.SetData( 57, 0 );
+            map.SetData( 58, 0 );
+        }
+
+        Location@[] locations;
+		Location@ currentLocation = null;
+        for( uint i = 0, iend = GetAllLocations( 0, locations ); i < iend; i++ )
+			FormatLocation( locations[ i ] );
+		
+		for( uint i = 0, iend = Global::World.StaticLocations.length( ); i < iend; i++ )
+			if( Global::World.StaticLocations[i].Id == 0 )
+				Global::World.StaticLocations[i].Create();
+				
+		Cell @cell = null;
+		for( uint uid = 0, uidend = Height * Width; uid < uidend; uid++ )
+		{
+			@cell = @Cells[ uid ];
+			if( @cell.Content is null )
+				@cell.Content = @CellContent( cell.Position );
+		}
+    }
+
+    bool global_world_save()
+    {
+		AnyDataObject @anyD = null;
+		uint[]@ data = null;
+		for( uint i = 0, iend = AnyDataList.length(); i < iend; i++ )
+		{
+			@anyD = AnyDataList[i];
+			if( @anyD !is null )
+			{
+				@data = anyD.SaveData;
+				if( @data is null || data.length() == 0 )
+				{
+					if( IsAnyData( anyD.ObjectName + ":" + anyD.DictKey ) )
+						EraseAnyData( anyD.ObjectName + ":" + anyD.DictKey );
+				}
+				else SetAnyData( anyD.ObjectName + ":" + anyD.DictKey, data );
+			}
+		}	
+        return true;
+    }
+
+    bool global_map_critter_in( Map& map, Critter& critter )
+    {
+        DypsneaCr( map, critter );
+        critter.StatBase[ ST_LOCALMAP_PID ] = -1;
+        critter.StatBase[ ST_LOCALMAP_DIR ] = -1;
+
+        return true;
+    }
+	
+	void ProcessMove( int processType, Critter& critter, Item@ car,
+                     float& currentX, float& currentY, float& toX, float& toY, float& speed,
+                     uint& encounterDescriptor, bool& waitForAnswer )
+	{
+		const float 	oldX = currentX,
+						oldY = currentY;
+	
+		int movementType 	= ( valid( car ) ? car.Proto.Car_MovementType : GM_WALK_GROUND ),
+			curXi 				= int(currentX),
+			curYi 				= int(currentY);
+		
+		Cell @curCell = @GetCell(critter);
+		if( processType == GLOBAL_PROCESS_MOVE )
+		{
+			// Save current distantion to compare in the end
+			float lastDist = DISTANCE( currentX, currentY, toX, toY ),
+
+			// Calcuate speed
+					speedPix = speed * float(__GlobalMapMoveTime) / 1000.0f,
+					speedAngle = atan2( toY - currentY, toX - currentX ),
+					speedX = cos( speedAngle ) * speedPix,
+					speedY = sin( speedAngle ) * speedPix,
+			
+					speedMod = 1.0f;
+					
+			if( movementType == GM_WALK_GROUND && @curCell !is null )
+				speedMod = curCell.Biom.Speed;
+			
+			uint groupLen = critter.GetFollowGroup( FIND_LIFE, null );
+			speedMod / (groupLen);
+
+			if( valid( car ) && speedMod != 1.0f )
+			{
+				float pass = float(car.Proto.Car_Passability);
+				if(     pass > 100.0f && speedMod < 1.0f )
+					speedMod += ( 1.0f - speedMod ) * ( pass - 100.0f ) / 100.0f;
+				else if( pass > 100.0f && speedMod > 1.0f )
+					speedMod -= ( speedMod - 1.0f ) * ( pass - 100.0f ) / 100.0f;
+				else if( pass < 100.0f && speedMod < 1.0f )
+					speedMod -= ( 1.0f - speedMod ) * ( 100.0f - pass ) / 100.0f;
+				else if( pass < 100.0f && speedMod > 1.0f )
+					speedMod += ( speedMod - 1.0f ) * ( 100.0f - pass ) / 100.0f;
+			}
+
+			int oldXi = curXi,
+				 oldYi = curYi;
+				 
+
+			// Apply step
+			currentX += speedX * speedMod;
+			currentY += speedY * speedMod;
+			
+			curXi = int(currentX);         // Round
+			curYi = int(currentY);         // Round
+
+			// Check new position
+			if( oldXi != curXi || oldYi != curYi )
+			{
+				// Check borders
+				int gmWidth = __GlobalMapWidth * __GlobalMapZoneLength;
+				int gmHeight = __GlobalMapHeight * __GlobalMapZoneLength;
+				if( curXi < 0 || curYi < 0 || curXi >= gmWidth || curYi >= gmHeight )
+				{
+					if( curXi < 0 )
+						curXi = 0;
+					if( curXi >= gmWidth )
+						curXi = gmWidth - 1;
+					if( curYi < 0 )
+						curYi = 0;
+					if( curYi >= gmHeight )
+						curYi = gmHeight - 1;
+
+					// Stop group
+					currentX = float(curXi);
+					currentY = float(curYi);
+					speed = 0.0f;
+					return;
+				}
+
+				// Move from old to new and find last correct position
+				int steps = MAX( ABS( curXi - oldXi ), ABS( curYi - oldYi ) ),
+					 newXi = oldXi,
+					 newYi = oldYi;
+					 
+				if( steps > 0 )
+				{
+					float xx = float(oldXi),
+							yy = float(oldYi),
+							oxx = float(curXi - oldXi) / float(steps),
+							oyy = float(curYi - oldYi) / float(steps);
+
+					for( int i = 0; i < steps; i++ )
+					{
+						xx += oxx;
+						yy += oyy;
+						int 	xxi = int(xx >= 0.0f ? xx + 0.5f : xx - 0.5f),
+								yyi = int(yy >= 0.0f ? yy + 0.5f : yy - 0.5f);
+
+						if( xxi == 350 || yyi == 600 )
+							break;
+
+						newXi = xxi;
+						newYi = yyi;
+					}
+				}
+
+				if( newXi != curXi || newYi != curYi )
+				{
+					// Stop group
+					currentX = float(newXi);
+					currentY = float(newYi);
+					speed = 0.0f;
+					return;
+				}
+
+				// Zone
+				int oldZoneX = oldXi / __GlobalMapZoneLength,
+						oldZoneY = oldYi / __GlobalMapZoneLength,
+						curZoneX = curXi / __GlobalMapZoneLength,
+						curZoneY = curYi / __GlobalMapZoneLength;
+
+				// Change zone
+				if( oldZoneX != curZoneX || oldZoneY != curZoneY )
+				{
+					Critter@[] @ group = @critter.GetGlobalGroup();
+					ScanZone( group, curZoneX, curZoneY );
+				}
+
+				// Check for complete travelling
+				float curDist = DISTANCE( currentX, currentY, toX, toY );
+				if( curDist <= 0.01f || curDist > lastDist )
+				{
+					currentX = toX;
+					currentY = toY;
+					speed = 0.0f;
+					return;
+				}
+			}
+
+			// Car processing
+			if( valid( car ) )
+			{
+				int fuel = car.Charge;
+				int deterioration = car.Deterioration;
+
+				if( fuel <= 0 || deterioration >= int(car.Proto.Car_MaxDeterioration) )
+				{
+					uint str = ( fuel <= 0 ? STR_CAR_FUEL_EMPTY : STR_CAR_BROKEN );
+					critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, str );
+					speed = 0.0f;
+					return;
+				}
+
+				// Car values created for the call every 500 ms
+				fuel -= car.Proto.Car_FuelConsumption * __GlobalMapMoveTime / 500;
+				deterioration += car.Proto.Car_DeteriorationRate * __GlobalMapMoveTime / 500;
+				if( fuel < 0 )
+					fuel = 0;
+				if( deterioration > int(car.Proto.Car_MaxDeterioration) )
+					deterioration = int(car.Proto.Car_MaxDeterioration);
+
+				if( fuel != car.Charge || deterioration != car.Deterioration )
+				{
+					car.Charge = fuel;
+					car.Deterioration = deterioration;
+					car.Update();
+				}
+			}
+
+			Cell @newCell = @GetCell( int(currentX/10), int(currentY/10) );
+			
+			if( Settings.IsDebug )
+			{
+				newCell.Position.Log( "Новая позиция" );
+				curCell.Position.Log( "Начальная позиция" );
+			}
+			
+			if( @newCell !is null )
+			{
+				if( newCell.Biom.Speed == 0.0f )
+				{
+					encounterDescriptor = uint(-1);
+					if(@curCell is @newCell)
+						Log( "Все еще на непроходимой" );
+	
+					currentX = oldX;
+					currentY = oldY;
+					speed = 0.0f;
+					return;
+				}
+				Critter@[] @group = @critter.GetGlobalGroup();
+
+				// Validate charisma
+				Critter@ leader = @group[ 0 ];
+				if( int( group.length() ) > leader.Stat[ ST_CHARISMA ] + leader.Perk[ PE_MAGNETIC_PERSONALITY ] )
+				{
+					leader.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_CRIT_BAD_CHARISMA );
+					speed = 0.0f;                 // Stop
+					return;
+				}
+
+				ShowCells( critter, newCell );
+				if( ( newCell.Content.Info.Flags.Static && newCell.Content.Info.Visible > 0 ) || @newCell.Content.CurrentKind !is null )
+					encounterDescriptor = uint( -1 );
+			}
+		}
+		else if( processType == GLOBAL_PROCESS_ENTER )
+		{
+			Cell @cell = @GetCell( critter );
+			if( @cell !is null )
+			{
+				CellContent @content = @cell.Content;
+				if( @content is null || content.Info.Flags.Encounter )
+				{
+					if( @content !is null && content.MapId != 0 && @GetMap( content.MapId ) !is null )
+					{
+						encounterDescriptor = uint( -1 );
+					}
+					else
+					{
+						CreateCell( cell, 0 );
+						encounterDescriptor = uint( -1 );
+					}
+				}
+				else
+					( encounterDescriptor = uint( -1 ) );
+			}
+		}
+		else if( processType == GLOBAL_PROCESS_SET_MOVE )
+		{
+
+			if( critter.Stat[ ST_ARCADE_DEAD ] > 0 )
+			{
+				critter.Say( SAY_NETMSG, "Вы не можете передвигаться при выборе логова." );
+				return;
+			}
+			Critter@[] @group = @critter.GetGlobalGroup();
+
+			// Validate charisma
+			Critter@ leader = @group[ 0 ];
+			if( int( group.length() ) > leader.Stat[ ST_CHARISMA ] + leader.Perk[ PE_MAGNETIC_PERSONALITY ] )
+			{
+				leader.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_CRIT_BAD_CHARISMA );
+				if( valid( car ) )
+					CheckForLocationWithoutParking( critter, car, currentX, currentY );
+				return;
+			}
+			
+			// Calculate speed
+			speed = ( leader.Skill[SK_OUTDOORSMAN] - GLOBAL_MAP_SKILL_START_EFFECT > 0 ) ? ( GLOBAL_MAP_BASE_SPEED + ( leader.Skill[SK_OUTDOORSMAN] - GLOBAL_MAP_SKILL_START_EFFECT ) * GLOBAL_MAP_SKILL_SPEED_MODULE ) : GLOBAL_MAP_BASE_SPEED ;
+			if( critter.Param[ QST_GAMEMODE ] == GAME_ARCADE )
+				speed *= 2;
+
+			// Pathfinder perk bonus
+			int speedDiv = 100 - critter.Perk[ PE_PATHFINDER ] * 25;
+			if( speedDiv <= 0 ) speedDiv = 1;
+			speed = speed * 100.0f / float(speedDiv);
+			
+			Cell @cell = @GetCell( critter );
+			if( @cell !is null )
+			{
+				if( cell.Biom.Speed == 0.0f )
+				{		  
+					critter.Say( SAY_NETMSG, "Вы не можете быстро найти проход. Стоит поискать детальнее." );
+					speed = 0.0f; // Stop
+					return;
+				}
+			}
+		}
+		else if( processType == GLOBAL_PROCESS_START_FAST || processType == GLOBAL_PROCESS_STOPPED )
+		{
+			Cell @cell = @GetCell( critter );
+			if( @cell !is null )
+				ShowCells( critter, cell );
+		}
+		/*else if( processType == GLOBAL_PROCESS_NPC_IDLE )
+		{
+		}*/
+		else if( processType == GLOBAL_PROCESS_KICK )
+		{
+			critter.LeaveGlobalGroup();
+		}
+	}
+	
+	FileObject @get_ProtoObject( string@ name ) override // Получить прототип по имени.
+	{
+		if( Prototypes.exists( name ) )
+		{
+			FileObject @ret = null;
+			Prototypes.get( name, @ret );
+			return ret;
+		}
+		return null;
+	}
+	
+	ProtoBiom @GetProtoBiom( string@ name ) // Получить биом по имени.
+	{		
+		string@[] keys;
+		ProtoBiom @check = null;
+		for( uint i = 0, iend = Prototypes.keys( keys ); i < iend; i++ )
+		{
+			Prototypes.get( keys[i], @check );
+			if( @check !is null && check.Name == name )
+				return @check;
+		}
+		return null;
+	}
+	
+	void Log( string@ log )
+	{
+		if( Settings.IsDebug )
+			ClearLog( log );
+	}
+}
+
+uint[]@ GetBiomDirs( Hexagonal&in position, const ProtoBiom&in currentBiom, bool ignoreFigure = false, bool ignoreMimic = false )
+{
+	Cell @cell = Global::World.GetCell( position );
+	uint[] ret = {};
+	if( currentBiom.Flags.Direction )
+	{
+		for( uint direction = 0; direction < 4; direction++ )
+			if( IsBiomDir( position, direction * 2 + 1, currentBiom, ignoreMimic ) )
+			{
+				if( ignoreFigure || !currentBiom.Flags.Orientation )
+					ret.insertLast( direction );
+				else
+				{
+					Cell @icell = Global::World.CellToDir( cell, direction * 2 + 1 );
+					if( @icell !is null 
+								&& ( ( !icell.Biom.Flags.Orientation || ( @icell.Figure is null && @cell.Figure is null ) )
+								|| ( @icell.Figure !is null && @cell.Figure !is null && icell.Figure.id == cell.Figure.id && icell.FigureFill == cell.FigureFill ) ) )
+						ret.insertLast( direction );
+				}
+			}
+			
+		if( ret.length() <= 1 )
+			for( uint direction = 0; direction < 4; direction++ )
+				if( ret.find( direction ) == -1 )
+				{
+					Hexagonal pos = position;
+					if( !CoordinateToDir( direction * 2 + 1, pos ) )
+					{
+						ret.insertLast( direction );
+						break;
+					}
+				}
+	}
+	ret.sortDesc();
+	return ret;
+}
+
+string@ FormatDirStr( uint[]&in dirs )
+{
+	dirs.sortAsc();
+	string ret = "";
+	for( uint i = 0, iend = dirs.length(); i < iend; i++ )
+		ret += Global::DirChars[dirs[i]];
+	if( ret == "" )
+		return null;
+	return @ret;
+}
+	
+uint[]@ InvertDirs( const uint[]&in dirs )
+{
+	uint[] ret(0);
+	for( uint d = 0, dCount = dirs.length(); d < dCount; d++ )
+		ret.insertLast( ( dirs[d] + 1 )%4 ); 
+	ret.sortAsc();
+	return ret;
+}
+
+bool IsBiomDir( Hexagonal&in position, const uint direction, ProtoBiom&in currentBiom, bool ignoreMimic = false )
+{
+	if( CoordinateToDir( direction, position ) )
+		return ignoreMimic ? 
+			currentBiom == Global::World.GetBiom( position ):
+			currentBiom >= Global::World.GetBiom( position );
+	return false;
+}
+	
+bool IsBiomDirs( Hexagonal&in position, const uint[]&in dirs, ProtoBiom&in currentBiom )
+{
+	for( uint d = 0, dCount = dirs.length(); d < dCount; d++ )
+		if( !IsBiomDir( position, dirs[d] * 2 + 1, currentBiom ) )
+			return false;
+	return true;
+}
+
+bool CoordinateToDir( const uint8 direction, Hexagonal&inout position )
+{
+	switch( direction )
+	{
+	case 0:
+		if( position.Y == 0 ) return false;
+		position.Y --;
+	case 1:
+		if( position.X >= Global::World.Width - 1 ) return false;
+		position.X ++;
+		break;
+		
+	case 2:
+		if( position.X >= Global::World.Width - 1 ) return false;
+		position.X ++;
+	case 3:
+		if( position.Y >= Global::World.Height -1 ) return false;
+		position.Y ++;
+		break;
+		
+	case 4:
+		if( position.Y >= Global::World.Height - 1 ) return false;
+		position.Y ++;
+	case 5:
+		if( position.X == 0 ) return false;
+		position.X --;
+		break;
+		
+	case 6:
+		if( position.X == 0 ) return false;
+		position.X --;
+	case 7:
+		if( position.Y == 0 ) return false;
+		position.Y--;
+		break;
+		
+	default:
+		return false;
+	}
+	return true;
+}
+
+MapHash @GetHash( Map& map )
+{
+	MapHash@ ret = @Global::World.Hash[ map.GetProtoId( ) ];
+	if( @ret is null )
+		return null;
+
+	ret = map;
+	return @ret;
+}
+	
+Line @GetBorderByDirection( const uint8 direction, Map& map )
+{
+	MapHash @hash = @GetHash( map );
+	
+	Hexagonal a();
+	Hexagonal b();
+	
+	switch( direction )
+	{
+		case 0:
+		case 1:
+		case 2:
+			a.X = hash.Min.X;
+			a.Y = hash.Min.Y;
+			b.X = hash.Min.X;
+			b.Y = hash.Max.Y;
+			break;
+		case 3:
+			a.X = hash.Min.X;
+			a.Y = hash.Max.Y;
+			b.X = hash.Max.X;
+			b.Y = hash.Max.Y;
+			break;
+		case 4:
+		case 5:
+		case 6:
+			a.X = hash.Max.X;
+			a.Y = hash.Max.Y;
+			b.X = hash.Max.X;
+			b.Y = hash.Min.Y;
+			break;
+		case 7: 
+			a.X = hash.Max.X;
+			a.Y = hash.Min.Y;
+			b.X = hash.Min.X;
+			b.Y = hash.Min.Y;
+			break;
+			
+		default: 
+			break;
+	}
+	
+	return @Line( a, b );
+}
+
+void ModuleInit( string&in, Handle@ )
+{ 
+	manager_add_module( @Global::World, "World", 20 );
+	EventRoot.SetCallback( "Start", Start );
+	EventRoot.SetCallback( "World.Generation", WorldGeneration );
+	
+	EventRoot.SetCallback( "World.Build.Cell", "PrepareCell", @Global::World );
+	EventRoot.SetCallback( "Content.Create.Zone", "PrepareZone", @Global::World );
+}
+
+void Start( string&in, Handle@ )
+{
+	Critter@[] npc;
+	for( uint i = 0, iend = GetAllNpc ( 0, npc ); i < iend; i++ )
+		Global::World.global_critter_init( npc[i], false );
+}
+
+void WorldGeneration( string&in, Handle@ )
+{
+	for( uint i = 0, iend = Global::World.StaticLocations.length( ); i < iend; i++ )
+		Global::World.StaticLocations[i].Create();
+}
+
+// ~run world CellInfo 0 0 0
+void CellInfo( Critter& critter, int p0, int p1, int p2 )
+{
+    Cell @cell = null;
+    if( p0 == 0 && p1 == 0 )
+        @cell = @Global::World.GetCell( critter );
+    else if( p0 > 0 || p1 > 0 ) //Frank Kost hotfix - добавил обработку сочетаний координат 0-Х и Х-0
+        @cell = @Global::World.GetCell( uint16( p0 ), uint16( p1 ) );
+
+    if( @cell is null )
+        return;
+
+    CellContent @content = @cell.Content;
+    if( @content is null )
+        return;
+		
+    critter.Say( SAY_NETMSG, "cell<" + cell.Position.X + ":" + cell.Position.Y + ">" );
+    critter.Say( SAY_NETMSG, "MapId: " + content.MapId );
+    critter.Say( SAY_NETMSG, "Visible: " + content.Info.Visible );
+}
+
+// //////////////////////////////////////////////////////////////////////////////////////////////////
+// int processType    - see in Global map events in _defines.fos;
+// Critter& critter        - who called this function, in most times is leader of group;
+// Item@ car          - group car, can be null;
+// float& currentX, &currentY - current position;
+// float& toX, &toY   - destination position;
+// float& speed       - speed of group, must set in GLOBAL_PROCESS_SET_MOVE,
+//                      also you can type zero to stop group;
+// uint encounterDescriptor - if encounterDescriptor != 0 than global_invite calls;
+// bool waitForAnswer       - if waitForAnswer == false than global_invite calls after this function,
+//                            else call after leader confirm invite;
+void global_process( int processType, Critter& critter, Item@ car,
+                     float& currentX, float& currentY, float& toX, float& toY, float& speed,
+                     uint& encounterDescriptor, bool& waitForAnswer )
+{
+	float oldX = currentX, oldY = currentY;
+	Global::World.ProcessMove( processType, critter, car, currentX, currentY, toX, toY, speed, encounterDescriptor, waitForAnswer);
+	if( oldX != currentX || oldY != currentY )
+	{
+		critter.LastWorldX = int(oldX);
+		critter.LastWorldY = int(oldY);
+	}
+}
+
+// //////////////////////////////////////////////////////////////////////////////////////////////////
+// Call on invite to encaunter.
+// If mapId != 0 than group enter to it.
+uint TransitErrorId = 0;
+void global_invite( Critter& leader, Item@ car, uint encounterDescriptor, int combatMode, uint& mapId, uint16& hexX, uint16& hexY, uint8& direction )
+{
+	Hexagonal result;
+    Cell @cell = @Global::World.GetCell( leader );
+    if( @cell is null )
+        return;
+
+	if( cell.Content.MapId != 0 )
+	{
+		encounterDescriptor = uint( -1 );
+		mapId = cell.Content.MapId ;
+	}
+	else
+		mapId = Global::World.CreateCell( cell, 0 );
+
+	Map@ map = @GetMap( mapId );
+	if( @map !is null )
+	{
+		int diffX = leader.LastWorldX/10 - cell.Position.X,
+			 diffY = leader.LastWorldY/10 - cell.Position.Y;
+				
+		Line @border = null;
+				
+		if( diffX == -1 ) // пришел слева 6 5 4
+			@border = GetBorderByDirection( 5 + diffY + ( -2 * diffY ), map );
+		else if( diffX == 0 ) // пришел сверху или снизу 7 3
+			@border = GetBorderByDirection( 5 + ( -2 * diffY ), map );
+		else if( diffX == 1 ) // пришел справа 0 1 2
+			@border = GetBorderByDirection( 1 + diffY, map );
+		else // был над картой
+			@border = GetBorderByDirection( 3, map );
+		
+		
+		result.X = border.A.X > border.B.X ?
+				Random( border.A.X , border.B.X ):
+				Random( border.B.X , border.A.X );
+				
+		result.Y = border.A.Y > border.B.Y ?
+				Random( border.A.Y , border.B.Y ):
+				Random( border.B.Y , border.A.Y );
+
+		cell.Content.MapId = mapId;
+		
+		if( !result.IsPassed( map ) ) 
+		{
+			for( uint direction = 0; direction < 6; direction++ )
+			{
+				Hexagonal shift( result );
+				map.MoveHexByDir( shift.X, shift.Y, direction, 1 );
+				if( shift.IsPassed( map ) )
+				{
+					result = shift;
+					break;
+				}
+			}
+			if( !result.IsPassed( map ) )
+			{
+				leader.Say( SAY_NETMSG, "Ошибка перехода, сообщите номер ошибки " + (++TransitErrorId) + " администрации." );
+				ClearLog( "<TransitError " + TransitErrorId + ">" );
+				ClearLog( "border: " + border.Debug );
+				ClearLog( "map<name:" + map.Name + ",Id:" + mapId + "> result hex " + result.X + " " + result.Y );
+				ClearLog( "Different data " + diffX + " " + diffY );
+				ClearLog( "Cell data " + cell.Position.X + " " + cell.Position.Y );
+				mapId = 0;
+			}
+		}
+    }
+	else Log( "Oups!");
+	hexX = result.X;
+	hexY = result.Y;
+	//cell.Position.Log( "" + leader.WorldX + " " + leader.WorldY );
+}
+
+void ScanZone( Critter@[]& group, int zx, int zy )
+{
+    uint[] locIds1, locIds2;
+    bool locIds2Founded = false;
+
+    GetZoneLocationIds( zx, zy, 1, locIds1 );
+
+    for( uint i = 0; i < group.length(); i++ )
+    {
+        Critter@ critter = @group[ i ];
+        if( !critter.IsPlayer() )
+            continue;
+
+        int lookLen = critter.Perk[ PE_SCOUT ] != 0 ? 2 : 1;
+
+        if( lookLen == 2 && !locIds2Founded )
+        {
+            GetZoneLocationIds( zx, zy, 2, locIds2 );
+            locIds2Founded = true;
+        }
+
+        // Open fog
+        int mapw = __GlobalMapWidth;
+        int maph = __GlobalMapHeight;
+        for( int x = -lookLen; x <= lookLen; x++ )
+        {
+            for( int y = -lookLen; y <= lookLen; y++ )
+            {
+                int zx_ = zx + x;
+                int zy_ = zy + y;
+                if( zx_ >= 0 && zx_ < mapw && zy_ >= 0 && zy_ < maph )
+                {
+                    int fog = ( zx == zx_ && zy == zy_ ? FOG_NONE : FOG_HALF );
+                    if( critter.GetFog( zx_, zy_ ) < fog )
+                        critter.SetFog( zx_, zy_, fog );
+                }
+            }
+        }
+    }
+}
+
+void CheckForLocationWithoutParking( Critter& critter, Item& car, float& currentX, float& currentY )
+{
+    Location@[] locations;
+    if( GetVisibleLocations( currentX, currentY, 0, critter, locations ) != 0 )
+    {
+        Location@	location = @locations[ 0 ];
+        Map@		map = @location.GetMapByIndex( 0 );
+
+        bool      placeFounded = false;
+        Entire[] entires;
+        ParseEntires( map, entires, car.Proto.Car_Entrance );
+        for( uint i = 0; i < entires.length(); i++ )
+        {
+            if( map.CheckPlaceForItem( entires[ i ].HexX, entires[ i ].HexY, car.GetProtoId() ) )
+            {
+                placeFounded = true;
+                break;
+            }
+        }
+
+        if( !placeFounded )
+        {
+            currentX = location.WorldX + int(location.Radius) * ( Random( 0, 1 ) == 0 ? int(1) : int(-1) );
+            currentY = location.WorldY + int(location.Radius) * ( Random( 0, 1 ) == 0 ? int(1) : int(-1) );
+        }
+    }
+}
+
+void TransitCritterToCell( Critter& critter, Scenery& grid )
+{
+    Cell@ cell = @Global::World.GetCell( critter );
+    if( @cell is null )
+    {
+        critter.Say( SAY_NETMSG, "Bad cell params arguments" );
+		critter.TransitToGlobal(true);
+        return;
+    }
+	
+    Map@ fromMap = @critter.GetMap();
+    if( @fromMap is null )
+    {
+        critter.Say( SAY_NETMSG, "fromMap is null" );
+		critter.TransitToGlobal(true);
+        return;
+    }
+	
+    uint mapId = 0;
+	critter.TransitDirection = grid.Param[0];
+	
+	uint16 mapPid = 0;
+	Cell @transitCell = @GetGridInfo( cell, fromMap, critter.TransitDirection, mapPid, mapId );
+    if(@transitCell is null)
+	{
+		Log( "no found transit cell" );
+		return;
+	}
+	Hexagonal destCell( transitCell.Position ), oldHex;
+	if( mapId == 0 )
+	{
+		if( ( mapId = Global::World.CreateCell( destCell, 0 ) ) == 0 )
+		{
+			critter.Say(SAY_NETMSG, "null mapId.");
+			return;
+		}
+	}
+
+    Map@ toMap = @GetMap( mapId );
+    if( @toMap is null )
+    {
+        Log( "mapId<" + mapId + "> is null" ); 
+		return;
+    }
+    
+	if( @toMap is @fromMap )
+	{
+        Log( "toMap is fromMap " + cell.Position.X + " " + cell.Position.Y + " and " + transitCell.Position.X + " "+transitCell.Position.Y ); 
+		return;
+	}
+
+    if( !oldHex.Entire( fromMap, ENTIRE_NUM ) )
+    {
+        critter.Say( SAY_NETMSG, "no found entire" );
+        return;
+    }
+	// блок для короткой жизни оффсета
+	{
+		Hexagonal offsetCell( ( critter.HexX - oldHex.X ) / MAP_SIZE, ( critter.HexY - oldHex.Y ) / MAP_SIZE );
+		SetMapDirection( critter.TransitDirection, destCell, offsetCell );
+	}
+	
+	Hexagonal toHex;
+    toHex.X = ( critter.TransitDirection != 5 && critter.TransitDirection != 1 ? critter.HexX : grid.HexX );
+    toHex.Y = ( critter.TransitDirection != 3 && critter.TransitDirection != 7 ? critter.HexY : grid.HexY );
+	
+    if( cell.Content.Info.Size.X > 1 || cell.Content.Info.Size.Y > 1 )
+    {
+        uint8 tempHexX = ( critter.HexX - oldHex.X ) / MAP_SIZE,
+              tempHexY = ( critter.HexY - oldHex.Y ) / MAP_SIZE;
+		
+        if( toHex.X > 1 )
+        {
+            //if( toHex.X < tempHexX * MAP_SIZE ) toHex.X = 0; else 
+			toHex.X -= tempHexX * MAP_SIZE;
+        }
+        if( toHex.Y > 1 )
+        {
+            //if( toHex.Y < tempHexY * MAP_SIZE ) toHex.Y = 0; else 
+			toHex.Y -= tempHexY * MAP_SIZE;
+        }
+    }
+
+	//if( toHex.X < oldHex.X ) toHex.X = oldHex.X;
+    oldHex.X = ABS( int(toHex.X - oldHex.X) );
+	//if( toHex.Y < oldHex.Y ) toHex.Y = oldHex.Y;
+    oldHex.Y = ABS( int(toHex.Y - oldHex.Y) );	
+
+	Hexagonal begin;
+    if( !begin.Entire( toMap, 255 ) )
+    {
+        critter.Say( SAY_NETMSG, "no found dest entire" );
+        return;
+    }
+    SetHexDirection( cell, transitCell, critter.TransitDirection, oldHex );
+	
+	toHex.X = begin.X + oldHex.X;
+	toHex.Y = begin.Y + oldHex.Y;
+	
+	Hexagonal end; 
+	if( !end.Entire( toMap, 0 ) )
+	{
+        critter.Say( SAY_NETMSG, "No found orientation entires" );
+        return;
+	}
+	
+	if( !toHex.ValidPosition( toMap, begin, end ) )
+	{
+		ClearLog( "<TransitError " + ( ++TransitErrorId ) + ">" );
+		ClearLog( "map<name:" + toMap.Name + ",Id:" + toMap.Id + "> result hex " + toHex.X + " " + toHex.Y );
+		ClearLog( "beginHex: " + begin.X + " " + begin.Y + " oldHex: " + oldHex.X + " " + oldHex.Y + " " );
+		critter.Say( SAY_NETMSG, "No correct toHex position ( ErroId " + TransitErrorId + " )" );
+        return;
+	}
+	
+	if( !toHex.IsPassed( toMap, begin, end ) )
+	{
+		ClearLog( "Ошибка перехода, занятый гекс:" );
+		ClearLog( "\tx " + toHex.X + " y " + toHex.Y );
+		ClearLog( "\tсдвиг позиции" );
+		
+		for( uint direction = 0; direction < 6; direction++ )
+		{
+			Hexagonal shift( toHex );
+			toMap.MoveHexByDir( shift.X, shift.Y, direction, 1 );
+			if( shift.IsPassed( toMap, begin, end ) )
+			{
+				toHex = shift;
+				break;
+			}
+		}
+	}
+	
+	if( toHex.IsPassed( toMap, begin, end ) )
+    {
+		if( transitCell.Content.Info.Flags.Static || cell.Content.Info.Flags.Static
+			|| @cell.Content.CurrentKind !is null || @transitCell.Content.CurrentKind !is null
+			|| cell.Biom.Speed == 0.0f || transitCell.Biom.Speed == 0.0f )
+		{
+			if( toMap.GetCrittersHex ( toHex.X, toHex.Y, 15, FIND_LIFE_AND_KO | FIND_ONLY_NPC , null) != 0 )
+			{
+				critter.TransitDirection = critter.Dir;
+				critter.TransitHexX = toHex.X;
+				critter.TransitHexY = toHex.Y;
+				critter.TransitMapId = mapId;
+				
+				ShowAnswerScreenDangerTransit( critter );
+			}
+			else
+			{
+				critter.SetWorldPos( transitCell.Position.X * 10, transitCell.Position.Y * 10 );
+				toHex.Transit( critter, toMap, critter.Dir );
+			}
+		}
+		else
+		{
+			critter.TransitDirection = critter.Dir;
+			critter.TransitHexX = toHex.X;
+			critter.TransitHexY = toHex.Y;
+			critter.TransitMapId = mapId;
+			
+			ShowAnswerScreenTransit(critter);
+		}
+    }
+	else
+		critter.Say( SAY_NETMSG, "Вы не можете туда перейти. Гексы заняты." );
+}
+
+void ShowAnswerScreenTransit(Critter& critter)
+{
+	critter.ShowScreen( SCREEN_DIALOGBOX, 2, "answer_Transit" );
+    critter.Say( SAY_DIALOGBOX_TEXT, "Выйти на глобальную карту?" );
+    critter.Say( SAY_DIALOGBOX_BUTTON( 0 ), "Да" );
+	critter.Say( SAY_DIALOGBOX_BUTTON( 1 ), "Нет, сменить локацию" );
+}
+
+void ShowAnswerScreenDangerTransit(Critter& critter)
+{
+	critter.ShowScreen( SCREEN_DIALOGBOX, 1, "answer_DangerTransit" );
+    critter.Say( SAY_DIALOGBOX_TEXT, "Переход опасен, вы уверены?" );
+    critter.Say( SAY_DIALOGBOX_BUTTON( 0 ), "Да" );
+}
+
+void answer_DangerTransit(Critter& critter, uint answerI, string& answerS)
+{
+	if( critter.TransitMapId == 0 )
+	{
+		Log( "Error transit. TransitMapId is zero" );
+		return;
+	}
+	
+	Map@ map = @GetMap( critter.TransitMapId );
+	if(@map is null) 
+	{ 
+		critter.Say(SAY_NETMSG, "Mapid error.");
+		return;
+	}
+	Location@ location = map.GetLocation();
+	critter.SetWorldPos( location.WorldX, location.WorldY );
+	
+	if(answerI == 0) Hexagonal( critter.TransitHexX, critter.TransitHexY ).Transit( critter, map, critter.TransitDirection );
+}
+
+void answer_Transit(Critter& critter, uint answerI, string& answerS)
+{
+	if( critter.TransitMapId == 0 )
+	{
+		Log( "Error transit. TransitMapId is zero" );
+		return;
+	}
+	
+	Map@ map = @GetMap( critter.TransitMapId );
+	if(@map is null) 
+	{ 
+		critter.Say(SAY_NETMSG, "Mapid error.");
+		return;
+	}
+	Location@ location = map.GetLocation();
+	critter.SetWorldPos( location.WorldX, location.WorldY );
+	
+	if(answerI == 1) Hexagonal( critter.TransitHexX, critter.TransitHexY ).Transit( critter, map, critter.TransitDirection );
+	else if(answerI == 0) critter.TransitToGlobal(true);
+}
+
+bool SetMapDirection( uint8 direction, Hexagonal&inout destCell, const Hexagonal&in offsetCell )
+{
+    Cell @cell = Global::World.GetCell( destCell );
+    if( @cell is null )
+        return false;
+
+    if( cell.Position != cell.Content.Position )
+    {
+        Cell @parantCell = Global::World.GetCell( cell.Content.Position );
+        if( @parantCell is null )
+            return false;
+
+        destCell.Set( parantCell.Position );
+    }
+
+    Hexagonal @size = cell.Content.Info.Size;
+	 
+    switch( direction )
+    {
+    case 0:
+        destCell.X++;
+        destCell.Y--;
+        break;
+    case 1:
+        destCell.X++;
+        destCell.Y += offsetCell.Y;
+        break;
+    case 2:
+        destCell.X++;
+        destCell.Y += size.Y;
+        break;
+    case 3:
+        destCell.X -= offsetCell.X;
+        destCell.Y += size.Y;
+        break;
+    case 4:
+        destCell.X -= size.X;
+        destCell.Y += size.Y;
+        break;
+    case 5:
+        destCell.X -= size.X;
+        destCell.Y += offsetCell.Y;
+        break;
+    case 6:
+        destCell.X -= size.X;
+        destCell.Y--;
+        break;
+    case 7:
+        destCell.X -= offsetCell.X;
+        destCell.Y--;
+        break;
+    default:
+        return false;
+    }
+
+    return ( @Global::World.GetCell( destCell ) !is null );
+}
+
+void SetHexDirection( Cell& cell, Cell& targetCell, uint8& direction, Hexagonal& hex )
+{
+    Hexagonal mapSize( MAP_SIZE, MAP_SIZE );
+    bool	bigSizeX = false,
+			bigSizeY = false;
+
+    if( targetCell.Content.Info.Size.X > 1 || targetCell.Content.Info.Size.Y > 1 )
+    {
+        int tempX = targetCell.Content.Position.X - cell.Content.Position.X,
+            tempY = targetCell.Content.Position.Y - cell.Content.Position.Y;
+
+        if( tempX != 0 )
+        {
+            mapSize.X = ABS( MAP_SIZE * tempX );
+            bigSizeX = true;
+        }
+        if( tempY != 0 )
+        {
+            mapSize.Y = ABS( MAP_SIZE * tempY );
+            bigSizeY = true;
+        }
+
+    }
+
+    switch( direction )
+    {
+    case 0:
+        hex.X = mapSize.X - hex.X;
+        hex.Y = mapSize.Y - hex.Y;
+        direction = 0;
+        break;
+    case 1:
+        hex.X = mapSize.X - hex.X;
+        if( bigSizeY )
+        {
+            hex.Y = mapSize.Y + hex.Y;
+        }
+        direction = 1;
+        break;
+    case 2:
+        hex.X = mapSize.X - hex.X - ADD_HEX_COUNT;
+        hex.Y = mapSize.Y - hex.Y;
+        direction = 2;
+        break;
+    case 3:
+        if( bigSizeX )
+            hex.X = mapSize.X + hex.X;
+     
+        hex.Y = mapSize.Y - hex.Y;
+        direction = Random( 2, 3 );
+        break;
+    case 4:
+        hex.X = mapSize.X - hex.X;
+        hex.Y = mapSize.Y - hex.Y;
+        direction = 3;
+        break;
+    case 5:
+        hex.X = mapSize.X - hex.X;
+        if( bigSizeY )
+        {
+            hex.Y = mapSize.Y + hex.Y;
+        }
+        direction = 4;
+        break;
+    case 6:
+        hex.X = mapSize.X - hex.X;
+        hex.Y = mapSize.Y - hex.Y - ADD_HEX_COUNT;
+        direction = 5;
+        break;
+    case 7:
+        if( bigSizeX )
+        {
+            hex.X = mapSize.X + hex.X;
+        }
+        hex.Y = mapSize.Y - hex.Y;
+        direction = ( Random( 0, 1 ) > 0 ? 5 : 0 );
+        break;
+    default:
+        return;
+    }
+}
+
+void FindTransitHex( Map& map, uint16& hexX, uint16& hexY, uint8 radius, uint8& side )
+{
+    for( uint16 y = hexY - ( radius * 0.5 ), j = hexY + ( radius * 0.5 ); y < j; ++y )
+    {
+        for( uint16 x = hexX - ( radius * 0.5 ), jj = hexX + ( radius * 0.5 ); x < jj; ++x )
+        {
+            Scenery@ scenery = @map.GetScenery( x, y, EXIT_GRID_PID );
+            if( @scenery is null )
+                continue;
+
+            hexX = x;
+            hexY = y;
+
+            side = scenery.Param[0];
+            return;
+        }
+    }
+}
+
+void unsafe_GetCellBiomWidth( Critter& critter, int, int, int, string@, int[]@ )
+{
+	critter.RunClientScript( "_SetCellBiomWidth", Global::World.Width, 0, 0, null, null );
+}
+
+void unsafe_GetCellBiom( Critter& critter, int uid, int, int, string@, int[]@ )
+{
+	Cell@ cell = Global::World.GetCell( uid );
+	if( @cell !is null )
+	{
+		string@ description = "" + cell.MapPack.Name;
+		if( @cell.Figure !is null )
+		{
+			if( cell.FigureFill )
+				description += "\nFigure filling";
+		}
+		if( @cell.Content !is null )
+			description += "\n" + cell.Content.Info.Name;
+		if( @cell.HiddenContent !is null )
+			description += "\nHide: " + cell.HiddenContent.Info.Name;
+		critter.RunClientScript( "_SetCellBioms", uid, 0, 0, description, null );
+	}
+}
+
+void unsafe_ExitGridClick( Critter& critter, int hexX, int hexY, int protoId, string@, int[]@ )
+{
+    if( critter.IsKnockout() || critter.IsDead() )
+    {
+        critter.Say( SAY_NETMSG, "Вы не можете перейти." );
+        return;
+    }
+    if( critter.Timeout[ TO_TRANSFER ] > 0 )
+    {
+        critter.Say( SAY_NETMSG, "Таймаут на переходы. Ждите." );
+        return;
+    }
+    Scenery@ grid = @critter.GetMap().GetScenery( hexX, hexY, protoId );
+    if( @grid !is null )
+    {
+        if( ABS( int(critter.HexX - grid.HexX) ) <= EXIT_GRID_DISTATION && ABS( int(critter.HexY - grid.HexY) ) <= EXIT_GRID_DISTATION )
+            TransitCritterToCell( critter, grid );
+		else critter.Say( SAY_NETMSG, "Вы слишком далеко от сетки выхода." );
+    }
+}
+
+int GetCurrentMapIndex( Map& map )
+{
+	Location@ location = map.GetLocation( );
+	Map@[] maps(0);
+	for( uint i = 0, iend = location.GetMaps( maps ); i < iend; i++ )
+		if( map.Id == maps[i].Id )
+			return i;
+	return -1;
+}
+
+int GetCurrentMapIndex( Critter& critter )
+{
+	Map@ map = critter.GetMap( );
+	if( @map !is null ) return GetCurrentMapIndex( map );
+	return -1;
+}
+
+Cell @GetGridInfo( Cell& cell, Map@ currentMap, uint8 direction, uint16&out mapPid, uint&out mapId )
+{
+	Cell @targetCell = @Global::World.CellToDir( cell, direction );
+	if( @targetCell !is null )
+	{
+		if( @currentMap is null )
+			@currentMap = cell.Content.GetMap( );
+		Map@ outMap = null;
+		if( @currentMap !is null )
+		{
+			uint mapIndex = GetCurrentMapIndex( currentMap );
+			Location@ outLocation = targetCell.Content.Location;
+			if( @outLocation !is null )
+			{
+				if( mapIndex < outLocation.GetMapCount() )
+					@outMap = outLocation.GetMapByIndex( mapIndex );
+				else @outMap = targetCell.Content.GetMap( );
+			}
+		}
+		else @outMap = targetCell.Content.GetMap( );
+		
+		if( @outMap !is null )
+		{
+			mapId = outMap.Id;
+			mapPid = outMap.GetProtoId();
+			return @targetCell;
+		}
+		mapId = 0;
+		mapPid = targetCell.MapPack.MapPid[null];
+	}
+	return @targetCell;
+}
+
+void unsafe_GetMapPid( Critter& critter, int hexX, int hexY, int protoid, string@, int[]@ )
+{
+	if( hexX < 0 || hexY < 0 ) return;
+	Map@ map = @critter.GetMap( );
+	if( @map is null || map.GetWidth() <= hexX || map.GetHeight() <= hexY )
+		return;
+		
+    Scenery@ grid = map.GetScenery( hexX, hexY, protoid );
+	int direction = -1;
+	protoid = 0; 
+	
+    if( @grid !is null )
+	{
+		direction = grid.Param[0];
+		uint mapId = 0;
+		Cell @cell = Global::World.GetCell( critter );
+		if( @cell is null )
+			return;
+		GetGridInfo( Global::World.GetCell( critter ), critter.GetMap(), direction, protoid, mapId );
+	}
+	critter.StatBase[ ST_LOCALMAP_DIR ] = direction;
+	critter.StatBase[ ST_LOCALMAP_PID ] = protoid;
+}
+
+bool isCellStatic( Critter& cr, Map @map ) { //exported!
+	Cell@ cell = @Global::World.GetCell( map );
+    if( @cell is null )
+	{
+		cr.Say( SAY_NETMSG, "[mapID " + map.Id + " has no cell]");
+        return false;
+    }
+
+	CellContent @content = @cell.Content;
+    if( @content is null)
+	{
+		cr.Say( SAY_NETMSG, "[Cell content not found]" );
+        return false;
+	}
+
+	return cell.Content.Info.Flags.Static;
+}
+
+
+int[] CellAreaInfo( Critter@ cr, Map @map ) { //exported!
+	bool isDebug = ( valid(cr) && cr.GetAccess() >= ACCESS_MODER );
+	int[] result = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+	Cell@ cell = @Global::World.GetCell( map );
+    if( @cell is null )
+	{
+		if( valid(cr) ) cr.Say( SAY_NETMSG, "[mapID " + map.Id + " has no cell]");
+        return result;
+    }
+
+	CellContent @content = @cell.Content;
+    if( @content is null)
+	{
+		if(valid(cr)) cr.Say( SAY_NETMSG, "[Cell content not found]" );
+        return result;
+	}
+	string[] values = { "", "Westland", "Forest", "Ruins", "Mountain", "River", "Rail", "Road", "Bridge", "CrossRoad" };
+	int x = cell.Position.X, y = cell.Position.Y;
+	for( int dx = -1; dx <= 1; dx++ )
+		for( int dy = -1; dy <= 1; dy++ )
+		{
+			Cell@ check = @Global::World.GetCell( x+dx,y+dy );
+			if( @check is null ) { 
+				if(isDebug && valid(cr)) cr.Say( SAY_NETMSG, "["+(x+dx)+","+(y+dy)+"] is null!" ); 
+				result[0]++; continue; }
+			ProtoBiom@ biom = check.Biom;
+			if( @biom is null )  { 
+				if(isDebug && valid(cr)) cr.Say( SAY_NETMSG, "["+(x+dx)+","+(y+dy)+"] no biom!" ); 
+				result[0]++; continue; }
+			string img = biom.Name;
+			if( img is null || img.length() == 0 ) { 
+				if(isDebug && valid(cr)) cr.Say( SAY_NETMSG, "["+(x+dx)+","+(y+dy)+"] no type!" ); 
+				result[0]++; continue; }
+			int index = values.find(img);
+			if( index == -1 ) { 
+				if(isDebug && valid(cr)) cr.Say( SAY_NETMSG, "["+(x+dx)+","+(y+dy)+"] is '"+img+"'!" ); 
+				result[0]++; continue; }
+			else result[index]++;
+		}
+	return result;
+}
+
+uint GetCellMap( uint16 x, uint16 y )
+{
+    Cell@ cell = @Global::World.GetCell( x * 0.1, y * 0.1 );
+    if( @cell is null )
+	{
+		Log( " cell is null" );
+        return 0;
+    }
+	return cell.Content.MapId;
+}
+
+void CreateCell( uint16 x, uint16 y, uint mapId )
+{
+    Global::World.CreateCell( x, y, mapId );
+}
+
+int CellLocationCreate( int protoId, int x, int y, int force )
+{
+    Cell @ cell = @Global::World.GetCell( x, y );
+    if( @cell is null )
+        return -1;
+
+    return cell.CellCreate( protoId, force > 0 ? true : false );
+}
+
+int CellLocationCreate( int protoId, int x, int y, int wild, int livetime, int force )
+{
+    Cell @ cell = @Global::World.GetCell( x, y );
+    if( @cell is null )
+        return -1;
+
+    return cell.CellCreate( protoId, wild, livetime, force > 0 ? true : false );
+}
+
+bool CellLocationDelete( int x, int y )
+{
+    Cell @ cell = @Global::World.GetCell( x, y );
+    if( @cell is null )
+        return false;
+		
+	cell.CellDelete();
+    return true;
+}
+
+int CellLocationSize( int x, int y, int sizeX, int sizeY )
+{
+    Cell @cell = @Global::World.GetCell( x, y );
+    if( @cell is null )
+        return -1;
+	
+	cell.SetSize( sizeX, sizeY );
+    return 0;
+}
+
+bool CellGetCellSize(uint mapId, uint8& sizeX, uint8& sizeY)
+{
+	Cell @cell = @Global::World.GetCell( GetMap( mapId ) );
+	if(@cell is null) return false;
+
+	sizeX = cell.Content.Info.Size.X;
+	sizeY = cell.Content.Info.Size.Y;
+	return true;
+}
+
+void DypsneaCr( Map& map, Critter& critter )
+{
+	if( critter.GetTimeEvents( CTE_DYSPNEA, null, null, null ) < 1 )
+		critter.AddTimeEvent( "cte_Dyspnea", 5 * __TimeMultiplier, CTE_DYSPNEA, 1 );
+}
+
+bool IsDyspneaMap( Map& map )
+{
+	if( map.GetData( 25 ) > 0 )
+		return true;
+	return false;
+}
+
+bool IsDyspneaHex( Map& map, uint16 hexX, uint16 hexY )
+{
+	if( IsDyspneaMap( map ) )
+	{
+		if ( map.GetProtoId()== MAP_SUTTER_CENTER_DN && (443 < hexX) && (hexX < 540) && (369 < hexY) && (hexY < 435) )
+			return false;
+		return true;
+	}
+	return false;
+}
+
+uint cte_Dyspnea( Critter& critter, int identifier, uint& rate )
+{
+	Map@ map = @critter.GetMap();
+    if( !(@map is null) )
+    {
+        if( IsDyspneaHex( map, critter.HexX, critter.HexY ) )
+        {
+            //GameVar @ dyspnea = @GetLocalVar( LMVAR_Dyspnea, map.Id );
+            //if( !(@dyspnea is null) )
+            {
+                Item@ respirator = _CritGetItemHandExt( critter );
+                if( @respirator !is null && respirator.GetProtoId() == PID_RESPIRATOR && respirator.Indicator > 0)
+                {
+                    uint8 ind = respirator.Indicator;
+                    if ( Random(0,15) == 0 )
+					{
+						ind--;
+						ind = CLAMP( ind, 0, 100 );
+						respirator.Indicator = ind;
+						respirator.Update();
+					}
+                    critter.StatBase[ ST_DYSPNEA ] --;
+                }
+                else critter.StatBase[ ST_DYSPNEA ] -= 5;
+            }
+        }
+        else
+        {
+			if ( critter.StatBase[ ST_DYSPNEA ] < 100 )
+				critter.StatBase[ ST_DYSPNEA ] += critter.Stat[ ST_ENDURANCE ] * 5;
+        }
+    }
+
+	critter.ModeBase[MODE_NO_COMBAT_TIME] += 1;
+	if( critter.Stat[ ST_DYSPNEA ] <= 0 && !critter.IsDead( ) )
+		InjureCritter( critter, Random( 7, 16 ), DAMAGE_UNCALLED, 0, 0 );
+	critter.ModeBase[MODE_NO_COMBAT_TIME] -= 1;
+	
+    return 5 * __TimeMultiplier;
+}
+
+string@ LoadFile(string fileName)
+{
+	file f;
+	if(f.open(fileName, "r") != -1)
+	{
+		string txt = "";
+		f.readString( f.getSize(), txt); 
+		f.close();
+		return @txt;
+	}
+	return null;
+}
+
+Kind @GetProtoKind( string& kindName )
+{
+	if( !Global::World.Prototypes.exists( "Kind:" + kindName ) )
+		return null;
+
+	FileObject @object = null;
+	Global::World.Prototypes.get( "Kind:" + kindName, @object );
+	if( @object is null )
+		return null;
+
+	return cast<Kind@>( @object );
+}
+
+void SpawnKind( Map& map, string& kindName )
+{
+	Kind @kind = GetProtoKind(kindName);
+	if( @kind is null )
+	{		
+		Log( "Object no cast to kind <Kind:" + kindName + ">" );
+		return;
+	}
+	
+	KindInstance( kind, null ).Spawn( map );
+}
+
+void SpawnKindPart( Map& map, string& kindName, uint16 hexX, uint16 hexY, uint16 count ) //exported! new!
+{
+	Kind @kind = GetProtoKind(kindName);
+	if( @kind is null )
+	{		
+		Log( "Object no cast to kind <Kind:" + kindName + ">" );
+		return;
+	}
+
+	Hexagonal@[] hexs = { Hexagonal( hexX, hexY ) };
+	KindInstance( kind, 1 ).Spawn( map, hexs, count );	
+}
+
+void SpawnKind( Map& map, string& kindName, uint16 hexX, uint16 hexY )
+{
+	Kind @kind = GetProtoKind(kindName);
+	if( @kind is null )
+	{		
+		Log( "Object no cast to kind <Kind:" + kindName + ">" );
+		return;
+	}
+
+	Hexagonal@[] hexs = { Hexagonal( hexX, hexY ) };
+	KindInstance( kind, 1 ).Spawn( map, hexs );	
+}
+
+void GM_SpawnKind( Critter& gameMaster, int, int, int, string@ kindName, int[]@ )
+{
+	if( @kindName is null ) 
+	{
+		Log( "kindName is not valid" );
+		return;
+	}
+	
+	Map @map = gameMaster.GetMap();
+	if( @map is null ) 
+	{
+		Log( "map is not valid" );
+		return;
+	}
+	
+	SpawnKind( map, kindName );
+}
+
+void GM_SpawnKindToHex( Critter& gameMaster, int x, int y, int , string@ kindName, int[]@ )
+{
+	if( @kindName is null ) 
+	{
+		Log( "kindName is not valid" );
+		return;
+	}
+	
+	Map @map = gameMaster.GetMap();
+	if( @map is null ) 
+	{
+		Log( "map is not valid" );
+		return;
+	}
+	
+	SpawnKind( map, kindName, x, y );
+}
+
+void LoadKindProto( string& fileName )
+{
+	Kind @kind = GetProtoKind(fileName);
+	if( @kind !is null && !kind.ThisIsDebug )
+	{
+		Log( "Kind no debug");
+		return;
+	}
+	
+	FileObject @proto = Global::World.ParseProtoTypeFile( fileName, "kind", Kind("DebugPattern"), "./NextDay/" );
+	if( @proto !is null )
+	{
+		@kind = cast<Kind@>( @proto );
+		kind.ThisIsDebug = true;
+	}
+}
+
+void GM_LoadKind( Critter&, int, int, int, string@ kindName, int[]@ )
+{
+	if( @kindName is null ) 
+	{
+		Log( "kindName is not valid" );
+		return;
+	}
+	
+	LoadKindProto( kindName );
+}
+
+uint CreateLocation( Hexagonal& coordinate, uint16 locationPid )
+{
+	uint locationId = ::CreateLocation( locationPid, coordinate.X * 10 + 5, coordinate.Y * 10 + 5, null );
+	if( locationId != 0 && Global::World.IsStart )
+	{
+		Location@ location = GetLocation( locationId ) ;
+		if( @location !is null )
+			Global::World.FormatLocation( location );
+	}
+	return locationId;
+}
+
+//Frank Kost 20.03.2018 05:52 - Команда для телепортации на ячейку (cell) с координатами cellX cellY;
+void GM_2Cell( Critter& player, int param0, int cellX, int cellY, string@ param3, int[] @param4 )
+{
+	Cell @cell = null;
+    if( cellX == 0 && cellY == 0 )
+        @cell = @Global::World.GetCell( player );
+    else @cell = @Global::World.GetCell( uint16( cellX ), uint16( cellY ) );
+
+    if( @cell is null )
+        return;
+
+	player.Say( SAY_NETMSG, "Cell: " + cell.Position.X + ":" + cell.Position.Y );
+	CellContent @content = @cell.Content;
+
+    if( @content is null)
+	{
+		player.Say( SAY_NETMSG, "Cell content not found." );
+        return;
+	}
+	
+	switch( TransitToContent( player, content, 0, cell, true ) )
+	{
+		case Result::Transit::MapNotFound:
+			player.Say( SAY_NETMSG, "Target map not found." );
+			break;
+		case Result::Transit::FailGenerated:
+			player.Say( SAY_NETMSG, "Failed to generate a map!" );
+			break;
+		case Result::Transit::MapGenerated:
+			player.Say( SAY_NETMSG, "Encounter map generated." );
+			break;
+		default: break;
+	}
+}
+
+void GM_CellInfo( Critter& player, int param0, int cellX, int cellY, string@ param3, int[] @param4 )
+{
+	Cell @cell = null;
+    if( cellX == 0 && cellY == 0 )
+        @cell = @Global::World.GetCell( player );
+    else @cell = @Global::World.GetCell( uint16( cellX ), uint16( cellY ) );
+
+    if( @cell is null )
+        return;
+
+	string@ info = "Cell: " + cell.Position.X + ":" + cell.Position.Y;
+	//player.Say( SAY_NETMSG, "Cell: " + cell.Position.X + ":" + cell.Position.Y );
+	CellContent @content = @cell.Content;
+
+	info += "\n---- biom ----";
+	info += "\n---- map packet ----";
+	info += "\n" + cell.MapPack.Name;
+	
+	if( @cell.Figure !is null )
+	{
+		
+		info += "\n---- Figure ----";
+		info += "\nFigureDirection: " + cell.FigureDirection;
+	}
+	
+    if( @content is null)
+	{
+		//player.Say( SAY_NETMSG, "Cell content not found." );
+        info += "\n---- content ----\nnull";
+	}
+	else
+	{
+		
+	}
+	
+	player.Say( SAY_INFO, info );
+}
+
+int TransitToContent( Critter& critter, CellContent& content, int entireId, Cell& cell, bool isCreate )
+{
+	int result = Result::Transit::Okay;
+	int mapId = content.MapId;
+	
+	if( mapId == 0 )
+	{
+		if( isCreate )
+			mapId = Global::World.CreateCell( cell, 0 ); 
+		if( mapId == 0 )
+			return Result::Transit::FailGenerated;
+		result = Result::Transit::MapGenerated;
+	}
+	
+	Map@ map = GetMap(mapId);
+    if( @map is null )
+        return Result::Transit::MapNotFound;
+
+    critter.SetWorldPos( cell.Position.X, cell.Position.Y );
+	
+	uint countEntires = map.CountEntire( entireId );
+	uint8 direction = 0;
+	Hexagonal hex;
+	if( map.GetEntireCoords ( entireId, Random( 0, countEntires - 1 ), hex.X, hex.Y, direction ) )
+	    hex.Transit( critter, map, direction );
+	return result;
+}
+
+int TransitToContent( Critter& critter, CellContent& content, Hexagonal& hex, Cell& cell, bool isCreate )
+{
+	int result = Result::Transit::Okay;
+	int mapId = content.MapId;
+	
+	if( mapId == 0 )
+	{
+		if( isCreate )
+			mapId = Global::World.CreateCell( cell, 0 ); 
+		if( mapId == 0 )
+			return Result::Transit::FailGenerated;
+		result = Result::Transit::MapGenerated;
+	}
+	
+	Map@ map = GetMap(mapId);
+    if( @map is null )
+        return Result::Transit::MapNotFound;
+
+    critter.SetWorldPos( cell.Position.X, cell.Position.Y );
+	hex.Transit( critter, map, 0 );
+	return result;
+}
+
+void TransitToHidden( Critter& critter, int entireId, int, int )
+{
+	switch( locale_TransitToHidden( critter, entireId ) )
+	{
+		case Result::Transit::MapNotFound:
+			critter.Say( SAY_NETMSG, "Target map not found." );
+			break;
+		case Result::Transit::FailGenerated:
+			critter.Say( SAY_NETMSG, "Failed to generate a map!" );
+			break;
+		case Result::Transit::MapGenerated:
+			critter.Say( SAY_NETMSG, "Encounter map generated." );
+			break;
+		default: break;
+	}
+}
+
+int locale_TransitToHidden( Critter& critter, int entireId )
+{
+	Cell @cell = @Global::World.GetCell( critter );
+    if( @cell is null )
+        return Result::Transit::CellNotFound;
+
+	return TransitToHiddenContent( critter, cell, entireId );
+}
+
+int TransitToHiddenContent( Critter& critter, Cell& cell, int entireId )
+{
+	CellContent @content = @cell.HiddenContent;
+    if( @content is null)
+	{
+		critter.Say( SAY_NETMSG, "HiddenContent not found." );
+        return Result::Transit::NotHiddenContent;
+	}
+	return TransitToContent( critter, content, entireId, cell, false );
+}
+
+bool SwitchContent( Critter& critter, Scenery& scenery, int skill, Item@ item )
+{
+	if( skill == SKILL_PICK_ON_GROUND )
+	{
+		SwitchContent( critter );
+		return true;
+	}
+	
+	return false;
+}
+
+void SwitchContent( Critter& critter )
+{
+	CellContent @currentContent = GetContent( critter );
+	Cell @cell = @Global::World.GetCell( critter );
+		
+	if( currentContent.Info.Flags.Hidden )
+	{
+		Item@[] items;
+		uint countItems = cell.Content.GetMap().GetItems( 10002, items );
+		if( countItems != 0 )
+			TransitToContent( critter, cell.Content, Hexagonal( items[ Random( 0, countItems - 1 ) ] ), cell, false );
+		else TransitToContent( critter, cell.HiddenContent, 20, cell, false );
+	}
+	else
+	{
+		Item@[] items;
+		uint countItems = cell.HiddenContent.GetMap().GetItems( 10002, items );
+		if( countItems != 0 )
+			TransitToContent( critter, cell.HiddenContent, Hexagonal( items[ Random( 0, countItems - 1 ) ] ), cell, false );
+		else TransitToContent( critter, cell.HiddenContent, 20, cell, false );
+		}
+}
+
+void TransitToHidden(Item&inout item, bool)
+{
+	item.SetEvent( ITEM_EVENT_SKILL, "_SkillUseTransitToHidden" );
+}
+
+CellContent @GetContent( Critter& critter )
+{
+	Map@ map = critter.GetMap();
+	if( @map is null )
+		return null;
+		
+	Cell @cell = @Global::World.GetCell( critter );
+	if( @cell is null )
+		return null;
+		
+	if( @cell.Content !is null && cell.Content.MapId == map.Id )
+		return @cell.Content;
+	if( @cell.HiddenContent !is null && cell.HiddenContent.MapId == map.Id )
+		return @cell.HiddenContent;
+	return null;
+}
+
+bool _SkillUseTransitToHidden( Item& item, Critter& critter, int skill )
+{
+	if( skill == SKILL_PICK_ON_GROUND )
+	{
+		SwitchContent( critter );
+		return true;
+	}
+	return false;
+}
+
+void GM_AddContentSwitcher( Critter& player, int hexX, int hexY, int , string@ , int[] @image )
+{
+	
+}
+
+void GM_ChangeItemPicture( Critter& player, int itemId, int hash, int , string@ , int[]@ )
+{
+	Item@ item = GetItem( itemId );
+	if( @item !is null )
+	{
+		item.PicMap = hash;
+		item.Update( );
+	}
+}
+
+void GM_ItemBlock( Critter& player, int itemId, int hash, int , string@ , int[]@ )
+{
+	Item@ item = GetItem( itemId );
+	if( @item !is null )
+	{
+		UNSETFLAG( item.Flags, ITEM_NO_BLOCK );
+		item.Update( );
+	}
+}
+
+void GM_ItemUnBlock( Critter& player, int itemId, int hash, int , string@ , int[]@ )
+{
+	Item@ item = GetItem( itemId );
+	if( @item !is null )
+	{
+		SETFLAG( item.Flags, ITEM_NO_BLOCK );
+		item.Update( );
+	}
+}
+
+void GM_TransitContent( Critter& player, int x, int y, int hash, string@ , int[]@ )
+{
+	WorldLocation @worldLocation = Global::World.WorldLocation[ hash ];
+	if( @worldLocation !is null && worldLocation.Id != 0 )
+	{
+		Location@ location = worldLocation.Location;
+		Hexagonal locWorld( location.WorldX * 0.1, location.WorldY * 0.1 );
+		Cell @cell = @Global::World.GetCell( locWorld );
+		if( @cell !is null )
+		{
+			CellContent@ content = cell.GetMapContent( location.GetMapByIndex(0) );
+			if( @content !is null )
+				content.Position = Hexagonal( x, y );
+		}
+	}
+}
+
+bool valid_location( Location& location )
+{
+	if( Global::World.Prototypes.exists( "ContentInfo:" + location.GetProtoId() ) )
+		return true;
+	
+	Hexagonal locWorld( location.WorldX * 0.1, location.WorldY * 0.1 );
+	Cell @cell = @Global::World.GetCell( locWorld );
+	if( @cell !is null )
+		return ( @cell.GetMapContent( location.GetMapByIndex(0) ) !is null );
+	return false;
+}
+
+void clear( Critter& critter, int, int, int )
+{
+	Location@[] locations;
+	uint count = 0;
+	for( uint i = 0, iend = GetAllLocations( 0, locations ); i < iend; i++ )
+		if( !valid_location( locations[i] ) )
+		{
+			DeleteLocation( locations[i].Id );
+			count++;
+		}
+	critter.Say( SAY_NETMSG, "Удалено " + count + " локаций." );
+}

@@ -1,0 +1,75 @@
+#include "_macros.fos"
+#include "_cell.fos"
+
+import uint  GetCellMap( uint16 x, uint16 y ) from "world";
+
+void _MapInit( Map& map, bool firstTime )
+{
+    map.SetEvent( MAP_EVENT_OUT_CRITTER, "_crOut" );
+    map.SetEvent( MAP_EVENT_IN_CRITTER, "_crIn" );
+
+}
+
+void _KindmanInit( Critter& cr, bool firstTime )
+{
+    cr.ModeBase[ MODE_UNLIMITED_AMMO ] = 1;
+    cr.ModeBase[ MODE_INVULNERABLE ] = 1;
+    cr.ModeBase[ MODE_NO_ENEMY_STACK ] = 1;
+    cr.StatBase[ ST_MELEE_DAMAGE ] = 9999;
+}
+
+void r_toHex( Critter& master, Critter@ slave, int val )
+{
+    Map@ map = master.GetMap();
+
+    if( @map is null )
+        return;
+
+    uint16 hexX = 0, hexY = 0;
+
+    if( !map.GetEntireCoords( val, 0, hexX, hexY ) )
+        return;
+
+    master.TransitToHex( hexX, hexY, 5 );
+}
+
+void kind_tele( Critter& master, Critter@ slave, int val )
+{
+    if( !valid( master ) )
+        return;
+
+		Map@ map = GetMapByPid( MAP_UTILITY_START, 0 );
+
+    if( !valid( map ) )
+    {
+        master.Say( SAY_NETMSG, "Map index not found" );
+        return;
+    }
+
+    _crOut( map, master );
+    master.TransitToMap( map.Id, 0 );
+	master.QuestBase[ QST_GAMEMODE ] = GAME_START;
+}
+
+void _crIn( Map& map, Critter& cr )
+{
+    if( cr.IsPlayer() && cr.GetAccess() == ACCESS_CLIENT )
+    {
+        cr.ModeBase[ MODE_NO_PVP ] = 1;
+        cr.AddItem( PID_INFOPAD, 1 );
+        cr.AddItem( PID_SKIN_CHANGER, 1 );
+    }
+}
+
+void _crOut( Map& map, Critter& cr )
+{
+    if( cr.IsPlayer() && cr.GetAccess() == ACCESS_CLIENT )
+    {
+        cr.ModeBase[ MODE_NO_PVP ] = 0;
+        Item@[] items;
+        cr.GetItems( SLOT_INV, items );
+        cr.GetItems( SLOT_HAND1, items );
+        cr.GetItems( SLOT_HAND2, items );
+        DeleteItems( items );
+    }
+}

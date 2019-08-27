@@ -1,0 +1,21 @@
+
+
+Maps:EW 	= 1160
+Maps:EW inv = 1165
+Maps:SW 	= 1150
+Maps:SW inv = 1130
+Maps:EN 	= 1120
+Maps:EN inv = 1140
+
+Maps:ES 	= 1125
+Maps:ES inv = 1145
+Maps:SN 	= 1115
+Maps:SN inv = 1110
+Maps:WN 	= 1155
+Maps:WN inv = 1135
+
+Flags = Orientation
+Symbol:Parse = M
+Symbol:Client = M
+Symbol:Color = 222 146 71 255
+Speed = 0.0f

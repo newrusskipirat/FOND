@@ -1,0 +1,857 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+import void AffectRadiation(Critter&cr,int value)from"radiation";
+import void AffectPoison(Critter&cr,int value)from"poison";
+import bool isHealingAgent(Item&item)from"heal";
+import bool UseHealingAgent(Critter&cr,Item&item,Critter&doc)from"heal";              
+
+const int[]DrugsIdentifiers=
+{
+	(40),(48),(49),(53),
+	(71),(81),(87),
+	(103),(106),(109),(110),(124),
+	(125),(144),(259),(260),
+	(273),(310),(311),
+	(334),(378),(424),
+	(469),(473),(480),
+	(481),(482),(525)
+};
+
+const int[]DrugEffects=
+{
+	
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	(72),0,0,0,0,0,
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	
+	(474),10,120,120,14160,10080,
+	(74),-25,-50,-75,0,0,
+	(30),0,0,0,-20,20,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,10,10,0,0,
+	(73),-25,-25,-25,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	(472),15,1440,4320,4320,10080,
+	(4),2,-4,2,-3,3,
+	(1),2,-4,2,0,0,
+	(3),1,-3,2,0,0,
+	(5),0,0,0,-2,2,
+	
+	-1,0,120,360,0,0,
+	-2,1,0,0,0,0,
+	(72),4,0,0,0,0,
+	(74),0,1,1,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	(471),25,360,720,1800,10080,
+	(0),2,-4,2,-2,2,
+	(5),2,-4,2,-3,3,
+	(2),3,-4,1,-2,2,
+	-1,0,0,0,0,0,
+	
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	(470),10,0,0,30,10080,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,1440,1440,0,0,
+	(30),20,-10,-10,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	(473),20,240,240,9600,10080,
+	(5),3,-3,0,0,0,
+	(4),-3,1,2,-2,2,
+	(23),50,-25,-25,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,80,160,0,0,
+	(5),-1,1,0,0,0,
+	(74),0,-5,-5,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,100,150,0,0,
+	(1),-1,1,0,0,0,
+	(74),0,-5,-10,0,0,
+	(5),-2,1,1,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,10,10,0,0,
+	(72),75,-3,-6,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	(475),50,240,1430,1450,2,
+	(8),2,-4,2,-1,1,
+	(0),1,-4,3,-2,2,
+	(1),1,-4,3,-2,2,
+	-1,0,0,0,0,0,
+	
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,360,0,0,0,
+	-2,8,0,0,0,0,
+	(72),0,0,0,0,0,
+	(1),-1,1,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,60,0,0,0,
+	(5),-1,1,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,60,60,0,0,
+	(1),-1,1,0,0,0,
+	(5),-2,1,1,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,15,0,0,0,
+	(8),1,-1,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,60,60,0,0,
+	(0),3,-6,3,0,0,
+	(5),3,-6,3,0,0,
+	(23),50,-50,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,90,200,0,0,
+	(1),-3,2,1,0,0,
+	(74),0,-5,-25,0,0,
+	(5),-3,1,2,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,1440,8640,0,0,
+	(7),-3,0,3,0,0,
+	(73),2,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,30,0,0,0,
+	(5),1,-1,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,30,0,0,0,
+	(4),1,-1,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,30,0,0,0,
+	(0),1,-1,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+	
+	-1,0,0,0,0,0,
+	-2,75,0,0,0,0,
+	(72),100,0,0,0,0,
+	-1,0,0,0,0,0,
+	-1,0,0,0,0,0,
+};        
+
+void UseDrug(Critter&cr,Item&drug)
+{
+	if(isHealingAgent(drug))
+	UseHealingAgent(cr,drug,cr);
+	else
+	{
+		SetDrug(cr,drug.GetProtoId());
+		do{if(drug.GetCount()>(1))
+			drug.SetCount(drug.GetCount()-(1));else
+			DeleteItem(drug);}while(false);
+	}
+}
+
+void UseDrugOn(Critter&cr,Critter@onCr,Item&drug)
+{
+	if(cr.Id!=onCr.Id)
+	{
+		if(onCr.IsDead())
+		{
+			cr.SayMsg((11),(3),(3400));
+			return;
+		}
+		onCr.SayMsg((11),(3),(10306));
+	}
+	if(isHealingAgent(drug))
+	UseHealingAgent(onCr,drug,cr);
+	else
+	{
+		SetDrug(onCr,drug.GetProtoId());
+		do{if(drug.GetCount()>(1))
+			drug.SetCount(drug.GetCount()-(1));else
+			DeleteItem(drug);}while(false);
+	}
+}
+
+void DropDrugEffects(Critter&cr)
+{      
+	
+	Item@[]items;
+	cr.GetItems((3),items);
+	cr.GetItems((1),items);
+	cr.GetItems((2),items);
+	for(uint i=0,l=items.length();i<l;i++)
+	cr.MoveItem(items[i].Id,items[i].GetCount(),(0));
+	
+	for(uint i=(32);i<=(63);i++)
+	cr.StatBase[i]=0;
+	
+	cr.EraseTimeEvents(DrugsIdentifiers);
+	
+	for(uint i=(__AddictionBegin);i<=(__AddictionEnd);i++)
+	cr.AddictionBase[i]=0;
+	
+	for(uint i=0,l=items.length();i<l;i++)
+	{
+		Item@item=items[i];
+		if((@item!=null)&&item.GetType()==(1))
+		{
+			cr.MoveItem(item.Id,item.GetCount(),(3));
+			break;
+		}
+	}
+}
+
+void SetDrug(Critter&cr,uint16 drugPid)
+{                 
+	
+	if(drugPid==(48))cr.StatBase[(147)]*=0.33;
+	
+	if(drugPid==(260))
+	{
+		uint[]rates;
+		uint count=cr.GetTimeEvents((259),null,null,rates);
+		for(uint i=0;i<count;i++)
+		DropDrug(cr,(259),((rates[i])&0xFFFFFF));
+		cr.EraseTimeEvents((259));
+		if(count>0&&cr.Addiction[(475)]!=0)
+		{
+			cr.AddictionBase[(475)]=0;
+			cr.SayMsg((11),(3),(10302));
+		}
+		else
+		cr.SayMsg((11),(3),(10304));
+		return;
+	} 
+	
+	uint flags=0;
+	if(cr.Trait[(561)]!=0)
+	flags|=(1)|(2);
+	if(cr.Trait[(562)]!=0)
+	flags|=(4)|(8); 
+	
+	uint[]indexes;
+	uint[]rates;
+	uint count=cr.GetTimeEvents(drugPid,indexes,null,rates);
+	int index=GetDrugTableIndex(drugPid); 
+	
+	if(DrugEffects[index+(0)]>=0)
+	{
+		uint positive=0;
+		uint negative=0;
+		for(uint i=0;i<count;i++)
+		{
+			uint stage=((rates[i])&0xFFFFFF);
+			if(stage<=1)
+			positive++;
+			else if(stage==2)
+			negative++;
+		}
+		
+		if(positive>=2-negative/2)
+		{
+			int addict=DrugEffects[index+(0)];
+			int addictProc=DrugEffects[index+(1)];
+			if((((flags)&((2)))!=0))
+			addictProc*=2;
+			if((((flags)&((4)))!=0))
+			addictProc/=2;
+			if(cr.Addiction[addict]==0&&Random(1,100)<=addictProc)
+			cr.AddictionBase[addict]=1;
+			else
+			cr.SayMsg((11),(3),(10304));
+			return;
+		}
+	} 
+	
+	uint deleted=0;
+	for(uint i=0;i<count;i++)
+	{
+		uint stage=((rates[i])&0xFFFFFF);
+		if(stage>=3)
+		{
+			DropDrug(cr,drugPid,stage);
+			cr.EraseTimeEvent(indexes[i]-deleted);
+			deleted++;
+		}
+	} 
+	
+	cr.AddTimeEvent("cte_Drug",0,drugPid,((((flags)&0xFF)<<24)|((0)&0xFFFFFF)));
+}
+
+int GetDrugTableIndex(uint16 drugPid)
+{
+	int index=0;
+	switch(drugPid)
+	{
+		case(40):
+		index=0;
+		break;
+		case(48):
+		index=1;
+		break;
+		case(49):
+		index=2;
+		break;
+		case(53):
+		index=3;
+		break;
+		case(71):
+		index=4;
+		break;
+		case(81):
+		index=5;
+		break;
+		case(87):
+		index=6;
+		break;
+		case(103):
+		index=7;
+		break;
+		case(106):
+		index=8;
+		break;
+		case(109):
+		index=9;
+		break;
+		case(110):
+		index=10;
+		break;
+		case(124):
+		index=11;
+		break;
+		case(125):
+		index=12;
+		break;
+		case(144):
+		index=13;
+		break;
+		case(259):
+		index=14;
+		break;
+		case(260):
+		index=15;
+		break;
+		case(273):
+		index=16;
+		break;
+		case(310):
+		index=17;
+		break;
+		case(311):
+		index=18;
+		break;
+		case(334):
+		index=19;
+		break;
+		case(378):
+		index=20;
+		break;
+		case(424):
+		index=21;
+		break;
+		case(469):
+		index=22;
+		break;
+		case(473):
+		index=23;
+		break;
+		case(480):
+		index=24;
+		break;
+		case(481):
+		index=25;
+		break;
+		case(482):
+		index=26;
+		break;
+		case(525):
+		index=27;
+		break;
+		default:
+		break;
+	}
+	index*=30;
+	return index;
+}
+
+uint ProcessDrug(Critter&cr,uint16 drugPid,uint&rate)
+{
+	uint stage=((rate)&0xFFFFFF);
+	uint flags=((rate)>>24);
+	
+	if(cr.IsDead())
+	return((5)*__TimeMultiplier*60);
+	if(drugPid==(259)&&stage>=4)
+	return((5)*__TimeMultiplier*3600);
+	
+	int index=GetDrugTableIndex(drugPid);
+	uint duration=0;
+	
+	if(stage==0||
+	stage==1||
+	stage==2||
+	stage==3||
+	stage==4)
+	{
+		for(uint i=0;i<4;i++)
+		{
+			int stat=DrugEffects[index+(6+(i)*6)];
+			int amount=DrugEffects[index+(7+(stage)+(i)*6)];
+			if(i==1&&DrugEffects[index+(6+(0)*6)]==-2)
+			amount=Random(DrugEffects[index+(7+(stage)+(0)*6)],amount);
+			if(stat<0)
+			continue;
+			
+			int statVal=cr.Stat[stat];
+			if(stat<(32))
+			cr.StatBase[(32)+stat]+=amount;
+			else if(stat==(72))
+			{
+				cr.StatBase[(72)]=(((statVal+amount)>(cr.Stat[(7)]))?(cr.Stat[(7)]):(((statVal+amount)<(-9999))?(-9999):(statVal+amount)));
+				if(amount<0&&cr.Stat[(72)]<0)
+				cr.ToDead(Random(0,1)==0?(102):(103),null);
+			}
+			else if(stat==(73))
+			AffectPoison(cr,amount);
+			else if(stat==(74))
+			AffectRadiation(cr,amount*100);
+			
+			else
+			continue;
+			
+			statVal=cr.Stat[stat]-statVal;
+			if(statVal>0)
+			cr.SayMsg((11),(3),(10300),"$name @msg game "+(100000+(stat)*10+1)+"@$value"+statVal);
+			else if(statVal<0)
+			cr.SayMsg((11),(3),(10301),"$name @msg game "+(100000+(stat)*10+1)+"@$value"+(-statVal));
+		}
+		
+		int addict=DrugEffects[index+(0)];
+		if(stage==0)
+		{
+			duration=DrugEffects[index+(2+(stage))];
+			if((((flags)&((8)))!=0))
+			duration/=2;
+			
+			int addictProc=DrugEffects[index+(1)];
+			if((((flags)&((2)))!=0))
+			addictProc*=2;
+			if((((flags)&((4)))!=0))
+			addictProc/=2;
+			if(stage==0&&addict>=0&&Random(1,100)<=addictProc)
+			cr.AddictionBase[addict]=1;
+		}
+		else if(stage==1)
+		{
+			duration=DrugEffects[index+(2+(stage))];
+			if((((flags)&((8)))!=0))
+			duration/=2;
+		}
+		else if(stage==2&&addict>=0&&cr.Addiction[addict]!=0)
+		{
+			
+			uint[]rates;
+			uint count=cr.GetTimeEvents(drugPid,null,null,rates);
+			bool isPresent=false;
+			for(uint i=0;i<count;i++)
+			{
+				if(((rates[i])&0xFFFFFF)>=3)
+				{
+					isPresent=true;
+					break;
+				}
+			}
+			if(not isPresent)
+			duration=DrugEffects[index+(2+(stage))];
+		}
+		else if(stage==3)
+		{
+			duration=DrugEffects[index+(2+(stage))];
+			if((((flags)&((1)))!=0))
+			duration/=2;
+		}
+		else if(stage==4)
+		{
+			cr.SayMsg((11),(3),(10302));
+			if(addict>=0&&cr.Addiction[addict]!=0)
+			cr.AddictionBase[addict]=0;
+		}
+	}
+	
+	stage++;
+	rate=((((flags)&0xFF)<<24)|((stage)&0xFFFFFF));
+	return duration*60;
+}
+
+void DropDrug(Critter&cr,uint16 drugPid,uint stage)
+{
+	if(stage==0||stage==3)
+	return;
+	
+	int index=GetDrugTableIndex(drugPid);
+	
+	if(stage==1||
+	stage==2||
+	stage==4)
+	{
+		for(uint i=0;i<4;i++)
+		{
+			int stat=DrugEffects[index+(6+(i)*6)];
+			int amount=DrugEffects[index+(7+(stage+(stage==1?-1:0))+(i)*6)];
+			if(stage==1)
+			amount=-amount;
+			if(stat<(32))
+			cr.StatBase[(32)+stat]+=amount;
+		}
+	}
+}
+
+uint cte_Drug(Critter&cr,int identifier,uint&rate)
+{
+	return ProcessDrug(cr,identifier,rate);
+}

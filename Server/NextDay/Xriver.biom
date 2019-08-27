@@ -1,0 +1,9 @@
+Maps:S = 960
+Maps:W = 961
+Maps:E = 962
+Maps:N = 963
+Mimic = Lake River
+Symbol:Parse = X
+Symbol:Client = W
+Symbol:Color = 15 252 240 180
+Speed = 0.0f

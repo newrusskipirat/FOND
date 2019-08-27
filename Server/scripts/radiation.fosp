@@ -1,0 +1,678 @@
+               
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                   
+
+import bool IsHuman(Critter&cr)from"races";
+import bool IsMutant(Critter&cr)from"races";
+import bool IsGhoul(Critter&cr)from"races";
+import void ApplyGhoul(Critter&cr)from"morphes";           
+
+const int[]RadiationEffects=
+{
+	1000,10000,20000,40000,60000,100000,
+	(0),0,0,0,2,4,6,
+	(1),0,0,1,0,3,5,
+	(2),0,0,0,1,3,5,
+	(3),0,0,0,0,3,5,
+	(4),0,0,0,0,1,3,
+	(5),0,0,1,2,5,6,
+	(72),1,2,3,4,5,6,
+	(7),5,10,20,40,60,100,
+};      
+
+void AffectRadiation(Critter&cr,int value)
+{
+	int body=cr.Stat[(112)];
+	if(cr.IsDead())
+	return;
+	
+	if(cr.Stat[(67)]==(10)||cr.Stat[(67)]==(16))
+	return;
+	
+	if(IsGhoul(cr)||IsMutant(cr))
+	{
+		if(Random(1,10)==1)
+		cr.SayMsg((11),(3),Random(12961,12964));
+		return;
+	}
+	
+	uint[]indexes;
+	uint[]rates;
+	bool isActive=cr.GetTimeEvents((2),indexes,null,rates)!=0;
+	int levelVal=cr.Stat[(74)];
+	int resistVal=cr.Stat[(30)];
+	
+	if(value>=0)
+	value-=value*resistVal/100;
+	cr.StatBase[(74)]=(((levelVal+value)>((200000)))?((200000)):(((levelVal+value)<(0))?(0):(levelVal+value)));
+	levelVal=cr.Stat[(74)];
+	
+	if(cr.Stat[(74)]>100000&&(body==0||body==(11)||body==(106)))
+	{
+		int crType=cr.CrType;
+		cr.StatBase[(112)]=(8);
+		if(crType==(107))
+		crType=(117);
+		else if(crType==(108))
+		crType=(118);
+		else if(crType==(109))
+		crType=(119);
+		else if(crType==(12))
+		crType=(117);
+		else if(crType==(13))
+		crType=(118);
+		else if(crType==(14))
+		crType=(119);
+		cr.ChangeCrType(crType);
+	}
+	
+	if(value>(100))
+	cr.SayMsg((11),(3),(12807));
+	
+	if(levelVal>=(500))
+	{
+		if(cr.Damage[(501)]==0)
+		cr.DamageBase[(501)]=1;
+	}
+	else
+	{
+		if(cr.Damage[(501)]!=0)
+		cr.DamageBase[(501)]=0;
+	}
+	
+	if(isActive)
+	{
+		uint stage=rates[0];
+		uint newStage=GetRadiationStage(levelVal);
+		if(stage!=newStage)
+		cr.ChangeTimeEvent(indexes[0],0,stage);
+	}
+	else
+	{
+		int stage1Val=RadiationEffects[(1)-1];
+		if(levelVal>=stage1Val)
+		cr.AddTimeEvent("cte_Radiation",0,(2));
+	}
+	
+	if(levelVal>=(200000))
+	{
+		cr.ToDead((116),null);
+		cr.SayMsg((11),(3),(12806));
+	}
+}
+
+void DropRadiation(Critter&cr)
+{
+	bool isActive=cr.GetTimeEvents((2),null,null,null)!=0;
+	if(isActive)
+	{
+		uint stage=GetRadiationStage(cr.Stat[(74)]);
+		ChangeStage(cr,stage,false);
+		cr.EraseTimeEvents((2));
+	}
+	cr.StatBase[(74)]=0;
+	if(cr.Damage[(501)]!=0)
+	cr.DamageBase[(501)]=0;
+}
+
+uint cte_Radiation(Critter&cr,int identifier,uint&stage)
+{
+	int body=cr.Stat[(112)];
+	if(cr.IsDead())
+	return((5)*__TimeMultiplier*60);
+	if(cr.Stat[(74)]>60000&&(body==0||body==(11)||body==(106)))
+	{
+		int crType=cr.CrType;
+		cr.StatBase[(112)]=(8);
+		if(crType==(107))
+		crType=(117);
+		else if(crType==(108))
+		crType=(118);
+		else if(crType==(109))
+		crType=(119);
+		else if(crType==(12))
+		crType=(117);
+		else if(crType==(13))
+		crType=(118);
+		else if(crType==(14))
+		crType=(119);
+		cr.ChangeCrType(crType);
+	}
+	if(cr.Stat[(74)]>100000&&cr.Stat[(74)]<200000&&IsHuman(cr))
+	{
+		if((cr.Stat[(183)]!=0||Random(0,100)>40)||Random(0,100)>80)
+		{
+			ApplyGhoul(cr);
+			return 0;
+		}
+	}
+	
+	uint newStage=GetRadiationStage(cr.Stat[(74)]);
+	uint duration=((1)*__TimeMultiplier*60);
+	
+	if(stage!=newStage)
+	{
+		ChangeStage(cr,stage,false);
+		ChangeStage(cr,newStage,true);
+		stage=newStage;
+	}
+	else
+	{
+		ChangeStage(cr,stage,false);
+		duration=0;
+	}
+	
+	for(uint i=0,j=(8);i<j;i++)
+	{
+		uint statIndex=RadiationEffects[6+(i)*7];
+		int statAmount=RadiationEffects[6+(i)*7+(stage)];
+		
+		if(statAmount!=0&&statIndex==(72))
+		{
+			cr.StatBase[(72)]-=statAmount;
+			if(cr.Stat[(72)]<=0)
+			cr.ToDead((102),null);
+		}
+	}
+	
+	return duration;
+}
+
+uint GetRadiationStage(int level)
+{
+	for(uint i=0,j=(6);i<=j;i++)
+	{
+		int valMin=(i>0?RadiationEffects[(i)-1]:0);
+		int valMax=(i<j?RadiationEffects[(i+1)-1]:level+1);
+		if(level>=valMin&&level<valMax)
+		return i;
+	}
+	return 0;
+}
+
+void ChangeStage(Critter&cr,uint stage,bool gain)
+{
+	if(stage==0)
+	return;
+	if(gain)
+	cr.SayMsg((11),(3),(12799+(stage)));
+	
+	for(uint i=0,j=(8);i<j;i++)
+	{
+		uint statIndex=RadiationEffects[6+(i)*7];
+		int statAmount=RadiationEffects[6+(i)*7+(stage)];
+		
+		if(statAmount!=0)
+		{
+			int curVal=cr.Stat[statIndex];
+			
+			if(gain)
+			{
+				statAmount=-statAmount;
+				if(statIndex<(32))
+				cr.StatBase[(32)+statIndex]+=statAmount;
+				else if(statIndex==(72))
+				{
+					cr.StatBase[(72)]+=statAmount;
+					if(cr.Stat[(72)]<=0)
+					cr.ToDead((102),null);
+				}
+			}
+			else
+			{
+				if(statIndex<(32))
+				cr.StatBase[(32)+statIndex]+=statAmount;
+			}    
+			
+		}
+	}
+}
+
+uint e_radFlow(uint[]@values)
+{
+	if(values is null){Log("radFlow error: values is null");return 0;}
+	
+	Item@item=GetItem(values[0]);
+	
+	if(item is null||item.Accessory!=(2))
+	return 0;
+	
+	Map@map=GetMap(item.MapId);
+	if(map is null){Log("radFlow error: map #"+item.MapId+" is null");return 0;} 
+	
+	int dist=item.Val2;     
+	
+	Critter@[]critters;
+	uint count=map.GetCrittersHex(item.HexX,item.HexY,dist,(0x0F),critters);
+	
+	for(uint i=0;i<count;i++)
+	{
+		int step=GetDistantion(item.HexX,item.HexY,critters[i].HexX,critters[i].HexY);
+		int rad=item.Val0-item.Val1*step;
+		rad=(((rad)>(rad))?(rad):(((rad)<(0))?(0):(rad)));
+		rad=Random(rad*0.8,rad);
+		
+		AffectRadiation(critters[i],rad);
+		
+		Item@active=critters[i].GetItem(0,(1));
+		
+		if((@active!=null)&&active.GetProtoId()==(52)&&active.Val1==1)
+		{
+			
+			critters[i].SayMsg((8),(3),10354,"$rem"+rad);
+		}
+	}
+	
+	Item@[]geigers;
+	count=map.GetItems((52),geigers);
+	for(uint i=0;i<count;i++)
+	{
+		if(geigers[i].Val1!=1)continue;
+		int step=GetDistantion(item.HexX,item.HexY,geigers[i].HexX,geigers[i].HexY);
+		int rad=item.Val0-item.Val1*step;
+		rad=(((rad)>(rad))?(rad):(((rad)<(0))?(0):(rad)));
+		rad=Random(rad*0.8,rad);
+		map.SetTextMsg(geigers[i].HexX,geigers[i].HexY,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),(3),10354,"$rem"+rad);
+	}
+	
+	return((item.Val3)*__TimeMultiplier);
+}
+
+void _showRadItem(Item&item,Critter&player,bool entered,uint8 dir)
+{
+	
+	Item@active=player.GetItem(0,(1));
+	
+	if((@active!=null)&&active.GetProtoId()==(52)&&active.Val1==1)
+	{
+		if(entered)
+		{
+			player.Say((11),"Вы обнаружили источник радиации.");
+			if(player.GetAccess()>0)
+			(item.Flags=((item.Flags)&(~((0x00000001)))));
+		}
+		else
+		{
+			if(player.GetAccess()>0)
+			(item.Flags=(item.Flags)|((0x00000001)));
+		}
+	}
+}
+
+void radiate(Critter&cr,int VAL,int FADE,int DIST)
+{
+	Map@map=cr.GetMap();
+	if(not(@map!=null)){
+		cr.Say((11),"На глобале нельзя.");
+		return;
+	}
+	
+	item_radiate(map.Id,cr.HexX,cr.HexY,VAL,FADE,DIST,3,(426));
+}
+
+void GM_ItemRadiate(Critter&cr,int p0,int p1,int p2,string@p3,int[]@data)
+{
+	
+	Map@map=cr.GetMap();
+	if(not(@map!=null)){
+		cr.Say((11),"На глобале нельзя.");
+		return;
+	}
+	
+	if(!(@data!=null)||data.length()!=7){
+		cr.Say((11),"Некорректные аргументы вызова!");
+		return;
+	}
+	
+	item_radiate(map.Id,data[0],data[1],data[2],data[3],data[4],data[5],data[6]);
+}
+
+void item_radiate(int mapID,int x,int y,int VAL,int FADE,int DIST,int TIME,int PID)
+{
+	if(VAL<0||FADE<0||DIST<0||TIME<0)return;
+	
+	Map@map=GetMap(mapID);
+	if(!(@map!=null))return;
+	
+	Item@item=map.AddItem(x,y,PID,1);
+	(item.Flags=(item.Flags)|((0x00000001)));
+	item.SetEvent((7),"_showRadItem");
+	
+	item.Val0=VAL;
+	item.Val1=FADE;
+	item.Val2=DIST;
+	item.Val3=TIME;
+	
+	uint[]values={item.Id};
+	CreateTimeEvent(__FullSecond,"e_radFlow",values,false);
+}                                            
+

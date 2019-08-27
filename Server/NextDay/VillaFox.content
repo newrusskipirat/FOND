@@ -1,0 +1,10 @@
+#==========================================================
+#ND Fox Villa
+#==========================================================
+
+Name = Fox Villa	
+LocationPid = 1263
+Flags = Static
+Visible = 0									
+Size = 1 1 									
+Create:Fox Villa = 4 4

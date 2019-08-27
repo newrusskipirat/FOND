@@ -1,0 +1,10 @@
+#==========================================================
+#ND Tir street
+#==========================================================
+
+Name = Tir street							
+LocationPid = 1302							
+Flags = Static Hidden 
+Visible = 50								
+Size = 1 1 									
+Create:Tir street = 10 14	

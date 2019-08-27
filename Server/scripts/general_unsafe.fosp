@@ -1,0 +1,2373 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                               
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                                                                                                                                                                   
+
+void _InitPopup(Item&popup,bool firstTime)
+{     
+	
+	popup.SetEvent((7),"_showPopup");
+}
+
+bool LogErr(string text){Log("[ERROR] "+text);return true;}
+bool real(Critter&cr){return((@cr!=null)||!LogErr("Critter not valid!"));}
+bool real(Item&item){return((@item!=null)||!LogErr("Item not valid!"));}
+bool MsgCr(Critter&cr,string text){
+	if(!real(cr))return false;
+	cr.Say((11),text);
+	return true;
+}
+bool wrongInput(Critter&player,Item&item){return(!real(player)||!real(item));}
+bool wrongInput(Critter&player,Item&item,string text){
+	return(!real(player)||(!real(item)&&MsgCr(player,text)));
+}
+bool SetLexem(Item&holder,string description){
+	if(!real(holder))return false;
+	holder.SetLexems(null);
+	holder.SetLexems(description);
+	holder.Update();
+	return true;
+}
+bool newPopup(Critter&player,string description){
+	if(!real(player))return false;
+	Map@map=player.GetMap();
+	if(!(@map!=null)&&MsgCr(player,"На глобале нельзя"))return false;
+	Item@holder=map.AddItem(player.HexX,player.HexY,(909),1);
+	holder.SetEvent((7),"_showPopup");
+	(holder.Flags=(holder.Flags)|((0x00020000)));
+	holder.Val0=player.Id;
+	return SetLexem(holder,description);
+}
+void _showPopup(Item&holder,Critter&player,bool entered,uint8 dir){
+	if(player.IsNpc())return;
+	if(holder.Val0==0)return;
+	if(holder.Val2!=0)return;
+	if(wrongInput(player,holder,"Под ногами что-то хрустнуло."))return;
+	if(entered){
+		(holder.Flags=((holder.Flags)&(~((0x00000001)))));
+		player.RunClientScript("client_main@ShowPopup",holder.Id,0,0,"Всё оказалось немного сложней, чем вы думали..",null);
+		(holder.Flags=(holder.Flags)|((0x00000001)));
+	}
+}
+Item@getPopup(Critter&player){
+	if(!real(player))return null;
+	Map@map=player.GetMap();
+	if(!(@map!=null)&&MsgCr(player,"На глобале нельзя"))return null;
+	return map.GetItem(player.HexX,player.HexY,(909));
+}
+bool changePopup(Critter&player,string description){
+	if(!real(player))return false;
+	Item@holder=getPopup(player);
+	if(!(@holder!=null))return newPopup(player,description);
+	holder.Val0=player.Id;
+	changePopup(holder,description);
+	return true;
+}
+bool changePopup(Item&holder,string description){
+	if(!real(holder))return false;
+	holder.SetEvent((7),"_showPopup");
+	(holder.Flags=(holder.Flags)|((0x00020000)));
+	SetLexem(holder,description);
+	return true;
+}
+bool delPopup(Critter&player){
+	if(!real(player))return false;
+	Item@holder=getPopup(player);
+	if((@holder!=null)&&holder.Val2==0)DeleteItem(holder);
+	return true;
+}
+
+import void critter_reload_weapon(Critter&cr,Item&weapon,Item@ammo)from"main";
+import bool critter_use_item(Critter&cr,Item&item,Critter@targetCr,Item@targetItem,Scenery@targetScen,uint param)from"main";
+import void CombatAttack(Critter&cr,Critter@target,ProtoItem&weapon,uint8 weaponMode,ProtoItem@ammo,uint16 hexX,uint16 hexY)from"combat";
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target,bool run)from"npc_planes";
+import bool AddWalkPlane(Critter&npc,uint priority,uint16 hexX,uint16 hexY,uint8 dir,bool run,uint cut)from"npc_planes";
+import void Actions(Critter&cr,uint8 actionType,uint16 pickType)from"context_callback";
+
+void unsafe_AutoEmote(Critter&cr,int hasPID,int p1,int p2,string@text,int[]@p4){
+	if(hasPID==0||cr.CountItem(hasPID)>0)
+	cr.Say((5),text);
+}
+
+void unsafe_setKarma(Critter&cr,int value,int p1,int p2,string@text,int[]@p4){cr.ParamBase[(80)]=value;}
+
+import void SpawnKindPart(Map&map,string&kindName,uint16 hexX,uint16 hexY,uint16 count)from"world";
+import bool isCellStatic(Critter&cr,Map@map)from"world";
+import int[]CellAreaInfo(Critter@cr,Map@map)from"world";
+
+void unsafe_make_trap(Critter&cr,int p0,int p1,int p2,string@info,int[]@p4){
+	if(cr.GetAccess()>=(2))TrapMenu(cr);
+	else cr.Say((11),"Фича находится в разработке. Подождите ещё немного.");
+}                    
+
+Item@getClosestTrap(Critter&cr,bool ParentOnly){
+	Item@[]items;
+	Item@trap=null;
+	
+	int minDist=999;
+	for(uint i=0,iEnd=cr.GetMap().GetItems((909),items);i<iEnd;i++)
+	{
+		int dist=GetDistantion(cr.HexX,cr.HexY,items[i].HexX,items[i].HexY);
+		if(items[i].Val3!=0&&dist<=12&&dist<minDist){
+			if(ParentOnly&&items[i].Val2!=0)continue;
+			@trap=items[i];
+			minDist=dist;
+		}
+	}
+	return trap;
+}
+
+int countChildTraps(Critter&cr,Item@trap){
+	if(!(@trap!=null))return 0;
+	
+	Item@[]items;
+	int count=0;
+	for(uint i=0,iEnd=cr.GetMap().GetItems((909),items);i<iEnd;i++)
+	if(items[i].Val3!=0&&uint(items[i].Val2)==trap.Id)
+	count++;
+	return count;
+}
+
+void TrapMenu(Critter&cr){
+	Map@map=cr.GetMap();
+	if(!(@map!=null)){cr.Say((11),"На глобале нельзя.");return;}
+	
+	cr.Say((11),"Вы внимательно изучаете обстановку.");
+	cr.Say((5),"осматривается");
+	cr.Wait(2000);
+	
+	if(isCellStatic(cr,map)){
+		cr.Say((11),"Ловушки можно ставить лишь вдали от обжитых мест.");
+		return;
+	}
+	AskTrapAction(cr);
+}
+
+void AskTrapAction(Critter&cr){
+	string[]action={"местоположение","ближ. ловушку","вбить кол","капкан","клетку","сеть","приманку","слом. ловушку"};
+	const uint countaction=action.length();
+	cr.ShowScreen((2),countaction,"answer_TrapAction");
+	cr.Say((18),"Выберите, что вы хотите установить:");
+	for(uint i=0;i<countaction;i++)
+	cr.Say((19+(i)),action[i]);
+}
+
+int[]CheckAreaMaps(Critter@cr,Map@map){
+	string[]names={"Непригодно","Пустошь","Лес","Руины","Горы","Река","Рельсы","Дорога","Мост","Перекрёсток"};
+	int[]result=CellAreaInfo(cr,map);
+	if((@cr!=null)){
+		string info="Для охоты вокруг вас:";
+		for(uint i=0,iEnd=result.length();i<iEnd;i++)
+		info+=(result[i]>0?("\n"+names[i]+": "+result[i]+";"):"");
+		cr.Say((11),info);
+	}
+	return result;
+}
+
+string[]TrapTypeName={"","кол","капкан","клетка","сеть"};
+
+string[]TargetType={"травоядные","падальщики","хищники","всеядные","болотники","путники","бандиты","мутанты"};
+
+void ClosestTrapInfo(Critter&cr,Item@closest){
+	int dist=GetDistantion(cr.HexX,cr.HexY,closest.HexX,closest.HexY);
+	cr.Say((11),"Ближайшая ловушка установлена "+(dist==0?"под вами":"в "+dist+" шагах от вас")+"."+
+	" Это "+TrapTypeName[closest.Val3]+", "+(closest.Val2==0?"центральная":"вспомогательная")+" ловушка в группе."+
+	" Её 'рейтинг приманки' равен "+closest.Val4+" баллам"+(closest.Val6>0?", целевая группа - "+TargetType[closest.Val6-1]:"")+"."+
+	(cr.GetAccess()>=(2)?(" ["+closest.Val5+"]"):""));
+}
+
+void answer_TrapAction(Critter&cr,uint answerI,string&answerS){
+	if(cr.Timeout[(232)]>0){
+		if(cr.GetAccess()>=(2)){
+			cr.Say((11),"Вы бы устали, не будь вы ГМом.");
+		}else{
+			cr.Say((11),"Дайте рукам отдохнуть.");
+			return;
+		}
+	}
+	
+	Item@parent=getClosestTrap(cr,true);
+	Item@closest=getClosestTrap(cr,false);
+	
+	bool TooClose=
+	((@closest!=null)&&GetDistantion(cr.HexX,cr.HexY,closest.HexX,closest.HexY)<3)||
+	((@parent!=null)&&GetDistantion(cr.HexX,cr.HexY,parent.HexX,parent.HexY)<3);
+	
+	bool isNew=!(@parent!=null);
+	bool isBusy=(@closest!=null)&&closest.Val3>1;
+	bool isRoping=answerI>2&&answerI<6;
+	bool isPoling=answerI==2;
+	bool isDestroy=answerI==7;
+	bool isChecking=answerI==1;
+	
+	if(isChecking){
+		if(isNew){cr.Say((11),"Вы не обнаружили никаких ловушек поблизости.");return;}
+		
+	}
+	if(isDestroy&&!TooClose){cr.Say((11),"Встаньте ближе к ловушке, что бы её демонтировать.");return;}
+	if(isPoling){
+		if(TooClose){cr.Say((11),"Вы не можете вбивать колья ближе чем на 3 шага друг от друга.");return;}
+		if(!isNew&&uint(parent.Val1)<GetDistantion(cr.HexX,cr.HexY,parent.HexX,parent.HexY)){
+			cr.Say((11),"Эта ловушка должна быть установлена ближе к 'центральной', чей радиус охвата "+parent.Val1+" шагов."+
+			" Либо просто поставьте её дальше, чем в "+12+" шагах, что бы она стала 'центральной' для другой группы.");return;}
+	}
+	
+	if(isRoping){
+		if(!(@closest!=null)||!TooClose){cr.Say((11),"Встаньте ближе к вбитому колу, что бы привязать к нему ловушку.");return;}
+		if(isBusy){cr.Say((11),"Ближайшый к вам кол занят. К нему уже привязали "+TrapTypeName[closest.Val3]+".");return;}
+	}
+	
+	Item@trap=null,tool=cr.GetItem(0,(1));
+	Map@map=cr.GetMap();
+	
+	switch(answerI){
+		case(0):CheckAreaMaps(cr,map);break;
+		case(1):if(!isNew)ClosestTrapInfo(cr,closest);break;
+		
+		case(2):
+		if(cr.CountItem((320))>0&&(@tool!=null)&&tool.GetProtoId()==(6)){
+			cr.DeleteItem((320),1);
+			cr.Action((6),0,tool);
+			cr.GetMap().SetText(cr.HexX,cr.HexY,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),"стук");
+			cr.Say((11),"Теперь здесь можно установить ещё одну ловушку: капкан, клетку или сеть.");
+			cr.Say((5),"вбивает кол в землю");
+			cr.TimeoutBase[(232)]=__FullSecond+((15-cr.Stat[(0)])*__TimeMultiplier);
+			
+			@trap=map.AddItem(cr.HexX,cr.HexY,(909),1);
+			changePopup(trap,"Из земли торчит колышек.");
+			
+			trap.Val0=1;
+			trap.Val1=3;
+			trap.Val3=1;
+			if(!isNew&&parent.Val1<12){
+				parent.Val1+=3;
+				trap.Val2=parent.Id;
+			}
+			else
+			trap.Val2=0;
+		}else{
+			cr.Say((11),"Вам нужен заострённый кол, и молоток в руках.");
+		}
+		break;
+		
+		case(3):
+		if(cr.CountItem((475))>0&&cr.CountItem((534))>0){
+			cr.Animate(0,(27),null,true,true);
+			cr.DeleteItem((475),1);
+			cr.DeleteItem((534),1);
+			cr.GetMap().SetText(cr.HexX,cr.HexY,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),"скрип");
+			cr.Say((11),"Вы привязали капкан к вбитому в землю колу.");
+			cr.Say((5),"устанавливает капкан на дичь");
+			cr.TimeoutBase[(232)]=__FullSecond+((25-cr.Stat[(0)]-cr.Stat[(4)])*__TimeMultiplier);
+			closest.Val3=2;
+			closest.Val8=cr.Id;
+			changePopup(closest,"Здесь поставлен капкан на дичь.");
+			uint[]values={map.Id,cr.Id,closest.Id,0,0};
+			CreateTimeEvent(__FullSecond+((10)*__TimeMultiplier),"e_spawnTrap",values,false);
+		}else{
+			cr.Say((11),"Вам нужны железные детали и 'кусок' верёвки.");
+		}
+		break;
+		
+		case(4):
+		if(cr.CountItem((98))>0&&cr.CountItem((534))>0){
+			cr.Animate(0,(27),null,true,true);
+			cr.DeleteItem((475),1);
+			cr.DeleteItem((534),1);
+			cr.GetMap().SetText(cr.HexX,cr.HexY,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),"шорох");
+			cr.Say((11),"Вы привязали клетку к вбитому в землю колу.");
+			cr.Say((5),"устанавливает клетку для дичи");
+			cr.TimeoutBase[(232)]=__FullSecond+((25-cr.Stat[(0)]-cr.Stat[(4)])*__TimeMultiplier);
+			closest.Val3=3;
+			closest.Val8=cr.Id;
+			changePopup(closest,"Здесь поставлена клетка на дичь.");
+			uint[]values={map.Id,cr.Id,closest.Id,0,0};
+			CreateTimeEvent(__FullSecond+((10)*__TimeMultiplier),"e_spawnTrap",values,false);
+		}else{
+			cr.Say((11),"Вам нужен хотя бы какой-то 'мусор' и 'кусок' верёвки.");
+		}
+		break;
+		
+		case(5):
+		if(cr.CountItem((127))>0){
+			cr.Animate(0,(27),null,true,true);
+			cr.DeleteItem((127),1);
+			cr.Say((11),"Вы привязали конец верёвки к вбитому в землю колу.");
+			cr.Say((5),"готовит сеть для дичи");
+			cr.TimeoutBase[(232)]=__FullSecond+((25-cr.Stat[(0)]-cr.Stat[(4)])*__TimeMultiplier);
+			closest.Val3=4;
+			closest.Val8=cr.Id;
+			changePopup(closest,"Здесь приготовлены сети для дичи.");
+			uint[]values={map.Id,cr.Id,closest.Id,0,0};
+			CreateTimeEvent(__FullSecond+((10)*__TimeMultiplier),"e_spawnTrap",values,false);
+		}else{
+			cr.Say((11),"Вам нужна верёвка для этого.");
+		}
+		break;
+		case(6):
+		cr.StatBase[(130)]=closest.Id;
+		AskTrapActionFeed(cr);
+		break;
+		case(7):DestroyTrap(cr,closest);break;
+		default:AskTrapAction(cr);break;
+	}
+}
+
+void DestroyTrap(Critter&cr,Item@trap){
+	if(!(@trap!=null)){cr.Say((11),"Что-то пошло не так..");return;}
+	if(trap.Val2==0&&countChildTraps(cr,trap)>0){cr.Say((11),"Это центральная ловушка, сначала демонтируйте окружающие.");return;}
+	if(trap.Val2!=0){
+		Item@parent=cr.GetMap().GetItem(trap.Val2);
+		if((@parent!=null))parent.Val1-=3;
+	}
+	cr.Say((11),"Вы сломали одноразовую ловушку и забрали приманку.");
+	cr.Say((5),"убирает ловушку");
+	cr.Animate(0,(27),null,true,true);
+	cr.TimeoutBase[(232)]=__FullSecond+((15-cr.Stat[(0)])*__TimeMultiplier);
+	DeleteItem(trap);
+	cr.AddItem(trap.Val5,1);
+}
+
+string[][]kindNames={
+	
+	{"4Plants","10Silvergeckos","11Goldengeckos","5Brahmins"},
+	
+	{"1Rats","8Pigrats","14Bigscorps","15Blackscorps"},
+	
+	{"6Dogs","7Wolfes","9Molerats","12Firegeckos","16Deathclaws"},
+	
+	{"3Ants","2Mantis","13Smallscorps","23Cannibals"},
+	
+	{"17Swamplurkers"},
+	
+	{"22Primitives","23Rippers","28Strangers"},
+	
+	{"24Gangs","25Raiders","26Slavers","27Caravans","31Robots"},
+	
+	{"18Aliens","19Motheraliens","20Floaters","21Centaurs","29Ghouls","30Supermutants"}
+};
+
+string[][]kindSounds={
+	{"шелест","крик гекко","громкий крик гекко","мычание"},
+	{"писк","хрюкание","громкое щёлканье","частое щёлканье"},
+	{"лай","вой","рёв гризли","визг огнегекко","рёв смертокогтя"},
+	{"","стрекотание","щёлканье","крики каннибалов"},
+	{"рёв болотника"},
+	{"крики дикарей","матюги","крики людей"},
+	{"бандитский ор","многоэтажные маты","стон боли"," ","железный стук"},
+	{"визг","громкий визг","шелест","рёв кентавра","крики гулей","ор супермутантов"}
+};
+
+int[][]kindPrices={
+	
+	{1,5,9,13},
+	
+	{2,6,9,12},
+	
+	{3,5,8,11,14},
+	
+	{1,2,3,8},
+	
+	{10},
+	
+	{8,14,18},
+	
+	{12,16,20,24,30},
+	
+	{10,15,20,25,30,35}
+};
+
+int[][]kindAreaChances={ 
+	
+	{0,33,100,50,20,60,25,20,50,20},
+	
+	{0,100,100,100,100,100,100,100,100,100},
+	
+	{0,20,100,100,50,50,25,33,45,35},
+	
+	{0,100,100,100,100,100,100,100,100,100},
+	
+	{0,0,10,0,0,100,0,0,100,0},
+	
+	{0,75,100,50,20,33,25,10,10,10},
+	
+	{0,50,20,100,20,33,50,100,100,100},
+	
+	{0,100,100,100,100,100,100,100,100,100}
+};
+
+void AskTrapActionFeed(Critter&cr){
+	const uint targettypecount=TargetType.length();
+	cr.ShowScreen((2),targettypecount,"answer_TrapActionFeed");
+	cr.Say((18),"Выберите, на кого будет расчитана приманка:");
+	for(uint i=0;i<targettypecount;i++)
+	cr.Say((19+(i)),TargetType[i]);
+	cr.StatBase[(131)]=targettypecount;
+}
+
+string[][]TrapFoodNames={
+	{"Брок","Ксандер","Цветок","сем. радцвет","сем. капусты","сем. кукурузы","сем. марихуаны","грибы","мутофрукт","капуста","кукуруза"},
+	{"Рад. Мясо","Кус. Мяса","Крыса","Скорп. Хвост","Желуд. Гризли"},
+	{"Жар. Крыса","Жар. Мясо","Жар. Гекко","Сырое Гекко","Сырое Мясо","Игуана","Шашлык","Марин. Желудок"},
+	{"Дерьмо","Перегной","Верёвка(волокна)","Панц. Мантиса","Кусок кожи","Шкура Гекко","Золотой Гекко","Шкура Брамина","Огнегекко"},
+	{"Водоросли","Мелкая Рыбка","Жар. Рыба","Малая Рыба","Средн. Рыба","Больш. Рыба","Огромн. Рыба","Панц. Болотника"},
+	{"Стекляшка","Пластик","Порошок","Вода пласт.","Вода стекл.","Нюка","Пиво","Водка","Пойло","Сумка","Рюкзак"},
+	{"Пуст. Джет","Пуст. Шприц","Стимпак","Джет"},
+	{"Рад-пиво","Рад-ром","Фонящая батар.","Железа мутанта"}
+};
+int[][][]TrapFoodTypes={
+	{
+		{(271),1},
+		{(272),1},
+		{(117),2},
+		{(1600),2},
+		{(1610),3},
+		{(1620),3},
+		{(10109),3},
+		{(1564),4},
+		{(71),5},
+		{(1615),12},
+		{(10128),12},
+		{(1560),12}
+	},
+	{
+		{(1440),1},
+		{(284),2},
+		{(1551),3},
+		{(92),3},
+		{(1444),4}
+	},
+	{
+		{(1554),1},
+		{(1553),2},
+		{(1555),2},
+		{(1552),3},
+		{(539),3},
+		{(81),6},
+		{(103),6},
+		{(1559),10}
+	},
+	{
+		{(1598),1},
+		{(1599),1},
+		{(127),1},
+		{(1441),2},
+		{(1512),2},
+		{(276),3},
+		{(277),6},
+		{(449),9},
+		{(556),12}
+	},
+	{
+		{(939),1},
+		{(940),1},
+		{(1556),2},
+		{(941),2},
+		{(942),4},
+		{(943),6},
+		{(944),10},
+		{(1442),10}
+	},
+	{
+		{(542),1},
+		{(532),1},
+		{(273),2},
+		{(533),2},
+		{(1627),2},
+		{(106),3},
+		{(124),3},
+		{(125),3},
+		{(469),4},
+		{(46),10},
+		{(90),15}
+	},
+	{
+		{(416),1},
+		{(318),1},
+		{(40),20},
+		{(259),25}
+	},
+	{
+		{(310),5},
+		{(311),5},
+		{(574),8},
+		{(1435),10},
+		{(1443),20}
+	}
+};
+void answer_TrapActionFeed(Critter&cr,uint answerI,string&answerS){
+	if(answerI>=TrapFoodTypes.length()){AskTrapActionFeed(cr);return;}
+	cr.StatBase[(131)]=answerI;
+	cr.ShowScreen((2),TrapFoodNames[answerI].length(),"answer_TrapActionFeedCategory");
+	cr.Say((18),"Выберите, что вы хотите использовать в качестве приманки, справа указана её эффективность:");
+	for(uint i=0,iEnd=TrapFoodNames[answerI].length();i<iEnd;i++)
+	cr.Say((19+(i)),TrapFoodNames[answerI][i]+": "+TrapFoodTypes[answerI][i][1]);
+}
+
+void answer_TrapActionFeedCategory(Critter&cr,uint answerI,string&answerS){
+	uint category=cr.Stat[(131)]+1;
+	if(category==0||category>=TrapFoodTypes.length()){AskTrapActionFeed(cr);return;}
+	category--;
+	if(cr.CountItem(TrapFoodTypes[category][answerI][0])>0){
+		Item@trap=cr.GetMap().GetItem(cr.Stat[(130)]);
+		if(!(@trap!=null)){cr.Say((11),"Что-то пошло не так - ловушка пропала.");return;}
+		trap.Val4=TrapFoodTypes[category][answerI][1];
+		trap.Val5=TrapFoodTypes[category][answerI][0];
+		trap.Val6=category+1;
+		cr.DeleteItem(TrapFoodTypes[category][answerI][0],1);
+		cr.Say((11),"Ловушка полностью готова. Отойдите подальше, что бы не отпугивать дичь!");
+		cr.Say((5),"кладёт приманку в ловушку");
+		cr.Animate(0,(27),null,true,true);
+		cr.TimeoutBase[(232)]=__FullSecond+((25-cr.Stat[(0)]-cr.Stat[(4)])*__TimeMultiplier);
+	}else{
+		cr.Say((11),"У вас нет приманки '"+TrapFoodNames[category][answerI]+"'.");
+	}
+}
+
+bool isPlayersAroundTrap(Map@map,Item@trap){
+	Critter@[]crs;
+	map.GetCrittersHex(trap.HexX,trap.HexY,trap.Val1*2,(0x03)|(0x10),crs);
+	return crs.length()>0;
+}
+
+int convertType(int from,int to,int value){
+	int[][]proportions={
+		
+		{100,20,33,25,5,10,5,5},
+		
+		{33,100,50,33,25,10,5,5},
+		
+		{10,75,100,50,10,15,5,10},
+		
+		{25,25,25,100,10,20,10,10},
+		
+		{15,60,40,80,100,30,10,25},
+		
+		{5,5,5,10,5,100,50,25},
+		
+		{5,5,5,10,5,80,100,40},
+		
+		{5,5,5,10,5,20,40,100}
+	};
+	if(from<0||to<0)Log("AHA! "+from+" "+to);
+	return proportions[from][to]*value/100;
+}
+
+uint e_spawnTrap(uint[]@values){
+	
+	return 0;                                                                  
+	
+} 
+
+uint e_spawnKind(uint[]@values){
+	
+	if(!(@values!=null)||values.length()<6)return 0;
+	
+	Map@map=GetMap(values[0]);
+	if(!(@map!=null))return 0;
+	
+	int x=values[1];
+	int y=values[2];
+	
+	int type=values[3];
+	int skill=values[4];
+	int iteration=values[5];
+	map.SetText(x+1,y+1,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),"["+(skill-iteration*(type+2))+"]");
+	map.SetText(x-1,y-1,((uint((0xFF<<24)|(((0x7F)&0xFF)<<16)|(((0x7F)&0xFF)<<8)|((0x7F)&0xFF)))),"["+(type*10+iteration*5)+"]");
+	if(Random(0,100)<skill-iteration*(type+2)){
+		if(Random(0,skill)>type*10+iteration*5){ 
+			
+		}
+	}else{
+		Item@holder=map.GetItem(x,y,909);
+		if((@holder!=null))DeleteItem(holder);
+		return 0;
+	}
+	values[5]++;
+	return((30)*__TimeMultiplier);
+}
+
+void unsafe_contmenu_callback(Critter&player,int id,int screenId,int actionId,string@command,int[]@myArr)
+{          
+	
+	player.StatBase[(132)]=myArr[(2)];
+	player.StatBase[(133)]=myArr[(3)];
+	player.StatBase[(134)]=myArr[(5)];
+	player.StatBase[(135)]=myArr[(6)];
+	player.StatBase[(136)]=myArr[(7)]; 
+	
+	switch(myArr[(0)])
+	{
+		case(4):
+		player.ShowScreen(myArr[(0)],id,"context_callback@ScreenBag");
+		break;
+		case(3):
+		player.ShowScreen(myArr[(0)],id,"context_callback@ScreenSkillbox");
+		break;
+		case(9):
+		Actions(player,myArr[(0)],0);
+		break;
+		case(10):
+		Actions(player,myArr[(0)],myArr[(4)]);
+		break;
+		case(24):
+		Actions(player,myArr[(0)],0);
+		break;
+		case(25):
+		Actions(player,myArr[(0)],0);
+		break;
+		case(26):
+		Actions(player,myArr[(0)],myArr[(8)]);
+		break;
+		default:
+		break;
+	}
+	
+}                     
+
+void unsafe_set_arcade_stat(Critter&cr,int locX,int locY,int type,string@message,int[]@p4)
+{
+	string animIndex="";
+	
+	switch(type)
+	{
+		case(24):
+		cr.ParamBase[(0)]=2;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=2;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=4;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=0;
+		cr.ParamBase[(8)]=5;
+		cr.ParamBase[(9)]=40;
+		cr.ParamBase[(10)]=3;
+		cr.ParamBase[(13)]=20;
+		cr.ParamBase[(14)]=1;
+		
+		cr.ParamBase[(203)]=100;
+		cr.ParamBase[(208)]=200;
+		
+		animIndex="masrat";
+		break;
+		
+		case(52):
+		cr.ParamBase[(0)]=2;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=2;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=4;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=0;
+		cr.ParamBase[(8)]=4;
+		cr.ParamBase[(9)]=40;
+		cr.ParamBase[(10)]=5;
+		cr.ParamBase[(13)]=10;
+		cr.ParamBase[(14)]=1;
+		
+		cr.ParamBase[(203)]=150;
+		cr.ParamBase[(208)]=150;
+		
+		animIndex="mamant";
+		break;
+		
+		case(97):
+		cr.ParamBase[(0)]=3;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=3;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=5;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=20;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=7;
+		cr.ParamBase[(13)]=10;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=170;
+		cr.ParamBase[(208)]=130;
+		
+		animIndex="maantt";
+		break;
+		
+		case(55):
+		cr.ParamBase[(0)]=4;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=4;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=5;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=35;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=10;
+		cr.ParamBase[(13)]=6;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=180;
+		cr.ParamBase[(208)]=110;
+		
+		animIndex="mamurt";
+		break;
+		
+		case(67):
+		cr.ParamBase[(0)]=4;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=4;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=5;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=35;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=20;
+		cr.ParamBase[(10)]=16;
+		cr.ParamBase[(13)]=4;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=150;
+		cr.ParamBase[(208)]=70;
+		
+		animIndex="magko2";
+		break;
+		
+		case(16):
+		cr.ParamBase[(0)]=5;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=5;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=5;
+		cr.ParamBase[(6)]=1;
+		cr.ParamBase[(7)]=35;
+		cr.ParamBase[(8)]=7;
+		cr.ParamBase[(9)]=25;
+		cr.ParamBase[(10)]=7;
+		cr.ParamBase[(13)]=6;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=180;
+		cr.ParamBase[(208)]=110;
+		
+		animIndex="maddog";
+		break;
+		
+		case(68):
+		cr.ParamBase[(0)]=5;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=5;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=40;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=25;
+		cr.ParamBase[(10)]=16;
+		cr.ParamBase[(13)]=5;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=180;
+		cr.ParamBase[(208)]=80;
+		
+		animIndex="magcko";
+		break;
+		
+		case(15):
+		cr.ParamBase[(0)]=5;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=5;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=70;
+		cr.ParamBase[(8)]=12;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=4;
+		cr.ParamBase[(13)]=7;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=200;
+		cr.ParamBase[(208)]=40;
+		
+		animIndex="mabrom";
+		break;
+		
+		case(19):
+		cr.ParamBase[(0)]=6;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=6;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=60;
+		cr.ParamBase[(8)]=7;
+		cr.ParamBase[(9)]=25;
+		cr.ParamBase[(10)]=16;
+		cr.ParamBase[(13)]=5;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=180;
+		cr.ParamBase[(208)]=40;
+		
+		animIndex="mamrat";
+		break;
+		
+		case(76):
+		cr.ParamBase[(0)]=6;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=6;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=80;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=16;
+		cr.ParamBase[(13)]=5;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=200;
+		cr.ParamBase[(208)]=40;
+		
+		animIndex="mabran";
+		break;
+		
+		case(59):
+		cr.ParamBase[(0)]=6;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=6;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=80;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=12;
+		cr.ParamBase[(13)]=5;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=200;
+		cr.ParamBase[(208)]=140;
+		
+		animIndex="mascp2";
+		break;
+		
+		case(22):
+		cr.ParamBase[(0)]=7;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=7;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=2;
+		cr.ParamBase[(7)]=100;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=16;
+		cr.ParamBase[(13)]=4;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=210;
+		cr.ParamBase[(208)]=80;
+		
+		animIndex="mascrp";
+		break;
+		
+		case(60):
+		cr.ParamBase[(0)]=7;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=7;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=6;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=80;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=25;
+		cr.ParamBase[(10)]=10;
+		cr.ParamBase[(13)]=4;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=210;
+		cr.ParamBase[(208)]=140;
+		
+		animIndex="maclw2";
+		break;
+		
+		case(80):
+		cr.ParamBase[(0)]=7;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=7;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=120;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=15;
+		cr.ParamBase[(13)]=4;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=240;
+		cr.ParamBase[(208)]=80;
+		
+		animIndex="malien";
+		break;
+		
+		case(25):
+		cr.ParamBase[(0)]=8;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=8;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=4;
+		cr.ParamBase[(7)]=150;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=15;
+		cr.ParamBase[(13)]=3;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=240;
+		cr.ParamBase[(208)]=40;
+		
+		animIndex="mathng";
+		break;
+		
+		case(51):
+		cr.ParamBase[(0)]=8;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=8;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=4;
+		cr.ParamBase[(7)]=170;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=25;
+		cr.ParamBase[(10)]=13;
+		cr.ParamBase[(13)]=3;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=240;
+		cr.ParamBase[(208)]=80;
+		
+		animIndex="maclaw";
+		break;
+		
+		case(23):
+		cr.ParamBase[(0)]=8;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=8;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=220;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=20;
+		cr.ParamBase[(10)]=15;
+		cr.ParamBase[(13)]=2;
+		cr.ParamBase[(14)]=3;
+		
+		cr.ParamBase[(203)]=250;
+		cr.ParamBase[(208)]=100;
+		
+		animIndex="masphn";
+		break;
+		
+		case(86):
+		cr.ParamBase[(0)]=9;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=9;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=200;
+		cr.ParamBase[(8)]=8;
+		cr.ParamBase[(9)]=30;
+		cr.ParamBase[(10)]=25;
+		cr.ParamBase[(13)]=1;
+		cr.ParamBase[(14)]=5;
+		
+		cr.ParamBase[(203)]=260;
+		cr.ParamBase[(208)]=120;
+		
+		animIndex="maquen";
+		break;
+		
+		case(100):
+		cr.ParamBase[(0)]=9;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=9;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=250;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=20;
+		cr.ParamBase[(10)]=15;
+		cr.ParamBase[(13)]=1;
+		cr.ParamBase[(14)]=5;
+		
+		cr.ParamBase[(203)]=240;
+		cr.ParamBase[(208)]=80;
+		
+		animIndex="madeth";
+		break;
+		
+		case(81):
+		cr.ParamBase[(0)]=9;
+		cr.ParamBase[(1)]=6;
+		cr.ParamBase[(2)]=9;
+		cr.ParamBase[(3)]=1;
+		cr.ParamBase[(4)]=1;
+		cr.ParamBase[(5)]=7;
+		cr.ParamBase[(6)]=3;
+		cr.ParamBase[(7)]=150;
+		cr.ParamBase[(8)]=6;
+		cr.ParamBase[(9)]=15;
+		cr.ParamBase[(10)]=10;
+		cr.ParamBase[(13)]=4;
+		cr.ParamBase[(14)]=1;
+		
+		cr.ParamBase[(203)]=240;
+		cr.ParamBase[(208)]=100;
+		
+		animIndex="mafire";
+		default:
+		animIndex="hmjmps";
+		break;
+	}
+	
+	cr.ParamBase[(72)]=cr.ParamBase[(7)]*0.1;
+	cr.ParamBase[(301)]=0;
+	skin(cr,type);
+	
+	cr.RunClientScript("client_screen_additional@SendAnimIndex",locX,locY,type,animIndex,null);
+}
+
+import uint GetCellMap(uint16 x,uint16 y)from"world";
+import uint GenerateWasteland(Critter&cr,uint8 x,uint8 y)from"mapgen_wasteland";
+
+void unsafe_set_arcade_start(Critter&cr,int x,int y,int p2,string@message,int[]@p4)
+{
+	int mapId=GetCellMap(x,y);
+	
+	if(mapId==-1)
+	{
+		mapId=GenerateWasteland(cr,x*0.1,y*0.1);
+	}
+	
+	Map@map=GetMap(mapId);
+	if(@map==null)
+	return;
+	
+	cr.TransitToMap(map.Id,0);
+	
+	cr.StatBase[(121)]=0;
+	cr.StatBase[(146)]=0;
+}       
+
+funcdef uint PROCESS(Critter@,int&,int&,int&);                
+
+import bool RegisterProcess(uint8 type,any func)from"ltp";
+
+import bool StartProcess(Critter&cr,uint8 type,int param0,int param1,int param2,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,int param0,uint time)from"ltp";
+import bool StartProcess(Critter&cr,uint8 type,uint time)from"ltp";
+
+import bool StopProcess(Critter&cr)from"ltp";
+
+import bool checkTDH(Critter&cr)from"ltp";
+import bool checkTDH(Critter&cr,uint8 type)from"ltp";             
+
+string[]skillNames={"Легкое оружие","Тяжелое оружие","Энергооружие","Рукопашная","Xолодное оружие","Метательное оружие","Санитар","Доктор","Скрытность","Взлом замков","Воровство","Ловушки","Наука","Ремонт","Красноречие","Торговля","Азартные игры","Скиталец"};
+
+bool ltp_teach_inited=false; 
+
+void unsafe_teach(Critter&cr,int skill,int p1,int p2,string@message,int[]@p4)
+{
+	if(cr.Param[(703)]!=(1))
+	{
+		cr.Say((11),"Запрещено не квентовым персонажам.");
+		return;
+	}
+	if(p1>0)
+	{
+		
+		if(skill>cr.Stat[(138)]||skill<=0)
+		{
+			cr.Say((11),"Недостаточно опыта.");
+			return;
+		}
+		Critter@target=GetCritter(p2);
+		if(@target is null)
+		return;
+		if(cr.Id==target.Id)
+		{
+			cr.Say((11),"Нельзя дать опыт самому себе.");
+			return;
+		}
+		if(target.IsNpc())
+		{
+			cr.Say((11),"Нельзя дать опыт не игровому персонажу.");
+			return;
+		}
+		target.StatBase[(76)]+=skill;     
+		
+		cr.StatBase[(138)]=(((cr.StatBase[(138)]-skill)>(10000))?(10000):(((cr.StatBase[(138)]-skill)<(0))?(0):(cr.StatBase[(138)]-skill)));
+		
+		cr.Say((11),"Вы наградили юзернеим "+skill+" очками опыта");
+		return;
+		
+	}
+	
+	if(cr.Skill[skill]<120)
+	{
+		cr.Say((11),"Вашего навыка недостаточно для обучения.");
+		return;
+	}     
+	
+	bool validSKill=false;
+	for(uint8 i=0;i<4;i++)
+	{
+		if(cr.Param[226+i]==skill)
+		{
+			validSKill=true;
+		}
+	}
+	
+	if(validSKill){
+		if(cr.GetTimeEvents((51),null,null,null)>0)
+		{
+			cr.EraseTimeEvents((51));
+			cr.Say((11),"Вы прервали обучение.");
+			return;
+		}
+		else
+		{
+			cr.AddTimeEvent("cte_Teach",60*__TimeMultiplier,(51),skill);
+		}
+	}
+	else
+	cr.Say((11),"Выбранный навык не является профилирующим.");
+}
+
+void ltp_teach_init()
+{
+	PROCESS@___pfunc=@process_teach;any ___pany;___pany.store(@___pfunc);RegisterProcess((35),___pany);
+	ltp_teach_inited=true;
+}
+
+uint cte_Teach(Critter&cr,int identifier,uint&rate)
+{
+	int p1,p2,p0=rate;
+	return process_teach(cr,p0,p1,p2);
+}
+
+uint process_teach(Critter@cr,int&param0,int&param1,int&param2)
+{
+	
+	GameVar@wearinessMaster=GetLocalVar((9960),cr.Id);
+	int maxWeariness=(cr.ParamBase[(2)]+cr.ParamBase[(0)])*100*(1+cr.TraitBase[(564)]);
+	if(wearinessMaster.GetValue()<maxWeariness)
+	wearinessMaster.opAddAssign(100-cr.ParamBase[(3)]*5-cr.ParamBase[(4)]*5+Random(0,25));
+	else
+	{
+		cr.Say((11),"Вы слишком устали, что бы учить.");
+		return 0;
+	}
+	cr.Say((11),"Вы поделились своими знаниями.");
+	
+	Critter@[]crs;
+	cr.GetMap().GetCrittersHex(cr.HexX,cr.HexY,7,(0x01),crs);
+	
+	uint8 length=crs.length();
+	if(length<=0)
+	return 0;
+	uint16 skillTeacher=cr.Skill[param0];
+	uint16 realTeachingSkill,TeachingEfficiency;
+	for(uint8 i=0;i<length;i++)
+	{
+		if(cr.Id!=crs[i].Id)
+		{
+			uint16 skillStude=crs[i].Skill[param0];
+			if(skillStude<100)TeachingEfficiency=6;
+			
+			if(skillStude>100){
+				crs[i].Say((11),"Вы не узнали ничего нового.");
+				continue;
+			}
+			
+			else if(skillStude<200)TeachingEfficiency=4;
+			else if(skillStude<300)TeachingEfficiency=3;
+			realTeachingSkill=cr.Skill[(214)]*TeachingEfficiency/2;
+			if(skillTeacher>realTeachingSkill)skillTeacher=realTeachingSkill;
+			
+			if(skillTeacher>=skillStude)
+			{
+				GameVar@wearinessSlave=GetLocalVar((9960),crs[i].Id);
+				int maxWearinessSlave=(crs[i].ParamBase[(2)]+crs[i].ParamBase[(0)])*100*(1+crs[i].TraitBase[(564)]);
+				if(wearinessSlave.GetValue()<maxWearinessSlave)
+				{
+					uint16 skillDifference=skillTeacher-skillStude;
+					uint16 skillBase=skillDifference>0?skillDifference:1;
+					if(skillBase>0)
+					{
+						wearinessSlave.opAddAssign(100-cr.ParamBase[(1)]*5-cr.ParamBase[(4)]*5+Random(0,25));
+						int maxSkillGain=(((crs[i].Stat[(4)]/(3-cr.TraitBase[(564)]))>(6))?(6):(((crs[i].Stat[(4)]/(3-cr.TraitBase[(564)]))<(1))?(1):(crs[i].Stat[(4)]/(3-cr.TraitBase[(564)]))));
+						crs[i].SkillBase[param0]+=(((skillBase)>(maxSkillGain))?(maxSkillGain):(((skillBase)<(1))?(1):(skillBase)));
+						crs[i].Say((11),"Вы научились лучше обращаться с навыком "+skillNames[param0-200]+".");
+					}
+					else
+					{
+						crs[i].Say((11),"Вы ничему не научились.");
+					}
+				}
+				else
+				{
+					crs[i].Say((11),"Вы слишком устали.");
+				}
+			}
+			else
+			{
+				crs[i].Say((11),"Этому учителю нечему учить вас.");
+			}
+		}
+	}
+	
+	return 0;
+}  
+
+void unsafe_fastpanel_say(Critter&player,int p0,int p1,int p2,string@message,int[]@p4)
+{
+	if(message.length()>0)
+	{
+		uint8 sayType=0;
+		switch(p0)
+		{
+			case 1:
+			sayType=(1);
+			break;
+			
+			case 2:
+			sayType=(3);
+			break;
+			case 3:
+			sayType=(5);
+			break;
+			case 4:
+			sayType=(7);
+			break;
+			default:
+			sayType=(11);
+			break;
+		}
+		
+		if(sayType>=(1)&&sayType<=(10))
+		{
+			for(uint i=0,len=message.length();i<len;i++)
+			{
+				uint8 chr=message[i];
+				if(chr<32||(chr>34&&chr<42)||(chr>42&&chr<44)||chr==47||(chr>57&&chr<63)||chr==64||(chr>90&&chr<97)||(chr>122&&chr<192&&chr!=168&&chr!=184))
+				{
+					player.Say((11),"В сообщениии есть запрещенные символы.");
+					return;
+				}
+			}
+		}
+		
+		player.Say(sayType,""+message);
+	}
+}
+
+void SendFastPanelInfo(Critter&cr,bool type)
+{
+	file f;
+	string word="",word2="";
+	uint pos=0;
+	
+	if(f.open("./fastpanel/"+cr.Id,"r")==0)
+	{
+		
+		f.setPos(0);
+		while(!f.isEndOfFile())
+		{
+			pos=f.getPos();
+			f.readLine(word);
+			word2+=word;  
+			
+		}
+		f.close();
+	}
+	
+	if(!type)
+	{
+		if(pos!=0)
+		cr.RunClientScript("client_screen_fastpanel@GetServerFileSize",pos,0,0,"",null);
+	}
+	else
+	{
+		if(word2!="")
+		cr.RunClientScript("client_screen_fastpanel@LoadPanel",0,0,0,word2,null);
+		else
+		cr.Say((11),"error with sending fastpanel info");
+	}
+}
+
+void unsafe_fastpanel_save(Critter&player,int p0,int p1,int p2,string@info,int[]@p4)
+{
+	file f;
+	if(f.open("./fastpanel/"+player.Id,"w")==0)
+	{
+		
+		f.writeString(info);
+	}
+	f.close();
+}
+
+void unsafe_send_fastpanel(Critter&cr,int p0,int p1,int p2,string@info,int[]@p4)
+{
+	file f;
+	string word="",word2="";
+	uint pos=0;
+	
+	if(f.open("./fastpanel/"+cr.Id,"r")==0)
+	{
+		
+		f.setPos(0);
+		while(!f.isEndOfFile())
+		{
+			pos=f.getPos();
+			f.readLine(word);
+			word2+=word;  
+			
+		}
+		f.close();
+	}
+	
+	if(p0==0)
+	{
+		if(pos!=0)
+		cr.RunClientScript("client_screen_fastpanel@GetServerFileSize",pos,0,0,"",null);
+	}
+	else
+	{
+		if(word2!="")
+		cr.RunClientScript("client_screen_fastpanel@LoadPanel",0,0,0,word2,null); 
+		
+	}
+	
+}
+
+void unsafe_openCodeDoor(Critter&player,int itemId,int code,int param2,string@param3,int[]@param4)
+{
+	Item@item=GetItem(itemId);
+	if(@item==null)
+	{
+		return;
+	}
+	if((player.HexX<item.HexX+2||player.HexX>item.HexX-2)&&(player.HexY<item.HexY+2||player.HexY>item.HexY-2))
+	{
+		if(param2!=0){
+			uint max=pow(10,item.Val1-1);
+			if(code>65535)
+			player.Say((11),"Код не может быть больше 65535!");
+			if(code<max)
+			{
+				item.Val4=code;
+				player.Say((11),"Вы установили новый код : "+code);
+				player.RunClientScript("client_screen_codedoor@HideScreen",0,0,0,"",null);
+				return;
+			}
+			else
+			{
+				player.Say((11),"Не допустимый код");
+				return;
+			}
+		}
+		if(item.Val4==code)
+		{
+			if((not((item.LockerCondition&(0x01))!=0)))
+			{
+				item.LockerOpen();
+				player.RunClientScript("client_screen_codedoor@HideScreen",0,0,0,"",null);
+			}
+			
+		}
+		else
+		player.Say((11),"Не верный код");
+	}
+	else
+	player.Say((11),"Слишком далеко");
+}
+
+import void LoadClientHistoryBase(Critter&cr,bool all)from"history_menu";
+import void SaveCritterHistory(Critter&cr,string saveText)from"history_menu";
+import void LoadCritterHistory(Critter&cr)from"history_menu";
+
+void unsafe_history_load(Critter&player,int loadType,int param1,int param2,string@param3,int[]@param4)
+{
+	if(player.GetAccess()<2)
+	{
+		player.Say((11),"hey dude. don't try to hack this. just gohome.");
+		Log("hack detected player "+player.Id+" name "+GetPlayerName(player.Id)+" try crack history menu");
+		return;
+	}
+	Critter@cr=GetCritter(param1);
+	switch(loadType)
+	{
+		case 0:
+		LoadClientHistoryBase(player,false);
+		break;
+		case 1:
+		LoadClientHistoryBase(player,true);
+		break;
+		case 2:
+		LoadCritterHistory(@cr!=null?cr:player);
+		break;
+	}
+}
+
+void unsafe_history_save(Critter&player,int param0,int param1,int param2,string@saveText,int[]@param4)
+{
+	if(saveText=="")
+	{
+		player.Say((11),"Oops! Same error here!");
+		return;
+	}
+	SaveCritterHistory(player,saveText);
+}
+
+void unsafe_hotkey_command(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	
+	string type="",command="";
+	string@[]@cmd=split(param3,"*");
+	if(@cmd!is null)
+	{
+		command=cmd[0];
+		type=cmd.length()>1?cmd[1]:"";
+	}
+	if(type=="TEXT")
+	{
+		if(__FullSecond<uint(player.Timeout[(251)]))
+		{
+			player.SayMsg((11),(3),12601);
+			return;
+		}
+		player.TimeoutBase[(251)]=(__FullSecond+((3)*__TimeMultiplier));
+		if(command.length()>64)
+		command=substring(command,0,64);
+		string@[]@words=split(command,"_");
+		string text=join(words," ");
+		player.Say((param4[0]*2+1),text);
+	}
+	else
+	{
+		if(command=="RELOAD")
+		{
+			Item@[]weapon;
+			player.GetItems((1),weapon);
+			if(not(@weapon[0]!=null))
+			return;
+			Item@ammo=player.GetItem(weapon[0].AmmoPid,(0));
+			
+			if((@ammo!=null)&&weapon[0].AmmoCount<weapon[0].Proto.Weapon_MaxAmmoCount&&player.Stat[(75)]>=2)
+			{
+				critter_reload_weapon(player,weapon[0],ammo);
+				player.Action((7),0,weapon[0]);
+				player.ParamBase[(75)]-=200;
+			}
+			else if(not(@ammo!=null)&&weapon[0].AmmoCount>0&&player.Stat[(75)]>=2)
+			{
+				critter_reload_weapon(player,weapon[0],null);
+				player.Action((7),0,weapon[0]);
+				player.ParamBase[(75)]-=200;
+			}
+		}
+		
+		else if(command=="USE_SELF")
+		{
+			Item@use_item=player.GetItem(param4[0],-1);
+			if((@use_item!=null)&&player.Stat[(75)]>=2)
+			{
+				critter_use_item(player,use_item,null,null,null,0);
+				player.Action((4),0,use_item);
+				player.ParamBase[(75)]-=200;
+			}
+		}
+		
+		else
+		Log("Chiter detected: "+GetPlayerName(player.Id));
+	}
+}
+
+void unsafe_hex_attack(Critter&player,int hexX,int hexY,int param2,string@command,int[]@param4)
+{
+	
+	Map@map=player.GetMap();
+	
+	if(map is null)
+	return;
+	
+	Item@[]realweapons;
+	player.GetItems((1),realweapons);
+	if(realweapons.length()==0||(@realweapons.first()is null))
+	return;
+	Item@realweapon=@realweapons.first();
+	
+	uint8 mode=realweapon.Mode;
+	ProtoItem@weapon=GetProtoItem(realweapon.GetProtoId()),
+	
+	ammo=null; 
+	
+	uint16 toHx=hexX,toHy=hexY;
+	int dist=GetDistantion(player.HexX,player.HexY,hexX,hexY);
+	map.GetHexCoord(player.HexX,player.HexY,toHx,toHy,0.0f,dist);
+	if((uint16(hexX)!=toHx)||(uint16(hexY)!=toHy))
+	{
+		player.SayMsg((11),(5),104);
+		return;
+	}
+	
+	bool isFlareGun=(realweapon.AmmoPid==(1038))&&(mode==1);
+	bool isRocket=(realweapon.AmmoPid==(14))||(realweapon.AmmoPid==(37))||(realweapon.AmmoPid==(274))||(realweapon.AmmoPid==(1035));
+	if(((mode)==0?weapon.Weapon_Skill_0:((mode)==1?weapon.Weapon_Skill_1:((mode)==2?weapon.Weapon_Skill_2:0)))!=(205)&&!isRocket&&!isFlareGun)return;
+	
+	int wpnMaxDist=((mode)==0?weapon.Weapon_MaxDist_0:((mode)==1?weapon.Weapon_MaxDist_1:((mode)==2?weapon.Weapon_MaxDist_2:0)));
+	if(((mode)==0?weapon.Weapon_Skill_0:((mode)==1?weapon.Weapon_Skill_1:((mode)==2?weapon.Weapon_Skill_2:0)))==(205))
+	{
+		int val0=player.Stat[(0)]+2*player.Perk[(336)];
+		val0=3*(((10)<(val0))?(10):(val0));
+		wpnMaxDist=(((wpnMaxDist)<(val0))?(wpnMaxDist):(val0));
+	}
+	if(dist>wpnMaxDist)
+	{
+		player.SayMsg((11),(5),102);
+		return;
+	} 
+	
+	if(player.Stat[(75)]<int(((mode)==0?weapon.Weapon_ApCost_0:((mode)==1?weapon.Weapon_ApCost_1:((mode)==2?weapon.Weapon_ApCost_2:0)))))
+	return;
+	
+	if(weapon.Weapon_MaxAmmoCount>0)
+	{
+		if(realweapon.AmmoCount==0)
+		return;
+		else
+		@ammo=GetProtoItem(realweapon.AmmoPid);
+	} 
+	
+	Critter@target=map.GetCritter(uint16(hexX),uint16(hexY));
+	
+	player.ParamBase[(75)]-=((mode)==0?weapon.Weapon_ApCost_0:((mode)==1?weapon.Weapon_ApCost_1:((mode)==2?weapon.Weapon_ApCost_2:0)))*100;
+	
+	CombatAttack(player,target,weapon,mode,ammo,uint16(hexX),uint16(hexY));
+}
+
+int[]zomb_skins={33,36,37,39,40,41,43,48,57,61,62,63,64}; 
+
+void zomb(Critter&player,int on,int param1,int param2)
+{
+	if(on==0)
+	{
+		__Zombies=false;
+		player.Say((11),"Зомби-мод отключен.");
+	}
+	else
+	{
+		__Zombies=true;
+		player.Say((11),"Зомби-мод включен.");
+	}
+}
+
+import void skin(Critter&cr,int crType)from"skins";
+
+void unsafe_zombie(Critter&player,int hexX,int hexY,int param2,string@lex,int[]@param4)
+{
+	if(!__Zombies)
+	{
+		player.Say((11),"Зомби-мод отключен.");
+		return;
+	}
+	
+	Map@map=player.GetMap();
+	Map@modoc=GetMapByPid((400),0);
+	if(modoc is null)
+	return;
+	
+	if(player.Param[(67)]==(29))
+	{
+		if(player.IsDead())
+		{
+			Item@[]items;
+			if(player.GetItems(0,items)>0)
+			DeleteItems(items);
+			
+			player.ParamBase[(502)]=0;
+			player.ParamBase[(503)]=0;
+			player.ParamBase[(504)]=0;
+			player.ParamBase[(505)]=0;
+			player.ParamBase[(506)]=0;
+			player.ToLife();
+			player.ParamBase[(72)]=player.Param[(7)];
+			player.ParamBase[(241)]=-1;
+			player.ParamBase[(252)]=__FullSecond+((Random(30,60))*__TimeMultiplier);
+			player.ParamBase[(117)]=Random(200,800);
+			player.TransitToMap(modoc.Id,0);
+			uint zsl=zomb_skins.length();
+			if(zsl>0)
+			skin(player,zomb_skins[Random(0,zsl-1)]);
+		}
+		
+	}
+	else if(map is null or map.GetProtoId()!=51)
+	{
+		return;
+	}
+	else
+	{
+		player.ParamBase[(67)]=(29);
+		
+		uint zsl=zomb_skins.length();
+		if(zsl>0)
+		skin(player,zomb_skins[Random(0,zsl-1)]);
+		
+		player.ParamBase[(7)]+=100;
+		player.ParamBase[(72)]+=100;
+		player.ParamBase[(540)]=1;
+		player.ParamBase[(117)]=Random(200,800);
+		player.ParamBase[(252)]=__FullSecond+((2)*__TimeMultiplier*60);
+		player.ParamBase[(84)]=-1;
+		player.TransitToMap(modoc.Id,0);
+	}
+} 
+
+void unsafe_stopMob(Critter&player,int param0,int param1,int param2,string@param3,int[]@vals)
+{
+	for(uint i=param0*10,ii=10+param0*10;i<ii;i++)
+	{
+		Critter@controlled=GetCritter(vals[i]);
+		if((@controlled!=null)&&uint(controlled.Param[(800)])!=player.Id)
+		{
+			player.Say((11),"Нет доступа.");
+			return;
+		}
+		if((@controlled!=null)&&controlled.IsNpc())
+		{
+			controlled.ErasePlane(-1,true);
+			controlled.ClearEnemyStack();
+			controlled.EraseTimeEvents(9);
+			controlled.SetDir(GetDirection(controlled.HexX,controlled.HexY,param1,param2));
+		}
+	}
+}
+
+void unsafe_moveMob(Critter&player,int param0,int param1,int param2,string@param3,int[]@vals)
+{
+	for(uint i=param0*10,ii=10+param0*10;i<ii;i++)
+	{
+		Critter@controlled=GetCritter(vals[i]);
+		if((@controlled!=null)&&uint(controlled.Param[(800)])!=player.Id)
+		{
+			player.Say((11),"Нет доступа.");
+			return;
+		}
+		if((@controlled!=null)&&controlled.IsNpc())
+		{
+			controlled.ErasePlane(-1,true);
+			AddWalkPlane(controlled,1,param1+Random(-i,i),param2+Random(-i,i),GetDirection(controlled.HexX,controlled.HexY,param1,param2),(@param3!is null),0);
+			if(param0==0)
+			controlled.ClearEnemyStack();
+		}
+	}
+}
+
+void unsafe_attackMob(Critter&player,int param0,int param1,int param2,string@param3,int[]@vals)
+{
+	Critter@target=GetCritter(param0);
+	for(uint i=param2*10,ii=10+param2*10;i<ii;i++)
+	{
+		Critter@controlled=GetCritter(vals[i]);
+		if((@controlled!=null)&&uint(controlled.Param[(800)])!=player.Id)
+		{
+			player.Say((11),"Нет доступа.");
+			return;
+		}
+		if((@controlled!=null)&&(@target!=null)&&controlled.IsNpc())
+		{
+			controlled.ErasePlane(-1,true);
+			AddAttackPlane(controlled,0,target,__RunOnCombat);
+			controlled.AddEnemyInStack(target.Id);
+		}
+	}
+}
+
+import uint follow(Critter&cr,int master,uint&rate)from"raiders";
+
+void unsafe_BreakControl(Critter&player,int param0,int param1,int param2,string@param3,int[]@vals)
+{
+	if(player.GetAccess()<(2))return;
+	Critter@target=GetCritter(param0);
+	if((@target!=null)&&!target.IsPlayer())
+	target.ModeBase[(517)]=0;
+}
+
+void unsafe_chaseMob(Critter&player,int param0,int param1,int param2,string@param3,int[]@vals)
+{
+	Critter@target=GetCritter(param0);
+	for(uint i=param2*10,ii=10+param2*10;i<ii;i++)
+	{
+		Critter@controlled=GetCritter(vals[i]);
+		if((@controlled!=null)&&uint(controlled.Param[(800)])!=player.Id)
+		{
+			player.Say((11),"Нет доступа.");
+			return;
+		}
+		if((@controlled!=null)&&(@target!=null)&&controlled.IsNpc())
+		{
+			controlled.ErasePlane(-1,true);
+			controlled.ModeBase[(517)]=1;
+			controlled.StatBase[(188)]=target.Id;
+			controlled.AddTimeEvent("follow",30,9);
+		}
+	}
+}
+
+import void say(Critter&player,int param0,int param1,int param2)from"gm";
+
+void unsafe_say(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	Critter@controlled=GetCritter(param0);
+	if(param1!=1&&param1!=5&&controlled.IsPlayer())
+	{
+		player.Say((11),"Нет доступа.");
+		return;
+	}
+	if((@controlled!=null)&&uint(controlled.Param[(800)])!=player.Id)
+	{
+		player.Say((11),"Нет доступа.");
+		return;
+	}
+	say(player,param0,param1,0);
+}
+
+void unsafe_sleep(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	if(!(@player!=null))
+	return;
+	
+	if(player.GetTimeEvents((9),null,null,null)!=0)
+	{
+		if(player.IsDead())
+		player.Say((11),"Вас уже уложили как следует, можете не рыпаться.");
+		if(!player.IsKnockout())
+		player.Say((11),"Вы и так твердо стоите на ногах.");
+		player.StatBase[(75)]=0;
+		player.EraseTimeEvents((9));
+		return;
+	}
+	if(player.GetTimeEvents((9),null,null,null)==0)
+	{
+		if(player.IsDead()){
+			player.Say((11),"Вас уже уложили как следует, можете не рыпаться.");
+			return;
+		}
+		if(player.IsKnockout()){
+			player.Say((11),"Вы и так лежите на земле, сначала встаньте на ноги.");
+			return;
+		}
+		player.StatBase[(75)]=-100000;
+		player.ToKnockout((((param0==0))?(82):(83)),(((param0==0))?(86):(87)),(((param0==0))?(88):(89)),5,player.HexX,player.HexY);
+		player.Say((11),"Вы легли на "+(param0==0?"спину":"живот")+".");
+		player.AddTimeEvent("cte_sleep",0,(9),0);
+		return;
+	}
+}
+
+uint cte_sleep(Critter&player,int identifier,uint&rate)
+{
+	if(player.IsDead()){
+		player.Say((11),"Вас уложили как следует.");
+		player.StatBase[(75)]=0;
+		return 0;
+	}
+	if(!player.IsKnockout()){
+		player.Say((11),"Вы встали на ноги.");
+		player.StatBase[(75)]=0;
+		return 0;
+	}
+	if(player.StatBase[(75)]>=-50000)
+	player.StatBase[(75)]=-100000;
+	return 100;
+}
+
+import void InjureCritter(Critter&cr,uint dmg,uint dmgType,uint8 dir,uint attackerId)from"combat";
+
+import void DragAndDrop(Critter&cr,Critter@target)from"handcuffs";
+
+void unsafe_itemthrow(Critter&player,int _x,int _y,int param2,string@param3,int[]@param4)
+{
+	if(player.IsDead()||player.IsKnockout()||player.Timeout[(235)]>0)return;
+	
+	Map@map=player.GetMap();
+	if(!(@map!=null))return;
+	
+	Item@trowable=player.GetItem(0,(1));
+	if(!(@trowable!=null))return;
+	
+	int amount=trowable.GetCount();
+	
+	int maxDist=6;
+	float alpha=10;
+	uint16 x0=_x,y0=_y;
+	
+	int dist=GetDistantion(player.HexX,player.HexY,x0,y0);
+	map.GetHexCoordWall(player.HexX,player.HexY,x0,y0,alpha,dist);
+	
+	uint16 x=x0,y=y0;
+	
+	if(dist>maxDist*2)
+	{
+		x=player.HexX;
+		y=player.HexY;
+		player.Say((11),"Замахнувшись, вы усомнились что сможете попасть в цель и просто подбросили передмет в руке.");
+	}
+	
+	bool tooFar=dist>maxDist;
+	if(tooFar)dist=maxDist;
+	bool isFar=dist>3;
+	
+	float force=
+	player.Stat[(0)]*player.ParamBase[(2)]*100+
+	(player.ParamBase[(203)]+player.ParamBase[(204)]+player.ParamBase[(217)])*10+
+	player.ParamBase[(205)]*30;
+	
+	float accuracy=
+	player.Stat[(5)]*player.Stat[(1)]*100+
+	(player.ParamBase[(200)]+player.ParamBase[(201)]+player.ParamBase[(202)])*10+
+	player.ParamBase[(205)]*30;
+	
+	Item@[][]hands;hands.resize(2);
+	uint[]count={(player.GetItems((1),hands[0])),(player.GetItems((2),hands[1]))};
+	bool[]freeHand={(count[0]>0),(count[1]>0)}; 
+	
+	float catching=
+	((freeHand[0]?1:0)+(freeHand[1]?0.5:0))*
+	(player.Stat[(0)]*player.ParamBase[(2)]*100+
+	player.Stat[(5)]*player.Stat[(1)]*100+
+	(player.ParamBase[(203)]+player.ParamBase[(204)]+player.ParamBase[(217)])*10+
+	(player.ParamBase[(200)]+player.ParamBase[(201)]+player.ParamBase[(202)])*10+
+	player.ParamBase[(205)]*30); 
+	
+	float difficulty=trowable.Proto.Weight*amount*((dist+1)*3/maxDist);  
+	
+	int dir=GetDirection(player.HexX,player.HexY,x,y);
+	
+	bool tooWeak=Random(0,difficulty)>Random(0,force);
+	bool badAim=Random(0,difficulty)>Random(0,accuracy);
+	float CatchRoll=Random(0,catching);
+	bool badCatch=CatchRoll<Random(0,difficulty)*0.5; 
+	
+	if(dist>0){ 
+		
+		if(isFar){
+			if(tooWeak)
+			map.MoveHexByDir(x,y,(dir+3)%6,Random(1,dist*0.5));
+			if(tooFar)
+			map.MoveHexByDir(x,y,dir,Random(1,3));
+			if(badAim)
+			map.MoveHexByDir(x,y,Random(0,6),1);
+			if(!tooWeak&&!badAim&&badCatch&&Random(0,1)==0)
+			map.MoveHexByDir(x,y,dir,Random(1,2));
+		}
+		if(!map.IsHexPassed(x,y)&&!(@map.GetCritter(x,y)!=null)){
+			int rDist=dist;
+			uint16 x1=x,y1=y;
+			while(!map.IsHexPassed(x1,y1)&&rDist>0&&!(@map.GetCritter(x,y)!=null)){
+				map.GetHexCoord(x,y,x1,y1,30.0f,rDist);
+				rDist--;
+			}
+			x=x1;y=y1;
+		}
+		if(!map.IsHexPassed(x,y)&&!(@map.GetCritter(x,y)!=null)){
+			x=player.HexX;
+			y=player.HexY;
+			player.Say((11),"Замахнувшись, вы усомнились что сможете попасть в цель и просто подбросили в руке.");
+		}
+	}
+	
+	Critter@target=map.GetCritter(x,y);
+	bool hasTarget=(@target!=null);
+	bool isJoggling=hasTarget&&target.Id==player.Id;
+	bool isMissed=tooWeak&&badAim;
+	bool isCatched=hasTarget&&!isMissed&&!badCatch&&(CatchRoll>Random(0,difficulty));
+	
+	if(!isJoggling)player.SetDir(dir);
+	player.Animate(0,(53),null,true,true);
+	player.Wait(500);  
+	
+	player.Say((5),(isJoggling?"подбрасывает в руке":(isFar?"бросает":(hasTarget?"передаёт":"кладёт"))));
+	if(isCatched){
+		if(!isJoggling){
+			target.Say((5),(isFar?"ловит":"берёт"));
+			MoveItem(trowable,amount,target);
+		}
+	}else{
+		if(hasTarget)target.Say((5),(isFar?"не вышло поймать":"роняет"));
+		MoveItem(trowable,amount,map,x,y);
+	}
+	
+	player.TimeoutBase[(235)]=__FullSecond+((4)*__TimeMultiplier);
+} 
+
+import void ShowInputBoxScreen(Critter&cr,string funcName,uint16 textLength,uint8 flags)from"main";
+
+void unsafe_selfLex(Critter&player,int,int,int,string@text,int[]@){
+	if(!(@text!=null)||text==""){
+		player.SetLexems(null);
+		
+	}else{
+		player.SetLexems(text);
+	}
+}
+
+void unsafe_silent(Critter&player,int,int,int,string@,int[]@){
+	if(player.ParamBase[(856)]==0){
+		player.Say((11),"Вспомогательные сообщения отключены. Наслаждайтесь тишиной в чате.");
+		player.ParamBase[(856)]=1;
+	}else{
+		player.Say((11),"Вспомогательные сообщения включены. Теперь вы точно узнаете, когда у вас зачешется пятка.");
+		player.ParamBase[(856)]=0;
+	}
+}
+
+void unsafe_checkAFK(Critter&player,int,int,int,string@text,int[]@){
+	if(player.GetTimeEvents((53),null,null,null)>0)
+	player.EraseTimeEvents((53));
+}
+
+void unsafe_afk(Critter&player,int,int,int,string@text,int[]@){
+	if(player.GetTimeEvents((53),null,null,null)>0)
+	player.EraseTimeEvents((53));
+	Map@map=player.GetMap();
+	if(!(@map!=null)){player.Say((11),"На глобале нельзя");return;}
+	Item@holder=map.GetItem(player.HexX,player.HexY,(909));
+	if(!(@holder!=null))@holder=map.AddItem(player.HexX,player.HexY,(909),1);
+	if(!(@holder!=null))return;
+	holder.SetEvent((7),"_removeInfo");
+	(holder.Flags=(holder.Flags)|((0x00020000)));
+	(holder.Flags=(holder.Flags)|((0x00000001)));
+	
+	holder.Val0=player.Id;
+	holder.Val1=1;
+	
+	holder.SetLexems(null);
+	if(!(@text!=null)||text=="")holder.SetLexems("|0x5D6D7E Zzz..");
+	else holder.SetLexems(text);
+	
+	holder.Update();
+	
+	uint[]values={player.Id,holder.Id};
+	CreateTimeEvent(__FullSecond+((5)*__TimeMultiplier),"e_AFK",values,false);
+	player.AddTimeEvent("cte_AFK",((5)*__TimeMultiplier),(53),0);
+	player.Say((11),"Вы зафиксировали своё состояние. Сдвиньтесь или напишите текст что бы сбросить его.");
+}
+
+void _removeInfo(Item&holder,Critter&player,bool entered,uint8 dir){
+	DeleteItem(holder);
+}
+
+uint cte_AFK(Critter&cr,int identifier,uint&rate)
+{
+	return((5)*__TimeMultiplier);
+}
+
+uint e_AFK(uint[]@values){
+	if(values.length()<2)return 0;
+	Critter@cr=GetCritter(values[0]);
+	if(!(@cr!=null))return 0;
+	if(cr.GetTimeEvents((53),null,null,null)==0)
+	return 0;
+	Item@item=GetItem(values[1]);
+	if(!(@item!=null))return 0;
+	(item.Flags=((item.Flags)&(~((0x00000001)))));
+	cr.RunClientScript("client_main@ShowPopup",item.Id,0,0,"Всё оказалось немного сложней, чем вы думали..",null);
+	(item.Flags=(item.Flags)|((0x00000001)));
+	return((5)*__TimeMultiplier);
+}
+
+void unsafe_newPopup(Critter&player,int,int,int,string@text,int[]@){
+	if(!(@text!=null)||text==""){
+		player.Say((11),"Опишите детали, характерные для этого места.");
+		ShowInputBoxScreen(player,"general_unsafe@unsafe_PopupDescInput#Описание:",0,(0x00000001));
+	}else{
+		PopupDescInput(player,0,text);
+	}
+}
+
+void unsafe_PopupDescInput(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)
+{
+	PopupDescInput(player,0,param3);
+}
+
+void PopupDescInput(Critter&player,uint answerI,string&answerS){
+	if(!(@player!=null))return;
+	if(answerS.length()>1){
+		if(changePopup(player,answerS)){
+			player.Say((11),"Вы заметили некоторые особенности этого места.");
+		}else{
+			player.Say((11),"У вас ничего не вышло.");
+		}
+	}else{
+		if(delPopup(player)){
+			player.Say((11),"Вы убрали всё, что могло привлечь внимание.");
+		}else{
+			player.Say((11),"У вас не вышло замести следы.");
+		}
+	}
+}

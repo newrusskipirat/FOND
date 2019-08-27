@@ -1,0 +1,48 @@
+#---------------------------------------------------------
+#ND - Кукуруза - параметры стадий
+#---------------------------------------------------------
+
+
+Name=corn_stage_0		#Первая "видимая" стадия - росток
+Time=6					#Время до следующего цикла
+Water=2					#Количество воды для цикла
+Shit=1					#Количество удобрения для цикла
+CollectCount=0			#Количество урожая
+CollectPid=0			#Прототип урожая
+IsCollectable=0			#Возможность сбора урожая
+Proto=10120				#Прототип растения
+ProtoDead=10124			#Смерть растения
+
+new corn_stage_1		#Вторая "видимая" стадия - молодой стебель
+Time=8					
+Water=3					
+Shit=2					
+CollectCount=0			
+CollectPid=0			
+IsCollectable=0			
+Proto=10121				
+ProtoDead=10125			
+
+new corn_stage_2		#Третья "видимая" стадия - взрослый стебель
+Time=10					
+Water=0					
+Shit=0					
+CollectCount=5			
+CollectPid=10128			
+IsCollectable=1			
+Proto=10122				
+ProtoDead=10126			
+
+new corn_stage_3		#Третья "видимая" стадия - зрелый стебель
+Time=12					
+Water=3					
+Shit=0					
+CollectCount=10			
+CollectPid=10128			
+IsCollectable=1			
+Proto=10123				
+ProtoDead=10127	
+
+
+
+	

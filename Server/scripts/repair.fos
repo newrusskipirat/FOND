@@ -1,0 +1,734 @@
+#include "_macros.fos"
+#include "_msgstr.fos"
+
+# define OFF_TryRepairItem
+
+bool TryRepairItem( Critter& cr, Item& item ) // Export
+{
+/*# ifdef OFF_TryRepairItem
+	return false; //Отключено, оставил для потомков.
+# endif
+# ifndef OFF_TryRepairItem*/
+    if( not item.IsDeteriorable() )
+        return true;
+
+    if( cr.Timeout[ TO_BATTLE ] > 0 )
+    {
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_TIMEOUT_BATTLE_WAIT );
+        return true;
+    }
+
+    if( cr.Timeout[ TO_SK_REPAIR ] > 0 )
+    {
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_SKILL_WEARINESS );
+        return true;
+    }
+
+    if( FLAG( item.BrokenFlags, BI_ETERNAL ) || FLAG( item.BrokenFlags, BI_NOTRESC ) )
+    {
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_NO_RESC );
+        return true;
+    }
+
+    // Repair
+    int    repair = cr.Skill[ SK_REPAIR ];
+    uint8  mode = 0;
+    uint16 activePid = cr.GetSlotProto( SLOT_HAND1, mode ).ProtoId;
+	
+	bool isItemCased = true; // pm add temprorary
+	
+    // запчасти для оружия и брони ErlKing
+    int  type = item.GetProtoId();
+	
+	uint16[] tools;
+	uint16[] parts;	
+	
+	
+	
+    switch( type )
+    {
+    case PID_SANDROBE:
+    case PID_PURPLE_ROBE:
+    case PID_BLACK_ROBE:
+    case PID_JUMPSUIT:
+    case PID_FAKE_JUMPSUIT:
+        repair += 50;
+		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+        break;		
+    case PID_LEATHER_JACKET:
+        repair += 25;
+		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );
+        break;
+    case PID_LEATHER_ARMOR:
+        repair += 20;
+    case PID_CURED_LEATHER_ARMOR:
+        repair += 20;
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
+        break;
+    case PID_LEATHER_ARMOR_MK_II:
+        repair += 15;
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
+        break;
+    case PID_CURED_LEATHER_ARMOR_MK_II:
+		tools.insertLast( PID_SLEDGEHAMMER );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );		
+		parts.insertLast( PID_METAL_LIST_MEH ); parts.insertLast( 1 );
+		break;	
+    case PID_METAL_ARMOR:
+		tools.insertLast( PID_SLEDGEHAMMER );
+		parts.insertLast( PID_METAL_LIST_MEH ); parts.insertLast( 1 );
+		break;
+    case PID_METAL_ARMOR_MK_II:
+        repair -= 25;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 1 );
+        break;
+    case PID_MANTIS_ARMOUR:
+        repair -= 25;
+		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 1 );
+        break;
+    case PID_MIRELURK_ARMOR:
+        repair -= 50;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_MIRELUK_SHELL ); parts.insertLast( 1 );
+        break;
+    case PID_COMBAT_ARMOR:
+    case PID_COMBAT_ARMOR_MK_II:
+    case PID_BLACK_COMBAT_ARMOR:
+    case PID_BROTHERHOOD_COMBAT_ARMOR:
+        repair -= 50;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CHEMICALS ); parts.insertLast( 20 );
+        break;
+    case PID_POWERED_ARMOR:
+    case PID_HARDENED_POWER_ARMOR:
+    case PID_ADVANCED_POWER_ARMOR:
+    case PID_ADVANCED_POWER_ARMOR_MK2:
+    case PID_TESLA_ARMOR:
+        repair -= 100;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_HY_MAG_PART ); parts.insertLast( 20 );
+        break;
+
+// оружие совсем лоу тек
+    case PID_SPEARTHROWER1:
+    case PID_SPEARTHROWER2:
+    case PID_REVOLVER_LOW:
+    case PID_PISTOL_LOW:
+    case PID_BIGGUN_LOW:
+    case PID_SMOKE_GUN_LOW:
+    case PID_SHOTPISTOL_LOW:
+        repair += 50;
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );
+        break;
+
+// оружие лоу тек
+    case PID_QUADRO_SHOTGUN:
+    case PID_LOW_SNIPER2:
+    case PID_SHOTGUN:
+        repair += 20;
+    case PID_SAWED_OFF_SHOTGUN:
+    case PID_10MM_PISTOL:
+        repair += 30;
+    case PID_GECKO_LOW:
+    case PID_REV_RIFLE_LOW:
+        repair += 30;
+    case PID_FLAMER:
+    case PID_ONEHAND_ROCKET_LAUNCHER:
+    case PID_AUTOGUN_LOW:
+    case PID_SAWGUN_LOW:
+    case PID_GATLING_LOW:
+    case PID_SNIPER_GUN_LOW:
+    case PID_NEEDLER_PISTOL:
+    case PID_DOUBLE_RIFLE:
+    case PID_DRUM_GUN_LOW:
+        repair -= 30;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );		
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
+        break;
+
+// оружие среднее
+    case PID_9MM_MAUSER:
+    case PID_MAUSER_SMG:
+    case PID_COMBAT_SHOTGUN:
+        repair -= 15;
+    case PID_SCOPED_HUNTING_RIFLE:
+        repair -= 5;
+    case PID_REMINGTON:
+    case PID_10MM_SMG:
+    case PID_TOMMY_GUN:
+    case PID_GREASE_GUN:
+        repair -= 10;
+    case PID_HUNTING_RIFLE:
+    case PID_14MM_PISTOL:
+    case PID_ANACONDA:
+        repair -= 15;
+    case PID_DESERT_EAGLE:
+    case PID_DESERT_EAGLE_EXT_MAG:
+    case PID_44_MAGNUM_REVOLVER:
+    case PID_44_MAGNUM_SPEEDLOADER:
+        repair -= 5;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 1 );
+        break;		
+		
+// оружие энерго лоу
+    case PID_SOLAR_SCORCHER:
+        repair -= 30;
+    case PID_SOUND_BLASTER:
+    case PID_LASER_PISTOL_LOW:
+    case PID_LASER_PISTOL_LOW2:
+    case PID_LASER_RIFLE_LOW:
+    case PID_PLASMA_SMG_LOW:
+        repair -= 10;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CRAFT_E_LAMP ); parts.insertLast( 1 );
+        break;
+
+// оружие энерго хай
+    case PID_PLASMA_RIFLE:
+        repair -= 10;
+    case PID_PLASMA_PISTOL:
+        repair -= 10;
+    case PID_LASER_RIFLE:
+        repair -= 10;
+    case PID_MAGNETO_LASER_PISTOL:
+        repair -= 10;
+    case PID_LASER_PISTOL:
+        repair -= 30;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CRAFT_E_PART ); parts.insertLast( 2 );		
+		parts.insertLast( PID_CRAFT_E_CHIP ); parts.insertLast( 1 );
+        break;
+
+// оружие высокого класса
+    case PID_HK_CAWS:
+    case PID_PANCOR_JACKHAMMER:
+    case PID_HK_P90C:
+    case PID_IMPROVED_FLAMETHROWER:
+    case PID_MINIGUN:
+    case PID_AVENGER_MINIGUN:
+    case PID_BOZAR:
+    case PID_LIGHT_SUPPORT_WEAPON:
+    case PID_M60:
+    case PID_GRENADELAUNCHER:
+        repair -= 70;
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 10 );
+        break;
+
+    default:
+		cr.Say( SAY_NETMSG, "Не ремонтируемо" ); return true;   // unrepairable
+    }
+
+	if ( tools.length()>0 || parts.length()>0 )
+		{
+		bool NoTools = false;
+		bool NoParts = false;
+	    for( uint8 j = 0; j < tools.length(); j++ )
+			{
+			if( cr.CountItem( tools[j] ) == 0 ) NoTools = true;
+			}
+		for( uint8 jj = 0; jj < parts.length(); jj+=2 )
+			{
+			if( cr.CountItem( parts[jj] ) < parts[jj+1] ) NoParts = true;
+			}			
+		
+		if ( NoTools || NoParts )
+			{
+			if(tools.length() == 0)
+				cr.Say( SAY_NETMSG, "Инструмент не нужен." );
+			else {
+				cr.Say( SAY_NETMSG, "Необходимый инструмент:" );
+				for( uint8 i = 0; i < tools.length(); i++ )
+					cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100*tools[i] );
+			}
+			cr.Say( SAY_NETMSG, "Требуемые части для ремонта:" );
+			for( uint8 ii = 0; ii < parts.length(); ii+=2 )
+				{
+				cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100*parts[ii] );
+				}	
+			return true;
+			}
+		else
+			{
+			for( uint8 iii = 0; iii < parts.length(); iii+=2 )
+				{
+				cr.DeleteItem( parts[iii], parts[iii+1] );
+				}		
+			}
+		}
+		
+    if( FLAG( item.BrokenFlags, BI_BROKEN ) )
+    {
+        if( FLAG( item.BrokenFlags, BI_HIGHBROKEN ) )
+            repair -= 100;                               // было 150
+        else if( FLAG( item.BrokenFlags, BI_NORMBROKEN ) )
+            repair -= 75;                                // было 100
+        else if( FLAG( item.BrokenFlags, BI_LOWBROKEN ) )
+            repair -= 25;                                // было 50
+
+        repair -= item.BrokenCount * 50 / MAX_BROKENS;   // было 100
+        repair = CLAMP( repair, 6, 95 );
+
+        if( repair >= Random( 1, 100 ) )
+        {
+            item.Deterioration = 0;
+            UNSETFLAG( item.BrokenFlags, BI_BROKEN );
+            cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_REPAIR_SUCC );
+            cr.StatBase[ ST_EXPERIENCE ] += 400;
+        }
+        else
+        {
+            item.BrokenCount++;
+            if( item.BrokenCount >= MAX_BROKENS )
+                SETFLAG( item.BrokenFlags, BI_NOTRESC );
+            cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_REPAIR_FAIL );
+        }
+    }
+    // Service
+    else
+    {
+        if( FLAG( item.BrokenFlags, BI_SERVICE ) )
+            repair -= 25;
+        repair -= item.BrokenCount * 50 / MAX_BROKENS;
+        repair = CLAMP( repair, 6, 95 );
+
+        if( repair >= Random( 1, 100 ) )
+        {
+            SETFLAG( item.BrokenFlags, BI_SERVICE );
+            if( activePid == PID_OIL_CAN )
+            {
+                item.Deterioration = 0;
+                cr.DeleteItem( PID_OIL_CAN, 1 );
+            }
+            else
+            {
+                int cnt = repair * MAX_DETERIORATION / 100;
+                if( cnt > item.Deterioration )
+                    item.Deterioration = 0;
+                else
+                    item.Deterioration -= cnt;
+            }
+            cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_SERVICE_SUCC );
+            cr.StatBase[ ST_EXPERIENCE ] += 200;
+        }
+        else
+        {
+            DeteriorateItem( cr, item, MAX_DETERIORATION / 5 );
+            cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_SERVICE_FAIL );
+        }
+    }
+    // из СДК
+    // SetItemCost(item);
+    item.Update();
+    cr.TimeoutBase[ TO_SK_REPAIR ] = REPAIR_TIMEOUT( cr );
+    return true;
+# endif
+}
+
+void DeteriorateItem( Critter& cr, Item& item, int deteriorationCount ) // Export
+{
+    if( deteriorationCount <= 0 || not item.IsDeteriorable() || FLAG( item.BrokenFlags, BI_ETERNAL ) || FLAG( item.BrokenFlags, BI_BROKEN ) )
+        return;
+
+    item.Deterioration += deteriorationCount;
+    if( item.Deterioration >= MAX_DETERIORATION )
+    {
+        item.Deterioration = MAX_DETERIORATION;
+        if( !IsHaveBlade( item.GetProtoId() ) )     // pm added
+        {
+            item.BrokenCount++;
+
+            // из сдк
+            // SetItemCost(item);
+
+            int brokenLvl = Random( 0, item.BrokenCount / ( MAX_BROKENS / 4 ) );
+
+            if( item.BrokenCount >= MAX_BROKENS || brokenLvl >= 3 )
+                SETFLAG( item.BrokenFlags, BI_NOTRESC );
+            else if( brokenLvl == 2 )
+                SETFLAG( item.BrokenFlags, BI_HIGHBROKEN );
+            else if( brokenLvl == 1 )
+                SETFLAG( item.BrokenFlags, BI_NORMBROKEN );
+            else
+                SETFLAG( item.BrokenFlags, BI_LOWBROKEN );
+        }
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_DETERIORATION_WEAPON_BROKEN );
+    }
+
+    item.Update();
+}
+
+void SetDeterioration( Item& item, int deteriorationProcent ) // Export
+{
+    if( not item.IsDeteriorable() )
+        return;
+    UNSETFLAG( item.BrokenFlags, BI_BROKEN );
+    deteriorationProcent = CLAMP( deteriorationProcent, 0, 100 );
+    item.Deterioration = MAX_DETERIORATION * deteriorationProcent / 100;
+    item.BrokenCount = MAX_BROKENS * deteriorationProcent / 100;
+    if( deteriorationProcent == 100 )
+        SETFLAG( item.BrokenFlags, BI_BROKEN );
+    item.Update();
+}
+
+int GetDeteriorationProcent( Item& item ) // Export
+{
+    if( not item.IsDeteriorable() )
+        return 0;
+    if( FLAG( item.BrokenFlags, BI_BROKEN ) )
+        return 100;
+    int value = item.Deterioration * 100 / MAX_DETERIORATION;
+    return CLAMP( value, 0, 100 );
+}
+
+// из СДК, проверить есть ли конфликты с нашим динамическим рассчетом
+   void SetItemCost(Item& item)
+   {
+        //item.Cost = item.Proto.Cost * ((100 - GetDeteriorationProcent(item))/100);
+        int wearPercent = GetDeteriorationProcent(item);
+        if (wearPercent == 100)
+        {
+                item.Cost = uint(item.Proto.Cost / 3);
+        }
+        else if (wearPercent > 75)
+        {
+                item.Cost = uint(2 * item.Proto.Cost / 3);
+        }
+        else
+        {
+                item.Cost = item.Proto.Cost;
+        }
+   }
+
+bool IsHaveBlade( uint16 pid )            // pm added
+{
+    if( pid == PID_KNIFE             ||
+        pid == PID_SPEAR             ||
+        pid == PID_THROWING_KNIFE    ||
+        pid == PID_RIPPER            ||
+        pid == PID_SPIKED_KNUCKLES   ||
+        pid == PID_COMBAT_KNIFE      ||
+        pid == PID_SHARP_SPEAR       ||
+        pid == PID_SWITCHBLADE       ||
+        pid == PID_SHIV              ||
+        pid == PID_LIL_JESUS_WEAPON  ||
+        pid == PID_WAKIZASHI_BLADE   )
+        return true;
+
+    return false;
+
+}
+
+
+bool TryDisassembleItem( Critter& cr, Item& item ) // Export
+{
+	//В принципе, ещё можно много чего добавить, данный подход к обработке данных в массивах - крайне прост, гибок, расширяем и удобен.
+    if( cr.Timeout[ TO_BATTLE ] > 0 ) { //В бою нельзя.
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, STR_TIMEOUT_BATTLE_WAIT );
+        return true;
+    }
+    uint targetPID = item.GetProtoId(); //Номер прототипа предмета.
+//Требования к науке и ремонту.
+	uint16 science = 0;
+	uint16 repair = 0; 
+	#define NO_SKILL ( 0 ) 
+	#define LOW_SKILL ( 50 )
+	#define MID_SKILL ( 100 )
+	#define HI_SKILL ( 150 )
+	int[][] groups = {};
+	#define NO_TOOLS (0) 
+	//Диапазон -1 <=> -100 используется для указания количества необходимых инструментов, в случае более сложного требования:
+	#define TWO_ITEMS (-2)
+	#define THREE_ITEMS (-3)
+	#define FOUR_ITEMS (-4)
+	//Т.к. все ПИДЫ положительные, использование знакового значения в "поле прототипа инструмента" позволяет дефайнить вот такие "хаки":
+	#define NEED_KNIFE (-101) 
+	int[] knifes = //Список того, что можно назвать "ножом".
+		{ PID_KNIFE, PID_THROWING_KNIFE, PID_SWITCHBLADE, PID_COMBAT_KNIFE, PID_REVKNIFE2 };
+	groups.insertLast(knifes);
+	//Основная логика соответствий источников их инструментам и итоговым ресурсам:
+	int[][] decraft = {
+		//{ ИЗ_ЧЕГО, ЧТО_НУЖНО [минус: если целая категория, или больше одного итема], НАВЫК_НАУКИ, НАВЫК_РЕМА,
+			//[ПАРЫ:] ДРОП_РЕС, ЕГО_КОЛИЧЕСТВО },
+		//Шитьё:
+		{ PID_SANDBAG_EMPTY, NEED_KNIFE, NO_SKILL, NO_SKILL, PID_CRAFT_L_RAGS, 4 },//Итог - 4 тряпки из мешка.
+		{ PID_CRAFT_L_HIDE, NEED_KNIFE, NO_SKILL, LOW_SKILL, PID_CRAFT_L_RAGS, 4 },
+		{ PID_CRAFT_L_RAGS, NEED_KNIFE, NO_SKILL, NO_SKILL, PID_CRAFT_L_LINT, 2 },
+		{ PID_ROPE, NEED_KNIFE, NO_SKILL, NO_SKILL, PID_PART_OF_ROPE, 10 }, //А для её крафта нужно 11 шт. Верёвка юзается для лечения травм. Куски - для крафта докторских шин.
+		{ PID_GECKO_PELT, NEED_KNIFE, NO_SKILL, LOW_SKILL, PID_CRAFT_L_HIDE, 2 },
+		{ PID_FIRE_GECKO_PELT, NEED_KNIFE, NO_SKILL, MID_SKILL, PID_CRAFT_L_HIDE, 5 },
+		{ PID_BRAHMIN_SKIN, NEED_KNIFE, NO_SKILL, LOW_SKILL, PID_CRAFT_L_HIDE, 4 },
+		
+		//Кузнечество:
+		{ PID_HLAM_MEH, PID_SLEDGEHAMMER, NO_SKILL, LOW_SKILL, PID_METAL_LIST_MEH, 1 }, //Распрямление кривых железных кусков в листы.
+		{ PID_HLAM2_MEH, PID_SLEDGEHAMMER, NO_SKILL, LOW_SKILL, PID_METAL_LIST_MEH, 1 },
+		//Декрафт оружия и брони:
+		{ TWO_ITEMS, PID_SPEAR, PID_SHARP_SPEAR, 
+			0, NO_SKILL, NO_SKILL, 
+				PID_KNIFE, 1, 
+				PID_SHARPENED_POLE, 1,
+				PID_PART_OF_ROPE, 8 },
+		{ FOUR_ITEMS, PID_PURPLE_ROBE, PID_KEEPBRIGE_ROBE, PID_BLACK_ROBE, PID_SANDROBE, 
+				NEED_KNIFE, NO_SKILL, NO_SKILL, PID_CRAFT_L_RAGS, 5 },
+		{ PID_LEATHER_JACKET, NEED_KNIFE, NO_SKILL, NO_SKILL, 
+			PID_CRAFT_L_RAGS, 3,
+			PID_CRAFT_L_HIDE, 2 },
+		{ TWO_ITEMS, PID_LEATHER_ARMOR, PID_LEATHER_ARMOR_MK_II, 
+			NEED_KNIFE, NO_SKILL, LOW_SKILL, 
+			PID_CRAFT_L_RAGS, 4, 
+			PID_CRAFT_L_HIDE, 8 },
+		{ PID_CURED_LEATHER_ARMOR, NEED_KNIFE, NO_SKILL, LOW_SKILL, 
+			PID_CRAFT_L_RAGS, 4,
+			PID_CRAFT_L_HIDE, 5 },
+		{ PID_CURED_LEATHER_ARMOR_MK_II, NEED_KNIFE, NO_SKILL, LOW_SKILL,
+			PID_CRAFT_L_RAGS, 5, 
+			PID_CRAFT_M_BARS, 1,
+			PID_CRAFT_M_JUNK, 1,
+			PID_CRAFT_L_HIDE, 5 },
+		{ PID_METAL_ARMOR, TWO_ITEMS, PID_MULTI_TOOL, PID_SLEDGEHAMMER, NO_SKILL, MID_SKILL,
+			PID_METAL_LIST_MEH, 1,
+			PID_CRAFT_M_BARS, 2,
+			PID_CRAFT_M_JUNK, 1,
+			PID_CRAFT_L_HIDE, 3 },
+		{ PID_METAL_ARMOR_MK_II, TWO_ITEMS, PID_MULTI_TOOL, PID_SLEDGEHAMMER, NO_SKILL, MID_SKILL,
+			PID_IRON_PLATE, 1,
+			PID_CRAFT_M_BARS, 3,
+			PID_CRAFT_M_JUNK, 2,
+			PID_CRAFT_L_HIDE, 3 },
+		{ PID_MANTIS_ARMOUR, PID_MULTI_TOOL, NO_SKILL, MID_SKILL,
+			PID_MANTIS_SHELL, 2 },
+		{ PID_MIRELURK_ARMOR, PID_MULTI_TOOL, NO_SKILL, MID_SKILL,
+			PID_MANTIS_SHELL, 4,
+			PID_MIRELURK_ARMOR, 1 },
+		{ PID_ZIP_GUN, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_SHORT_TUBE, 1,
+			PID_CRAFT_M_BARS, 1 },
+		{ PID_SPEARTHROWER1, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_CRAFT_M_JUNK, 1,
+			PID_DETAL_MEH, 1 },
+		{ PID_SPEARTHROWER2, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_CRAFT_M_JUNK, 1,
+			PID_EMKOCT_MEH, 1,
+			PID_SOED_MEH, 1,
+			PID_DETAL_MEH, 1 },
+		{ PID_REVOLVER_LOW, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_SHORT_TUBE, 1,
+			PID_REVOLVER_PART, 1,
+			PID_CRAFT_M_JUNK, 1 },
+		{ PID_PISTOL_LOW, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_SHORT_TUBE, 1,
+			PID_CRAFT_M_JUNK, 1 },
+		{ PID_BIGGUN_LOW, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_TUBE, 1,
+			PID_CRAFT_M_JUNK, 1 },
+		{ PID_SMOKE_GUN_LOW, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_SHORT_TUBE, 1,
+			PID_REVOLVER_PART, 1,
+			PID_BANKA_MEH, 1,
+			PID_CRAFT_M_JUNK, 1 },
+		{ PID_SHOTPISTOL_LOW, PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+			PID_SHORT_TUBE, 2,
+			PID_CRAFT_M_JUNK, 1 },
+		{ TWO_ITEMS, PID_SHOTGUN, PID_SAWED_OFF_SHOTGUN, 
+			PID_MULTI_TOOL, NO_SKILL, LOW_SKILL,
+				PID_TUBE, 2,
+				PID_CRAFT_M_JUNK, 1 },
+		//Особое:
+			//Вытираем яд с оружия (да, это ещё с 2010го года было доступно для всех смертных!):
+			{ PID_CKNIFE_P, PID_CRAFT_L_RAGS, NO_SKILL, NO_SKILL, PID_COMBAT_KNIFE, 1 },
+			{ PID_MKNIFE_P, PID_CRAFT_L_RAGS, NO_SKILL, NO_SKILL, PID_THROWING_KNIFE, 1 },
+			{ PID_SPEAK_P, PID_CRAFT_L_RAGS, NO_SKILL, NO_SKILL, PID_SPEAR, 1 },
+			{ PID_KNIFE_P, PID_CRAFT_L_RAGS, NO_SKILL, NO_SKILL, PID_KNIFE, 1 }
+	};	
+	/* //Заёбся придумывать и переносить, да и времени нет уже.
+    case PID_10MM_PISTOL: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_GECKO_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 2 );
+		parts.insertLast( PID_BANKA_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_REV_RIFLE_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_REVOLVER_PART ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;	
+    case PID_FLAMER: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_SOED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_EMKOCT_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_LIGHTER ); parts.insertLast( 1 );		
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_AUTOGUN_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );	break;
+    case PID_SAWGUN_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_PERED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_MOTOR ); parts.insertLast( 1 );
+		parts.insertLast( PID_CHAIN ); parts.insertLast( 1 );	
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );	break;
+    case PID_GATLING_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 6 );	
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_SNIPER_GUN_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_NEEDLER_PISTOL: tools.insertLast( PID_SUPER_TOOL_KIT );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );	break;	
+    case PID_DRUM_GUN_LOW: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_9MM_MAUSER: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    case PID_MAUSER_SMG: tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );	break;
+    default: isItemPartable = false;
+    }*/
+	
+	int n = -1, delta = 0;
+	//Ищем в списке декрафта ПИД объекта на который юзнута наука:
+	for( uint i = 0, iEnd = decraft.length(); i < iEnd; i++ ) 
+	{ 
+		int pid = 0;
+		if( decraft[i][0] < 0 ) 
+		{
+			delta = -decraft[i][0]; //Учитываем смещение всего остального списка из-за перечисления предметов, декрафт которых идиентичен.
+			for( int j = 0; j < delta; j++ ) 
+			{
+				pid = decraft[i][1+j];
+				if( pid <= 0 ) 
+				{
+					Log("Index is buged! decraft["+i+"]["+(1+j)+"] = "+pid+".");
+					continue;
+				}
+				if( targetPID == uint( pid ) ) 
+				{ 
+					n = i; 
+					break; 
+				}
+			}
+		} 
+		else if( targetPID == uint( decraft[i][0] ) ) 
+		{ 
+			delta = 0; 
+			n = i; 
+			break;
+		}
+	}
+	if( n == -1 ) 
+	{
+		cr.Say( SAY_NETMSG, "Вы не смогли сходу придумать, как и чем можно разобрать этот предмет." );
+		return true;
+	}
+	//string debug = "";
+	//for(int i=0;i<decraft[n].length();i++)
+	//	debug += " " + decraft[n][i]; 
+	int tools = decraft[n][delta+1];
+	//Проверка наличия инструментов:
+	if( tools < 0 ) { //Пресет или список:
+		if( tools < -100) { //Хотя бы один из группы:
+			if( groups.length()+100 < uint( -tools ) ) {
+				Log("Index is buged! Tools needed index is [" + tools + "] of [" + (groups.length()+100) + "]."); 
+				return true;
+			}
+			bool noAny = true;
+			for( uint i = 0, iEnd = groups[101+tools].length(); i < iEnd; i++ ) {
+				if( cr.CountItem( groups[101+tools][i] ) > 0 ) {
+					noAny = false;
+					break;
+				}
+			}
+			if( noAny ) {
+				cr.Say( SAY_NETMSG, "Нужен хотя бы один инструмент из списка:" );
+				for( uint i = 0, iEnd = groups[101+tools].length(); i < iEnd; i++ )
+					cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100 * groups[101+tools][i] );
+				return true;
+			}
+		} else { //Нужны все из списка:
+			bool notAll = false;
+			for( int i = 0; i < -tools; i++ ) {
+				if( cr.CountItem( decraft[n][delta+2+i] ) == 0 ) {
+					notAll = true;
+					break;
+				}
+			}
+			if( notAll ) {
+				cr.Say( SAY_NETMSG, "Вам необходимо иметь:" );
+				for( int i = 0; i < -tools; i++ )
+					cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100 * decraft[n][delta+2+i] );
+				return true;
+			}
+			delta += 101 + tools; //Учитываем смещение из-за перечисления необходимых инструментов.
+		}
+	} else { //Просто ПИД инструмента, или вообще 0, т.е. без инструмента.
+		if( tools > 0 && cr.CountItem( tools ) == 0 ) {
+			cr.Say( SAY_NETMSG, "У вас нет необходимого инструмента:" );
+			cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100 * tools );
+			return true;
+		}
+	}
+	if ( decraft[n][delta+2] > cr.Skill[ SK_SCIENCE ] || decraft[n][delta+3] > cr.Skill[ SK_REPAIR ] ) {
+		cr.Say( SAY_NETMSG, "Нехватает навыков: наука " + decraft[n][delta+2] + "%, ремонт " + decraft[n][delta+3] + "%." );
+		return true;
+	}
+	int[] result = { cr.Id, item.Id, 30 };
+	for( uint i = delta + 4, iEnd = decraft[n].length(); i < iEnd; i++ )
+		result.insertLast( decraft[n][i] );
+	AskBeforeDestroy( cr, result );
+	CreateTimeEvent( __FullSecond + REAL_SECOND( 1 ), "e_disassemble", result, false );
+    return true;
+}
+
+void AskBeforeDestroy( Critter& cr, int[] parts ) {
+	cr.Say( SAY_NETMSG, "Если вы разберёте этот предмет, то получите:" );
+    for( uint8 i = 3; i < parts.length(); i+=2 ) {
+		cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, 100 * parts[i] );
+        cr.Say( SAY_NETMSG, parts[i+1] + " шт." );
+	}
+	cr.ShowScreen( SCREEN_DIALOGBOX, 2, "answer_disassemble" );
+	cr.Say( SAY_DIALOGBOX_TEXT, "Что вы хотите сделать?" );
+	cr.Say( SAY_DIALOGBOX_BUTTON( 0 ), "разобрать 1 шт" );
+	cr.Say( SAY_DIALOGBOX_BUTTON( 1 ), "разобрать все" );
+}
+
+void answer_disassemble( Critter& cr, uint answerI, string& answerS ) {
+	cr.ParamBase[CR_READY_TO_DISMANTLE] = answerI + 1;
+}
+
+uint e_disassemble( uint[] @ values ) {
+	Critter@ cr = GetCritter( values[0] );
+	values[2]-=1; //Уменьшаем счётчик.
+	if( values[2] == 0 || values[2] >= 60) return 0;
+	if( !valid(cr) ) return 0;
+	if( cr.ParamBase[CR_READY_TO_DISMANTLE] == 0 ) return REAL_SECOND(1);
+	Item@ item = GetItem( values[1] );
+	if( !valid(item) ) return 0;
+	uint amount = 1;
+	if( cr.ParamBase[CR_READY_TO_DISMANTLE] == 2 )
+		amount = item.GetCount();
+    for( uint i = 3, iEnd = values.length(); i < iEnd; i+=2 )
+        cr.AddItem( values[ i ], values[ i + 1 ] * amount );
+	cr.Say( SAY_NETMSG, "Вы разобрали предмет" + ( amount > 1 ? "ы" : "" ) + "." );
+	if( item.GetType() == ITEM_TYPE_WEAPON && item.AmmoCount > 0 ) {
+        if( item.AmmoPid != 0 ) {
+            Item@ existAmmo = cr.GetItem( item.AmmoPid, -1 );
+            if( !valid( existAmmo ) ) cr.AddItem( item.AmmoPid, item.AmmoCount );
+            else _IncItem( existAmmo, item.AmmoCount );
+        }
+        item.AmmoCount = 0;
+    }
+	if ( item.GetCount() > amount ) item.SetCount( item.GetCount() - amount );
+	else DeleteItem( item );
+	cr.ParamBase[CR_READY_TO_DISMANTLE] = 0;
+	return 0;
+}

@@ -1,0 +1,14 @@
+Maps:EW = 700-702
+Maps:SN = 705-707
+Maps:EN = 710-712
+Maps:ES = 715-717
+Maps:SW = 720-722
+Maps:WN = 725-727
+Maps:ESN = 730-732
+Maps:EWN = 735-737
+Maps:ESW = 740-742
+Maps:SWN = 745-747
+Conversion:Road = CrossRoad
+Symbol:Client = I
+Symbol:Parse = I
+Symbol:Color = 79 105 93 255

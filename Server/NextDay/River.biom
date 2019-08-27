@@ -1,0 +1,11 @@
+Maps:EW = 650 651 652
+Maps:SN = 655 656 657
+Maps:EN = 660 661 662
+Maps:ES = 665 666 667
+Maps:SW = 670-672
+Maps:WN = 675-677
+Conversion:Road = Bridge
+Symbol:Parse = W
+Symbol:Client = W
+Symbol:Color = 15 180 250 255
+Speed = 0.0f

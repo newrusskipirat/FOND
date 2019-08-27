@@ -1,0 +1,1824 @@
+#include "_macros.fos"
+#include "_global_events.fos"
+
+
+#include "scenery_tree.fos"
+
+import bool CheckGard( Map& map, uint16 hexX, uint16 hexY ) from "farm";
+import void ExplodeEx( Map& map, uint16 hexX, uint16 hexY, uint16 effectPid, uint effectRadius, uint damage, uint damageType, uint damageRadius, uint ownerId ) from "explode";
+//import bool UseAxeOnTree(Critter@ cr, Item@ tree, uint16 pid) from "scenery_tree";
+
+#define SK_FARMING (217)
+
+#define PLANT_RADCVET				( 0 )
+#define PLANT_CABBAGE				( 1 )
+#define PLANT_CORN					( 2 )
+#define PLANT_MARIJUANA				( 3 )
+#define PLANT_MAX					( 4 )
+
+#define PID_SHIT_HUGE				( 1597 )
+#define PID_SHIT_BIG				( 1598 )
+#define PID_SHIT_SMALL				( 1599 )
+
+#define PID_RADCVET					( 1600 )
+#define PID_CABBAGE					( 1610 )
+#define PID_CORN					( 10119 )
+#define PID_MARIJUANA				( 10109 )
+
+//Константы стадий роста
+#define PLANT_STAGE_SHIT			( -2 )
+#define PLANT_STAGE_DEAD			( -1 )
+#define PLANT_STAGE_SEED			( 0 )
+
+//Константы времени
+#define PLANT_STAGE_SHIT_TIME		( 20 /* * __TimeMultiplier */ ) 
+#define PLANT_STAGE_DEAD_TIME		( 10 /* * __TimeMultiplier */ ) 
+
+
+
+
+
+#define GARDEN_DATA		("garden")
+
+/*
+        Val0 - time event
+        Val1 - стадия роста
+        Val2 - значение селекции
+        Val3 - тип растения
+        Val4 - количество поливок
+        Val5 - количество удобрения
+        Val6 - количество плодов
+
+        Стадии роста Рад-цвета:
+        -2- сдохло(навоз)
+        -1- сдохло(засохло)
+        0 - семечко
+        1 - семечко в земле
+        2 - росток
+        3 - взрослое растение
+
+*/
+
+
+
+class ProtoPlantStage : FileObject
+{
+	
+	string Name;
+    string Text;
+	
+	uint    Time;				//Время до следующего цикла
+    uint8   Water;				//Количество воды для цикла
+    uint8   Shit;				//Количество удобрения для цикла
+    uint8   CollectCount;		//Количество урожая
+    uint16  CollectPid;			//Прототип урожая
+	bool    IsCollectable;		//Возможность сбора урожая
+    uint16  Proto;				//Прототип растения
+	uint16	ProtoDead;			//Смерть растения
+
+    ProtoPlantStage( string@ name )
+    {
+        Name = name;
+    }
+
+    /*void Prepare( ) override // устарело, теперь нужно использовать эвент  // Cracker
+    { 
+        //plantStages.insertLast( this );
+    }*/
+
+    string@ get_DictKey( ) override
+	{
+		return Name;
+	}
+	
+    string@ get_ObjectName( ) const override
+	{
+		return "ProtoPlantStage";
+	}
+	
+    void FormatStringData( string& nameData, string& data ) override
+    {
+        string@[] args = splitEx( nameData, ":" );
+		
+        if( args.length() >= 1 )
+        {
+            if( args.length() == 1 )
+            {
+				int temp = 0;
+				StrToInt(data, temp);
+				
+                if( nameData == "Time" )
+                {
+                    Time = GAME_HOUR(temp);
+                }
+				else if ( nameData == "Water" )
+				{
+                    Water = uint8(temp);
+                }
+				else if ( nameData == "Shit" )
+				{
+                    Shit = uint8(temp);
+                }
+				else if ( nameData == "CollectCount" )
+				{
+                    CollectCount = uint8(temp);
+                }
+				else if ( nameData == "CollectPid" )
+				{
+                    CollectPid = uint16(temp);
+                }
+				else if ( nameData == "IsCollectable" )
+				{
+                    IsCollectable = (temp > 0);
+                }
+				else if ( nameData == "Proto" )
+				{
+                    Proto = uint16(temp);
+                }
+				else if ( nameData == "ProtoDead" )
+				{
+                    ProtoDead = uint16(temp);
+                }
+            }
+        }
+    }
+
+    FileObject@ get_Pattern( string& name ) const override { return ProtoPlantStage( name ); }
+    FileObject@ get_Copy( string& name ) override
+    { 
+        ProtoPlantStage copy( name );
+        return copy;
+    }
+
+    void set_GlobalData( string@ name, string@ value ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+            {
+                GlobalDataList[i].Value = value;
+                return;
+            }
+    }
+
+    string@ get_GlobalData( string@ name ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+                return GlobalDataList[i].Value;
+        return null;
+    }
+
+    private GlobalData@[] GlobalDataList;
+
+	void Init() {}
+	
+    bool Release(Item& item)
+	{
+        item.Val6+=CollectCount;
+        return true;
+    }
+
+    uint16 GetCollPid()
+	{
+        return CollectPid;
+    }
+    uint8 GetShit()
+	{
+        return Shit;
+    }
+	
+    bool CheckShit(Item& item)
+	{
+        return (Shit - item.Val5 >= 0);
+    }
+
+    bool CheckWater(Item& item)
+    {
+      
+        int8 div = (Water - item.Val4);
+
+		if(div < 1) return true;
+
+        div = CLAMP( div, 1, 10 );
+        if( item.Val1 > 0 )
+        {
+            if( Random( 1, 95 ) / ( div ) < 30 )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+
+
+class ProtoPlant : FileObject
+{
+	
+	//uint temp = 0;
+	string Name;
+	uint Time;
+	uint Water;
+
+	uint8	PlantType;
+    int8	SeedCycle;
+    //uint8	Fruits;
+    uint	BasePid;
+    uint	ItemId;
+	
+	ProtoPlantStage@[] Cycles;
+	
+    ProtoPlant( string@ name )
+    {
+        Name = name;
+		Cycles.resize(0);
+    }
+	
+    /*void Prepare( ) override // устарело, теперь нужно использовать эвент  // Cracker
+    { 
+        //plantStages.insertLast( this );
+    } */
+
+    string@ get_DictKey( ) override { return Name; }
+    string@ get_ObjectName( ) const override
+	{
+		return "ProtoPlant";
+	}
+	
+    void FormatStringData( string& nameData, string& data ) override
+    {
+        string@[] args = splitEx( nameData, ":" );
+        if( args.length() >= 1 )
+        {
+            if( args.length() == 1 )
+            {
+                if(nameData == "stages")
+				{
+                    string@[] stages = splitEx(data, " ");
+                    ProtoPlantStage@ stage = null;
+					
+                    for(uint8 i = 0, ii = stages.length(); i < ii; ++i)
+					{
+                        @stage = cast<ProtoPlantStage@>(objectManager.ProtoObject[ "ProtoPlantStage:"+stages[i] ] );
+                        if(stage is null) continue;
+
+                        Cycles.insertLast(stage);
+                    }
+                }
+				
+				else if ( nameData == "BasePid" )
+				{
+					int temp = 0;
+					StrToInt(data, temp);
+                    BasePid = uint(temp);
+                }
+			}
+        }
+    }
+
+    FileObject@ get_Pattern( string& name ) const override { return ProtoPlant( name ); }
+    
+	FileObject@ get_Copy( string& name ) override
+    { 
+        ProtoPlant copy( name );
+		
+		copy.Name = this.Name;
+		copy.Time = this.Time;
+		copy.Water = this.Water;
+		copy.PlantType = this.PlantType;
+		copy.SeedCycle = this.SeedCycle;
+		copy.BasePid = this.BasePid;
+		copy.ItemId = this.ItemId;
+		
+		copy.Cycles = this.Cycles;
+		
+        return copy;
+    }
+
+    void set_GlobalData( string@ name, string@ value ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+            {
+                GlobalDataList[i].Value = value;
+                return;
+            }
+    }
+
+    string@ get_GlobalData( string@ name ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+                return GlobalDataList[i].Value;
+        return null;
+    }
+
+    private GlobalData@[] GlobalDataList;
+	
+	
+	
+	/*
+	void CycleInsert(CPlantCycle& cycle)
+	{
+        Cycles.insertLast(cycle);
+    }
+	
+
+    void InitCycles()
+	{
+        Cycles.resize(0);
+    }
+	
+	void CycleInsert(CPlantCycle& cycle)
+	{
+        Cycles.insertLast(cycle);
+    }
+
+    void InitCycles()
+	{
+        Cycles.resize(0);
+    }
+	*/
+	
+    bool CycleCollectable()
+	{
+		return ( uint( SeedCycle-1 ) < Cycles.length() && SeedCycle >= PLANT_STAGE_SEED ? Cycles[SeedCycle-1].IsCollectable : false);
+    }
+	
+    int Release()
+    {
+        Item @ item = GetItem(ItemId);
+		
+        if(item is null)
+		{
+			return -1;
+		}
+
+        Log("seed cycle "+SeedCycle+"\nVal1 "+item.Val1+"\nVal7 "+item.Val7);
+		
+		
+		if(SeedCycle < PLANT_STAGE_SEED && item.Val7 >= 0)
+		{
+            item.Val7 -= 1;
+            if(item.Val7 <= 0)
+			{
+                if(SeedCycle < PLANT_STAGE_DEAD)
+				{
+					return -1;
+				}
+				
+				else
+				{
+					MakeShit(item);
+				}
+            }
+			
+            return 0;
+        }
+		
+		
+		//Эта часть убивает растение если оно не расположено на гексе. Например срезано и закинуто в инвентарь или в контейнер
+        if(item.Accessory != ACCESSORY_HEX  && SeedCycle != PLANT_STAGE_SEED)
+		{
+            Kill(item);
+            return 1;
+        }
+        
+        uint8 lenCyc = Cycles.length();
+
+        if(SeedCycle < lenCyc)
+		{
+
+            if(Cycles[SeedCycle].Time > __FullSecond)
+			{
+                return 0;
+            }
+
+            if(Cycles[SeedCycle].CheckWater(item))
+			{
+
+                if(Cycles[SeedCycle].GetShit() - item.Val5 <= 0 )
+				{
+                    item.Val2 += Random(0,1);
+                }
+
+                Cycles[SeedCycle].Release(item);
+
+                if(SeedCycle != 0)
+				{
+                    if(Cycles[SeedCycle].Proto != Cycles[SeedCycle-1].Proto)
+					{
+                        item.ChangeProto(Cycles[SeedCycle].Proto);
+                    }
+                }
+                
+                SeedCycle++;
+
+                item.Val1 = SeedCycle;
+				
+                //грязно фикс инит стадии роста
+                if(SeedCycle < lenCyc)
+				{
+					Cycles[SeedCycle].Init();
+				}
+				
+				return 0;
+            }
+
+        }
+        
+        SeedCycle = lenCyc -1;
+        item.Val1 = SeedCycle;
+        Kill(item);
+        
+        return 1;
+    }
+
+	bool Kill( Item& item )
+	{
+		UNSETFLAG( item.Flags, ITEM_HIDDEN );
+			/*
+			Log("cycles len : "+Cycles.length()+" "+SeedCycle);
+			Log(" =========="+
+				"\nName : "+Cycles[SeedCycle].Name+
+				"\nTime : "+Cycles[SeedCycle].Time+
+				"\nWater : "+Cycles[SeedCycle].Water+
+				"\nShit : "+Cycles[SeedCycle].Shit+
+				"\nCollectCount : "+Cycles[SeedCycle].CollectCount+
+				"\nCollectPid : "+Cycles[SeedCycle].CollectPid+
+				"\nProto : "+Cycles[SeedCycle].Proto+
+				"\nProtoDead : "+Cycles[SeedCycle].ProtoDead);
+			*/
+		uint16 pid = Cycles[SeedCycle].ProtoDead;
+		item.ChangeProto( pid );
+		SeedCycle = PLANT_STAGE_DEAD;
+		item.Val1 = SeedCycle;
+		item.Val7 = PLANT_STAGE_DEAD_TIME;
+		item.Update();
+		return true;
+	}
+
+	uint MakeShit( Item& item )
+    {
+        UNSETFLAG( item.Flags, ITEM_HIDDEN );
+        item.ChangeProto( PID_SHIT_SMALL );
+        SeedCycle = PLANT_STAGE_SHIT;
+        item.Val1 = SeedCycle;
+        item.Val7 = PLANT_STAGE_SHIT_TIME;
+        item.Update();
+        return 0;
+    }
+	
+	/*
+	void IncreaseFruits( Item& item )
+	{
+		item.Val6 += 1;
+	}
+	*/
+	
+	void SetItemId(uint itemId)
+	{
+		ItemId = itemId;
+	}
+	
+	void RemoveItem()
+	{
+        Item @ item = GetItem(ItemId);
+        if(@item !is null)
+		{
+            DeleteItem(item);
+        }
+    }
+
+}
+
+class ProtoPlantNames : FileObject
+{
+	string Name;
+	string@[] Names;
+
+    ProtoPlantNames( string@ name )
+    {
+        Name = name;
+    }
+	
+    /*void Prepare( ) override // устарело, теперь нужно использовать эвент  // Cracker
+    { 
+        //plantStages.insertLast( this );
+    }*/
+
+    string@ get_DictKey( ) override { return Name; }
+    string@ get_ObjectName( ) const override
+	{
+		return "ProtoPlantNames";
+	}
+	
+    void FormatStringData( string& nameData, string& data ) override
+    {
+        string@[] args = splitEx( nameData, ":" );
+        if( args.length() >= 1 )
+        {
+            if( args.length() == 1 )
+            {
+                if(nameData == "Names")
+				{
+                    string@[] names = splitEx(data, " ");
+					Names = names;
+                }
+			}
+        }
+    }
+
+    FileObject@ get_Pattern( string& name ) const override { return ProtoPlantNames( name ); }
+    FileObject@ get_Copy( string& name ) override
+    { 
+        ProtoPlantStage copy( name );
+        return copy;
+    }
+
+    void set_GlobalData( string@ name, string@ value ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+            {
+                GlobalDataList[i].Value = value;
+                return;
+            }
+    }
+
+    string@ get_GlobalData( string@ name ) override
+    {
+        const uint hash = GetStrHash( name );
+        for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+            if( GlobalDataList[i].Hash == hash )
+                return GlobalDataList[i].Value;
+        return null;
+    }
+
+    private GlobalData@[] GlobalDataList;
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Конструктор класса "Циклы роста"
+class CPlantCycle
+{
+    
+    uint    Time;				//Время до следующего цикла
+    uint8   Water;				//Количество воды для цикла
+    uint8   Shit;				//Количество удобрения для цикла
+    uint8   CollectCount;		//Количество урожая
+    uint16  CollectPid;			//Прототип урожая
+	bool    IsCollectable;		//Возможность сбора урожая
+    uint16  Proto;				//Прототип растения
+			
+
+    CPlantCycle(uint time, uint8 water, uint8 shit, uint8 collectCount, uint16 collectPid, bool collectable, uint16 proto){
+        Time = __FullSecond + time;
+        Water = water;
+        Shit = shit;
+        IsCollectable = collectable;
+        CollectCount = collectCount;
+        CollectPid = collectPid;
+        Proto = proto;
+    }
+
+	void Init() {}
+	
+    bool Release(Item& item){
+        item.Val6+=CollectCount;
+        return true;
+    }
+
+    uint16 GetCollPid(){
+        return CollectPid;
+    }
+    uint8 GetShit(){
+        return Shit;
+    }
+	
+    bool CheckShit(Item& item){
+        return (Shit - item.Val5 >= 0);
+    }
+
+    bool CheckWater(Item& item)
+    {
+	//Log("water : "+item.Id+" "+item.Val4+":"+Water);
+      
+        int8 div = (Water - item.Val4);
+
+	if(div < 1) return true;
+
+        div = CLAMP( div, 1, 10 );
+        if( item.Val1 > 0 )
+        {
+            if( Random( 1, 95 ) / ( div ) < 30 )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+//Кастомная стадия взрыва семян
+class CPlantCycleExplode : CPlantCycle
+{
+
+    CPlantCycleExplode(uint time, uint8 water, uint8 shit, uint8 collectCount, uint16 collectPid, bool collectable, uint16 proto){
+        Time = __FullSecond + time;
+        Water = water;
+        Shit = shit;
+
+        IsCollectable = collectable;
+        CollectCount = collectCount;
+        CollectPid = collectPid;
+        Proto = proto;
+    }
+
+    bool Release(Item& item){
+        ExplodeEx(GetMap(item.MapId), item.HexX, item.HexY, PID_EXPLODE_ROCKET, 1, 10, DAMAGE_EXPLODE, 1, 0);
+        return true;
+    }
+}
+
+//Кастомная стадия погружения семян
+class CPlantCycleHidden : CPlantCycle
+{
+
+    uint16 ItemId;
+
+    CPlantCycleHidden(uint time, uint8 water, uint8 shit, uint8 collectCount, uint16 collectPid, bool collectable, uint16 proto, uint16 itemId){//string pic){
+        Time = __FullSecond + time;
+        Water = water;
+        Shit = shit;
+
+        IsCollectable = collectable;
+        CollectCount = collectCount;
+        CollectPid = collectPid;
+        Proto = proto;
+        ItemId = itemId;
+    }
+	
+	bool HideMe(bool hide){
+        Item @item = GetItem(ItemId);
+        if (item is null) return false;
+
+        bool isFlagSet = (FLAG(item.Flags,ITEM_HIDDEN));
+
+        if (hide){
+            if (!isFlagSet)    SETFLAG(item.Flags, ITEM_HIDDEN);
+        }else{
+            if (isFlagSet) UNSETFLAG(item.Flags, ITEM_HIDDEN);
+        }
+		
+		item.Update();
+		
+        return true;
+    }
+	
+	void Init(){
+        HideMe(true);
+    }
+	
+	bool Release(Item& item){
+        return HideMe(false);
+    }
+}
+
+/*
+class CPlantCycleCollectWithPlant : CPlantCycle
+{
+
+    CPlantCycleCollectWithPlant(uint time, uint8 water, uint8 shit, uint8 collectCount, uint16 collectPid, bool collectable, uint16 proto){//string pic){
+        Time = __FullSecond + time;
+        Water = water;
+        Shit = shit;
+
+        IsCollectable = collectable;
+        CollectCount = collectCount;
+        CollectPid = collectPid;
+        Proto = proto;
+    }
+
+    bool Release(Item& item){
+        ExplodeEx(GetMap(item.MapId), item.HexX, item.HexY, PID_EXPLODE_ROCKET, 1, 10, DAMAGE_EXPLODE, 1, 0);
+        return true;
+    }
+}
+*/
+
+//Кастомная стадия автодропа семян
+class CPlantCycleDropSeeds : CPlantCycle
+{
+
+    CPlantCycleDropSeeds(uint time, uint8 water, uint8 shit, uint8 collectCount, uint16 collectPid, bool collectable, uint16 proto){//string pic){
+        Time = __FullSecond + time;
+        Water = water;
+        Shit = shit;
+        IsCollectable = collectable;
+        CollectCount = collectCount;
+        CollectPid = collectPid;
+        Proto = proto;
+    }
+
+    bool Release(Item& item){
+
+        Map @ map = GetMap(item.MapId);
+        if(map is null) return false;
+
+        uint8 len = Random(1, 5);	//Количество разброса семян
+        uint16 hexX = 0, hexY = 0, mapX = 0, mapY = 0;
+
+        for(uint i = 0; i < len; ++i){
+
+            hexX = Random(item.HexX - 2, item.HexX + 2);	//Радиус разброса семян
+            hexY = Random(item.HexY - 2, item.HexY + 2);	//Радиус разброса семян
+
+            map.GetEntireCoords(255, 0, mapX, mapY);
+
+            if(hexX < mapX || hexX >= mapX + 150 || hexY < mapY || hexY >= mapY + 150) continue;
+
+            if(map.GetItems(hexX, hexY, null) > 0) continue;
+
+            Item @ seed = map.AddItem(hexX, hexY, CollectPid, 1);
+            if(seed is null) continue;
+
+            seed.Val1 = 1;
+
+            seed.SetScript("plant@_InitPlant");
+        }
+
+
+        return true;
+    }
+}
+
+class CPlant
+{
+    uint8	PlantType;
+    uint8	SeedCycle;
+    uint8	Fruits;
+    uint16	BasePid;
+    uint	ItemId;
+    uint	Time;
+
+    CPlantCycle@[] Cycles;
+
+    CPlant()
+    {
+        PlantType = 0;
+        BasePid = 0;
+        SeedCycle = 0;
+    }
+
+    CPlant(uint itemId, uint time){
+        ItemId = itemId;
+        Time = time;
+        SeedCycle = GetItem(ItemId).Val1;
+        InitCycles();
+    }
+
+    void CycleInsert(CPlantCycle& cycle){
+        Cycles.insertLast(cycle);
+    }
+
+    void InitCycles(){
+        Cycles.resize(0);
+    }
+
+    bool CycleCollectable(){
+        return (SeedCycle-1 < Cycles.length() ? Cycles[SeedCycle-1].IsCollectable : false);
+    }
+
+    int Release()
+    {
+        Item @ item = GetItem(ItemId);
+        if(item is null){/*Log("PLANT BROKEN ITEM ID "+ItemId)*/;return -1;}
+
+		if(item.Accessory != ACCESSORY_HEX  && SeedCycle != 0 && item.GetProtoId() != BasePid+9){
+            Kill(item);
+            return 1;
+        }
+		
+        uint8 lenCyc = Cycles.length();
+
+    if(/*lenCyc != 0 && */SeedCycle < lenCyc){
+
+		if(Cycles[SeedCycle].Time > __FullSecond) {
+			/*Log("not yet "+Cycles[SeedCycle].Time+" full s "+__FullSecond)*/;
+			return 0;
+		}
+
+		if(Cycles[SeedCycle].CheckWater(item)){
+
+			if(Cycles[SeedCycle].GetShit() - item.Val5 <= 0 ){//CheckShit(item)){
+				item.Val2 += Random(0,1);
+			}
+
+			Cycles[SeedCycle].Release(item);
+
+			//item.SetMapPic(GetStrHash(PT_ART_SCENERY+Cycles[SeedCycle].Pic));
+			if(SeedCycle != 0){
+				if(Cycles[SeedCycle].Proto != Cycles[SeedCycle-1].Proto){
+					item.ChangeProto(Cycles[SeedCycle].Proto);
+				}
+			}
+			
+			SeedCycle++;
+
+			item.Val1 = SeedCycle;
+			//грязно фикс инит стадии роста
+            if(SeedCycle < lenCyc) Cycles[SeedCycle].Init();
+		}else{
+			SeedCycle = lenCyc -1;
+			Kill(item);
+		}
+
+	}else{
+		Kill(item);
+		//DeleteItem(item);
+	}
+
+	return 1;
+    }
+
+
+
+    bool Kill( Item& item )
+    {
+        //ProtoPlant@ plant = GetPlant( item.Val3 );
+        //if( plant is null )
+            //return false;
+
+        UNSETFLAG( item.Flags, ITEM_HIDDEN );
+        SeedCycle = Cycles.length() - 1;
+        item.ChangeProto( BasePid + 9 );
+        item.Update();
+        return true;
+    }
+
+    uint MakeShit( Item& item )
+    {
+        UNSETFLAG( item.Flags, ITEM_HIDDEN );
+        item.ChangeProto( PID_SHIT_SMALL );
+        item.Update();
+        return 0;
+    }
+
+    void IncreaseFruits( Item& item )
+    {
+        item.Val6 += 1;
+    }
+}
+
+ProtoPlant[] garden;
+
+
+
+bool GardenHour()
+{
+	uint[] removeId = {};
+
+	for(uint i = 0, j = garden.length(); i < j; ++i)
+	{
+		if(garden[i] !is null)
+		{
+			if(garden[i].Release() == -1)
+			{
+				removeId.insertFirst(i);
+				garden[i].RemoveItem();
+			}
+		}
+		
+		else
+		{
+			Log("null garden id "+i);
+			removeId.insertFirst(i);
+		}
+	}
+
+	for(uint i = 0, j = removeId.length(); i < j; ++i)
+	{
+		if(removeId[i] < j)
+		{
+			garden.removeAt(removeId[i]);
+		}
+	}
+
+	return true;
+}
+
+ObjectsManager plantMng;
+
+void start( string&in, Handle@ )
+{
+    iManagerModule@  module = plantMng;
+    iManagerElement@ manager = manager_add_module( module, "plants", 200 );
+    if( @manager is null )
+        return;
+}
+
+
+void ModuleInit( string&in, Handle@ )
+{
+    EventRoot.SetCallback( "Start", start );
+}
+
+class ObjectsManager : iManagerModule, iManager_loop, iManager_time, iManager_world_save//, iManager_critter_init
+{
+
+	bool manager_init()
+    {
+        return true;
+    }
+	
+	bool manager_start(){
+		objectManager.ParseProtoTypes( "plant_name", ProtoPlantNames( "Pattern" ), "./NextDay/" );
+		objectManager.ParseProtoTypes( "plant_stage", ProtoPlantStage( "Pattern" ), "./NextDay/" );
+		objectManager.ParseProtoTypes( "plant", ProtoPlant( "Pattern" ), "./NextDay/" );
+		
+		
+		
+		_test_content_world();
+		//_test_content();
+		// вызывается в порядке приоритетов
+		GardenInit();
+		return true;
+	}
+
+	bool global_world_save(){
+	
+		GardenSave();
+		return true;
+	}
+
+	uint global_loop(){
+
+        //GardenHour();
+        //return uint(REAL_SECOND(10));
+
+        return uint(-1);
+	 }
+
+	bool global_time(int8 type){
+        if(type == TIME_NEW_HOUR){
+	  //if(type == TIME_NEW_MINUTE){
+            //Log("new hour");
+	      GardenHour();
+	      
+        }
+        return true;
+    }
+}
+
+
+void _InitPlant( Item& item, bool firstTime )
+{
+     //Log("type "+item.Val3);
+
+
+    if( firstTime )
+    {
+
+        item.Val2 = 1;
+    }
+
+    uint16 proto = item.GetProtoId();
+    // proto!=PID_PLANT_RADCVET
+    if( item.GetType() != ITEM_TYPE_PLANT )
+            return;
+
+    //uint8 hashNum = item.Val3;
+
+        // item.Info=item.Val1*10;
+
+
+
+    //garden.insertLast(plant);
+    //item.Val3 = plant.PlantType;
+
+    //item.Update();
+
+    if( item.Val1 == 0 )
+    {
+        item.SetEvent( ITEM_EVENT_DROP, "_DropPlant" );
+        //if( item.Accessory == ACCESSORY_HEX && item.Val0 != 0 )
+            //item.SetEvent( ITEM_EVENT_SKILL, "_SkillPlant" );
+    }else{
+        ProtoPlant @ plant = PlantCreate(item, 0);
+        if(plant is null) {Log("null plant init"); return;}
+
+        item.SetEvent( ITEM_EVENT_SKILL, "_SkillPlant" );
+		item.SetEvent( ITEM_EVENT_WALK, "_WalkPlant" );
+		item.SetEvent( ITEM_EVENT_USE_ON_ME, "_OnMePlant" );
+        garden.insertLast(plant);
+    }
+	/*
+    if( item.Val1 == 0 || item.Val1 == 3 )
+    {
+        SETFLAG( item.Flags, ITEM_CAN_USE );
+    }
+    else
+        UNSETFLAG( item.Flags, ITEM_CAN_USE );
+
+    item.SetEvent( ITEM_EVENT_USE, "_UsePlant" );
+	*/
+}
+
+ProtoPlant@ PlantCreate(Item& item, uint time)
+{
+	
+    uint basePid = item.Proto.Plant_BasePid;
+	Log("proto base pid "+basePid);
+    ProtoPlant @ plant = null;
+	
+	string[] names = {"corn"};
+	//Log("name "+name.Names[0]);
+	
+	for(uint8 i = 0, ii = names.length(); i < ii; ++i)
+	{
+		@plant = cast<ProtoPlant@>(objectManager.ProtoObject[ "ProtoPlant:"+names[i] ]);
+        if(plant is null) continue;
+		Log("plant BP "+plant.BasePid);
+		
+		
+        if(plant.BasePid == basePid)
+		{
+			
+			string name = ""+plant.Name+"_"+item.Id;
+			ProtoPlant@ pp = cast<ProtoPlant@>(plant.get_Copy(name));
+			
+			
+			
+			
+			
+			
+			if(pp is null)
+			{
+				Log("Нулевой пп : "+pp.Name);
+				continue;
+			}
+			
+			pp.ItemId = item.Id;
+			pp.SeedCycle = item.Val1;
+			
+			//Log("\nPP : "+pp.Name);
+			
+			Log("\nName "+pp.Name+
+				"\nBasePid "+pp.BasePid+
+				"\nTime "+pp.Time+
+				"\nWater "+pp.Water+
+				"\nPlantType "+pp.PlantType+
+				"\nSeedCycle "+pp.SeedCycle+
+				"\nItemId "+pp.ItemId);
+				
+			//ProtoPlant@pp = plant.get_Copy(plant.Name+"_"+item.Id);
+			//pp.SetItemId(item.Id);
+			return @pp;
+		}
+		
+    }
+		
+	/*
+    ProtoPlantNames@ name = cast<ProtoPlantNames@>(objectManager.ProtoObject[ "ProtoPlantNames:plants_all"] );
+    if(name is null) return null;
+	*/
+	
+	
+	
+	/*
+    for(uint8 i = 0, ii = name.Names.length(); i < ii; ++i)
+	{
+        @plant = cast<ProtoPlant@>(objectManager.ProtoObject[ "ProtoPlant:"+name.Names[i] ]);
+        if(plant is null) continue;
+		Log("plant BP "+plant.BasePid);
+		
+        if(plant.BasePid == basePid) return @plant;
+    }
+	*/
+
+    return null;
+
+}
+
+
+ProtoPlant@ ProtoPlantCreate(Item& item, uint time){
+
+    ProtoPlant @ plant = null;
+
+    //switch(item.GetProtoId())
+    //{
+    uint16 pid = item.GetProtoId();
+    /*
+	if(pid >= PID_RADCVET && pid <= PID_RADCVET+9){
+        @plant = CRadCvet(item.Id, time);
+    }else if(pid >= PID_CABBAGE && pid <= PID_CABBAGE+9){
+         @plant = CCabbage(item.Id, time);
+    }else if(pid >= PID_CORN && pid <= PID_CORN+9){
+         @plant = CCorn(item.Id, time);
+    }else if(pid >= PID_MARIJUANA && pid <= PID_MARIJUANA+9){
+         @plant = CMarijuana(item.Id, time);
+    }
+	*/
+
+     return plant;
+}
+
+
+import void AffectRadiation( Critter& cr, int value ) from "radiation";
+import void AffectPoison( Critter& cr, int value ) from "poison";
+
+void SeedCycle(Item& item, Critter& cr){
+	for( uint i = 0, len = Random( 1, item.Val2 ); i < len; i++ ){
+
+		ProtoPlant @ plant = GetPlant( item.Id );
+		if(plant is null) continue;
+
+		Item@ pl = cr.AddItem( plant.BasePid, 1 );
+		pl.Val2 = item.Val2 + Random( 0, 1 );
+		pl.Val3 = item.Val3;
+		pl.SetScript( "plant@_InitPlant" );
+        }
+
+	DeleteItem( item );
+}
+
+bool _UsePlant( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    ProtoPlant @ plant = GetPlant( item.Id );
+    if( valid( onCritter ) || valid( onItem ) || valid( onScenery ) || plant is null )
+        return false;
+
+    /*if( item.Val1 == 0 )
+    {
+        AffectRadiation( cr, 1 ); //Чувствительность увеличена стократно (1.00 раньше == 100 рад теперь ), но ребаланс не делаю!
+        AffectPoison( cr, 1 );
+
+        int heal = cr.Param[ ST_MAX_LIFE ] - cr.Param[ ST_CURRENT_HP ],
+            good = item.Val2;
+        if( good > heal )
+            good = heal;
+        if( good > 15 )
+            good = 15;               // ErlKing ограничение лечения радцветом
+        cr.StatBase[ ST_CURRENT_HP ] += good;
+        DeleteItem( item );
+    }
+    else if( item.Val1 == plant.SeedCycle )
+    {
+		SeedCycle(item, cr);
+    }
+    else
+        return false;*/
+
+    return true;
+}
+
+void _DropPlant( Item& item, Critter& cr )
+{
+    Map@ map = cr.GetMap();
+    if( map is null )
+        return;
+
+    if( item.Val1 != 0 )
+        return;
+
+    if( map.GetItems( cr.HexX, cr.HexY, null ) > 1 )
+    {
+        if( cr.IsLife() )
+            cr.Say( SAY_NETMSG, "Это тут не прорастет." );
+        return;
+    }
+
+    item.SetEvent( ITEM_EVENT_SKILL, "_SkillPlant" );
+    item.SetEvent( ITEM_EVENT_WALK, "_WalkPlant" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_OnMePlant" );
+    uint time = 0;
+    if( CheckGard( map, cr.HexX, cr.HexY ))
+    {
+        time = GAME_MINUTE( 20 ) / (cr.Skill[SK_FARMING] > 0 ? cr.Skill[SK_FARMING] : 1);	//Отсрочка начала роста (первая стадия)
+        if( cr.IsLife() )
+            cr.Say( SAY_NETMSG, "Плод посажен." );
+    }
+    else
+    {
+        time = GAME_DAY( 2 );
+        if( cr.IsLife() )
+            cr.Say( SAY_NETMSG, "Здесь плод будет проростать очень долго." );
+    }
+
+    //item.Val0 = CreateTimeEvent( __FullSecond + time, "e_ProcessPlant", item.Id, true );
+
+    ProtoPlant@ plant = PlantCreate(item, time);
+    if(plant is null) {Log("create plant error");return;}
+
+    garden.insertLast(plant);
+}
+
+bool _SkillPlant( Item& item, Critter& cr, int skill )
+{
+	if (skill < SKILL_PICK_ON_GROUND)
+	{
+		return false;
+	}
+	
+	ProtoPlant @ plant = GetPlant( item.Id );
+	
+	if( plant is null )
+	{
+		return false;
+	}
+
+    if( skill == SKILL_PICK_ON_GROUND )
+	{
+
+		//if (item.Val1 == plant.SeedCycle){SeedCycle(item, cr); cr.Say( SAY_NETMSG, "Вы собрали семена." ); return true;}
+        if(plant.CycleCollectable())
+		{
+	  
+			if(item.Val6 <= 0)
+			{
+				cr.Say(SAY_NETMSG, "Нечего собирать"); return true;
+			}
+
+			uint8 harvestCount = CLAMP((item.Val6 * (cr.Skill[SK_REPAIR] * 0.0075)), 1, item.Val6);
+	    
+			item.Val6 = 0;
+
+			Item@ harvest = cr.AddItem( plant.Cycles[plant.SeedCycle].CollectPid, harvestCount);
+			
+			if(harvest is null)
+			{
+				return true;
+			}
+	    
+			cr.Say(SAY_NETMSG, "Вы собрали урожай : "+harvestCount);
+
+			harvest.Val2 = item.Val2 + (Random(1,100) > 95 ? 1 : 0);
+			harvest.SetScript("plant@_InitFruit");
+			cr.StatBase[ST_EXPERIENCE] += harvestCount*5;
+	    
+			return true;
+
+        }
+
+		cr.Say( SAY_NETMSG, "Не время собирать урожай." );
+
+    }
+	
+	else if(skill == SK_SCIENCE)
+	{
+		if(cr.Skill[SK_FARMING] > 100)
+		{
+		    ProtoPlantStage@ currentCycle = plant.Cycles[plant.SeedCycle];
+			string msg = ("Информация о растении :\nСтадия роста : "+item.Val1+"\\"+(plant.Cycles.length()-1)+"\nПолив : "+item.Val4+"\\"+currentCycle.Water+"\nУдобрения : "+item.Val5+"\\"+currentCycle.Shit+"\nПлодов : "+item.Val6+"\nСелекция : "+item.Val2+"\nСбор : "+(currentCycle.IsCollectable ? "да" : "нет"));
+			cr.Say(SAY_NETMSG, msg);
+		}
+		
+		else
+		{
+			cr.Say(SAY_NETMSG, "Недостаточный навык фермерства.");
+		}
+    }
+    return true;
+}
+
+/*
+void answer_ShowCounter(Critter& cr, uint answerI, string& answerS ){
+
+    Item @ item = GetItem(cr.StatBase[ST_LAST_CONT_ID]);
+    if(item is null) return;
+
+    ProtoPlant @ plant = GetPlant( item.Id);
+	if( plant is null ) return;
+
+	uint8 harvestCount = CLAMP(answerI, 0, item.Val6);
+
+	Item@ harvest = cr.AddItem( plant.Cycles[plant.SeedCycle].CollectPid, harvestCount);
+    if(harvest is null) return;
+
+    harvest.Val2 = item.Val2 + Random(0,1);
+}
+*/
+void _WalkPlant( Item& item, Critter& cr, bool entered, uint8 dir )
+{
+    if( entered && item.Val1 > 1 )
+    {
+        if( Random( 1, 95 ) > 5 )
+        {
+            ProtoPlant @ plant = GetPlant( item.Id );
+            plant.Kill( item );
+        }
+    }
+    // Log("te "+item.Val1);
+}
+
+
+//Ф-ця использование предметов на растениях
+bool _OnMePlant( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null )
+        return true;
+    if( item.Val1 == 0 )
+        return true;
+
+	uint16 pid = usedItem.GetProtoId();
+	
+    ProtoItem @ proto = GetProtoItem(pid);
+    if (proto is null) return true;
+
+	//if (item.Val1 <= 0){
+        //cr.Say(SAY_NETMSG, "Семки, пока все еще семки. Вам стоит подождать...");
+        //return true;
+    //}
+	
+    if(proto.SubDamage != 0){
+		MoveItem(item,0,cr);
+
+        item.SetEvent( ITEM_EVENT_SKILL, "" );
+        //item.SetEvent( ITEM_EVENT_WALK, "" );
+        //item.SetEvent( ITEM_EVENT_USE_ON_ME, "" );
+        //item.SetEvent( ITEM_EVENT_DROP, "" );
+        //item.Accessory = ACCESSORY_CRITTER;
+        //cr.Say(SAY_NETMSG, "Похоже это подойдет для грязной работенки");
+        return true;
+    }
+    
+    bool erase = false;
+
+		if(proto.Food_Thrist > 0)
+		{
+			item.Val4 += proto.Food_Thrist * 0.1;
+	
+			cr.Say( SAY_NETMSG, "Вы полили растение.");
+				erase = true;
+		}
+    else if( pid == PID_SHIT_SMALL || pid == PID_SHIT_HUGE || pid == PID_SHIT_BIG)
+    {
+        item.Val5 += 1;
+	cr.Say( SAY_NETMSG, "Вы удобрили растение.");
+	
+	erase = true;
+    }
+    else if( pid == PID_AXE && item.GetProtoId() >= PID_MARIJUANA+3 && item.GetProtoId() <= PID_MARIJUANA+9){
+		//ProtoPlant @ plant = GetPlant(item.Id);    
+		//if(plant !is null && plant.SeedCycle == plant.Cycles.length()-2){
+		cr.Say(SAY_NETMSG, "должно рубить, но не рубит");
+		UseAxeOnTree(cr, item, PID_MUTARIJUANA, true);
+		//}
+		
+    }
+    
+    if(erase){
+		  _SubItem(usedItem, 1);
+    }
+
+    return true;
+}
+
+void _InitFruit(Item& item, bool firstTime){
+	item.SetEvent(ITEM_EVENT_SKILL, "e_FruitSkill");
+}
+
+//Использует навык ремонта для извлечения семян. вместо навыка фермера. заменить когда будет навык фермера
+bool e_FruitSkill( Item& item, Critter& cr, int skill ){
+	if(skill == SK_REPAIR){
+		//cut decimal
+		uint16 basePid = ((item.GetProtoId() / 10) * 10);
+		Item @ fruit = cr.AddItem(basePid, item.Val2);
+		
+		if(fruit is null) return true;
+		
+		fruit.Val1 = 0;
+		fruit.Val2 = item.Val2;
+		
+		_SubItem(item, 1);
+		
+		cr.Say(SAY_NETMSG, "Вы извлекли семена : "+item.Val2);
+		
+		return true;
+	}
+	
+	return false;
+}
+
+ProtoPlant@ GetPlant(uint id)
+{
+    for(uint i = 0, j = garden.length(); i < j; ++i){
+        if(garden[i].ItemId == id){
+            return @garden[i];
+        }
+    }
+
+    return null;
+}
+
+/*
+class CRadCvet  : ProtoPlant
+{
+
+    CRadCvet(uint itemId, uint time)
+    {
+        ItemId = itemId;
+        SeedCycle = GetItem(itemId).Val1;
+        BasePid = PID_RADCVET;
+        PlantType = PLANT_RADCVET;
+
+        Time = time;
+
+        InitCycles();
+    }
+
+    void InitCycles(){
+		//аргументы: время, вода, говно, кол-во сбора плодов, пид плодов, можно ли собирать, прототип растения
+        Cycles.insertLast(CPlantCycle(Time, 0, 0, 0, 0, false,  PID_RADCVET));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(1), 0, 0, 0, 0, false,  PID_RADCVET+1));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(1), 0, 0, 0, 0, false,  PID_RADCVET+2));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(1), 0, 1, 2, PID_RADCVET, true,  PID_RADCVET+3));
+        Cycles.insertLast(CPlantCycleExplode(GAME_HOUR(1), 0, 0, 0, 0, false,  PID_RADCVET+9));
+    }
+}
+
+class CCabbage  : CPlant
+{
+    CCabbage(uint itemId, uint time)
+    {
+        ItemId = itemId;
+        SeedCycle = GetItem(itemId).Val1;
+        BasePid = PID_CABBAGE;
+        PlantType = PLANT_CABBAGE;
+
+        Time = time;
+
+        InitCycles();
+    }
+
+    void InitCycles(){
+		//аргументы: время, вода, говно, кол-во сбора плодов, пид плодов, можно ли собирать, прототип растения
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(4), 0, 0, 0, 0, false,  PID_CABBAGE));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 0, 0, 0, false,  PID_CABBAGE+1));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 0, 0, 0, false,  PID_CABBAGE+1));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(8), 0, 0, 0, 0, false,  PID_CABBAGE+2));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(12), 0, 0, 1, PID_CABBAGE+5, true,  PID_CABBAGE+3));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(12), 0, 0, 1, PID_CABBAGE, false,  PID_CABBAGE+9));
+    }
+}
+
+//Циклы роста для кукурузы
+class CCorn     : CPlant
+{
+    CCorn(uint itemId, uint time)
+    {
+        ItemId = itemId;
+        SeedCycle = GetItem(itemId).Val1;
+        BasePid = PID_CORN;
+        PlantType = PLANT_CORN;
+
+        Time = time;
+
+        InitCycles();
+    }
+
+    void InitCycles(){
+		//аргументы: время, вода, говно, кол-во сбора плодов, пид плодов, можно ли собирать, прототип растения
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 0, 0, 0, false,  PID_CORN));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 0, 0, 0, false,  PID_CORN+1));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 0, 0, 0, false,  PID_CORN+2));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 1, 1, 0, 0, false,  PID_CORN+2));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(8), 1, 1, 0, 0, false,  PID_CORN+3));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(8), 1, 1, 2, PID_CORN+6, true,  PID_CORN+4));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(8), 2, 1, 4, PID_CORN+6, true,  PID_CORN+4));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(12), 2, 1, 6, PID_CORN+6, true,  PID_CORN+4));
+		Cycles.insertLast(CPlantCycle(GAME_HOUR(12), 0, 1, 0, 0, false,  PID_CORN+9));
+    }
+}
+
+//Циклы роста для Мариванны
+class CMarijuana     : CPlant
+{
+    CMarijuana(uint itemId, uint time)
+    {
+        ItemId = itemId;
+        SeedCycle = GetItem(itemId).Val1;
+        BasePid = PID_MARIJUANA;
+        PlantType = PLANT_MARIJUANA;
+
+        Time = time;
+
+        InitCycles();
+    }
+
+    void InitCycles(){
+		//аргументы: время, вода, говно, кол-во сбора плодов, пид плодов, можно ли собирать, прототип растения
+        Cycles.insertLast(CPlantCycle(Time, 0, 1, 0, 0, false,  PID_MARIJUANA));		//стадия 0 - плод посажен
+		Cycles.insertLast(CPlantCycleHidden(GAME_HOUR(1), 0, 0, 0, 0, false, PID_MARIJUANA, ItemId));		//стадия 1 - семя погрузилось в грунт
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 0, 0, false,  PID_MARIJUANA+1));		//стадия 2 - всходы
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 0, 0, false,  PID_MARIJUANA+1));		//стадия 3 - росток
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 5, 0, false,  PID_MARIJUANA+2));		//стадия 4 - 
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 5, PID_MARIJUANA, true,   PID_MARIJUANA+2));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 10, PID_MARIJUANA, true,  PID_MARIJUANA+3));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 1, 1, 10, PID_MARIJUANA, true,  PID_MARIJUANA+3));
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 1, 1, 10, PID_MARIJUANA, true,  PID_MARIJUANA+3));
+        Cycles.insertLast(CPlantCycleDropSeeds(GAME_HOUR(1), 0, 1, 10, PID_MARIJUANA, true,  PID_MARIJUANA+3));	//Кастомная стадия рост с дропом семян
+        Cycles.insertLast(CPlantCycle(GAME_HOUR(6), 0, 1, 0, 0, false,  PID_MARIJUANA+9));
+    }
+}
+*/
+
+void PlantRemoveId(uint id){
+    for(uint i = 0, j = garden.length(); i < j; ++i){
+        if(!(garden[i] is null) && garden[i].ItemId != id) continue;
+
+        garden.removeAt(i);
+
+    }
+}
+
+void GardenInit(){
+	if(IsAnyData(GARDEN_DATA)){
+		uint[] data;
+		GetAnyData(GARDEN_DATA, data);
+		
+		Item@ temp;
+		
+		for(uint i = 0, j = data.length(); i < j; i++){
+			@temp = GetItem(data[i]);
+			if(temp is null) continue;
+			
+			_InitPlant(temp, false);
+		}
+	}
+}
+
+void GardenSave(){
+	uint[] id;
+	for(uint i = 0, j = garden.length(); i < j; i++){
+		id.insertLast(garden[i].ItemId);
+	}
+	
+	SetAnyData(GARDEN_DATA, id);
+}
+/*
+class CGarden
+{
+    CPlant@[] Plants;
+
+    bool Release(){
+        for(uint i = 0, j = Plants.length(); i < j; ++i){
+            Plants[i].Release();
+        }
+    }
+}*/
+
+/*
+uint e_ProcessPlant( uint[] @ values )
+{
+    if( values is null || values.length() != 1 )
+        return 0;
+
+    Item@ item = GetItem( values[ 0 ] );
+
+    if( item is null )
+        return 0;
+
+    uint16 pid = item.GetProtoId();
+    // pid!=PID_PLANT_RADCVET
+    if( item.GetType() != ITEM_TYPE_PLANT /* || item.Val0==0* )
+        return 0;
+
+    uint8 hashNum = item.Val3;
+    ProtoPlant @ plant = GetPlant( hashNum );
+
+    if( item.Val1 == 0 )
+        item.SetEvent( ITEM_EVENT_DROP, null );
+    else if( item.Val1 >= plant.MaxCycle )
+    {
+        // Log("cycle>max");
+        return plant.MakeShit( item );
+    }
+
+    if( item.Val1 > 0 )
+    {
+        if( !plant.CheckWater( item ) )
+        {
+            item.Val1 = plant.MaxCycle;
+            return GAME_HOUR( 1 );
+        }
+
+        if( plant.ToShit[ item.Val1 - 1 ] >= item.Val5 )
+        {
+            item.Val2 += 1;
+            item.Val6 += 1;
+        }
+
+        if( Random( 1, 95 ) == 5 )
+        {
+            Map @ map = GetMap( item.MapId );
+            if( !(map is null) )
+            {
+                map.AddNpc( 16, item.HexX, item.HexY, 0, null, null, "mob@_MobInit" );
+                DeleteItem( item );
+                return 0;
+            }
+
+        }
+
+        item.Val4 = 0;
+        item.Val5 = 0;
+
+    }
+
+    item.Val1 += 1;
+    uint  Val1 = item.Val1;
+
+    uint8 cyclePic = Val1;
+
+    // Log("cyclePic "+cyclePic);
+
+    // item.Info=item.Val1*10;
+
+    if( item.Val2 <= 2 )
+        item.Val2 += Random( 0, 1 );
+    else
+        item.Val2 += Random( -2, 2 );
+
+
+
+
+    uint time = plant.Release( item );
+    // Log("time "+time);
+
+    return time;
+}*/
+/*
+   void _InitShit(Item& item, bool firstTime){
+                item.SetEvent(ITEM_EVENT_DROP, "_DropShit");
+                //item.SetEvent(ITEM_EVENT_USE, "_UseShit");
+                //if(item.Accessory==ACCESSORY_HEX && item.Val0!=0) item.SetEvent(ITEM_EVENT_SKILL, "_SkillPlant");
+
+        //
+   }
+   /*
+   void _DropShit(Item& item, Critter& cr){
+        Map@ map = cr.GetMap();
+        if(map is null) return;
+
+        Item@[] find;
+
+        for(uint8 i = 0; i < 6; i++){
+                uint16 hexX = item.HexX, hexY = item.HexY;
+                Item@[] items;
+                map.MoveHexByDir(hexX, hexY, i, 1);
+                if(map.GetItems(hexX, hexY, items) > 0){
+                        for(uint16 ii = 0, jj = items.length(); ii < jj; ii++){
+                                find.insertLast(items[ii]);
+                        }
+                }
+        }
+        uint16 counter = 0;
+        while(find.length() > 0){
+                counter++;
+
+                if(counter >= 5){
+                        Item @ item = find[0];
+                        find.removeAt(0);
+                        item.ChangeProto(PID_SHIT_BIG);
+                        DeleteItems(find);
+
+                }
+        };
+
+   }*/
+
+void se(Critter& cr, int set, int itemId, int){
+    Item@ item = GetItem(itemId);
+    if (item is null) return;
+
+    if (set > 0){
+        item.SetScript("plant@_InitPlant");
+    }else{
+        item.SetEvent( ITEM_EVENT_SKILL, "" );
+        item.SetEvent( ITEM_EVENT_WALK, "" );
+        item.SetEvent( ITEM_EVENT_USE_ON_ME, "" );
+        item.SetEvent( ITEM_EVENT_DROP, "" );
+    }
+}
+
+/*
+void _test_content(){
+    for(uint8 i = 0, ii = plantStages.length(); i < ii; ++i){
+        if(plantStages is null) continue;
+
+        Log(" =========="+
+            "\nName : "+plantStages[i].Name+
+            "\nTime : "+plantStages[i].Time+
+            "\nWater : "+plantStages[i].Water+
+            "\nShit : "+plantStages[i].Shit+
+            "\nCollectCount : "+plantStages[i].CollectCount+
+            "\nCollectPid : "+plantStages[i].CollectPid+
+            "\nProto : "+plantStages[i].Proto+
+            "\nProtoDead : "+plantStages[i].ProtoDead);
+    }
+}
+*/
+
+void _test_content_world()
+{
+
+    string[] plants = {"corn", "gabbage"};
+
+    for(uint8 i = 0, ii = plants.length(); i < ii; ++i)
+	{
+
+
+        ProtoPlant@ plant = cast<ProtoPlant@>(objectManager.ProtoObject[ "ProtoPlant:" + plants[i] ] );
+        if(plant is null) continue;
+
+        Log(" =========="+
+            "\nName : "+plant.Name+
+            "\nBPid : "+plant.BasePid);
+			
+        for(uint8 j = 0, jj = plant.Cycles.length(); j < jj; ++j)
+		{
+            Log("\nStage : "+plant.Cycles[j].Name+"\nProtoDead : "+plant.Cycles[j].ProtoDead);
+        }
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
+   
+   

@@ -1,0 +1,320 @@
+
+# ifndef __ND_API
+# define __ND_API
+
+shared interface Project
+{
+	string@ get_Name( );
+	void Build( );
+	void SetAssociation( string@ ex, string@ className, string@ classModule );
+}
+
+shared interface FileObject
+{
+	string@ get_DictKey( );
+	string@ get_ObjectName( ) const;
+	void FormatStringData( string& nameData, string& data );
+	FileObject@ get_Pattern( string& name ) const;
+	FileObject@ get_Copy( string& name );
+	
+# ifdef __SERVER
+	void set_GlobalData( string@ name, string@ value );
+	/* // Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+			if( GlobalDataList[i].Hash == hash )
+			{
+				GlobalDataList[i].Value = value;
+				return;
+			}
+	}
+	*/
+	string@ get_GlobalData( string@ name );
+	/* // Дефолтная обработка
+	{
+		const uint hash = GetStrHash( name );
+		for( uint i = 0, iEnd = GlobalDataList.length(); i < iEnd; i++ )
+			if( GlobalDataList[i].Hash == hash )
+				return GlobalDataList[i].Value;
+		return null;
+	}
+	
+	private GlobalData@[] GlobalDataList;
+	*/
+# endif // __SERVER
+
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog( )
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick = GetTick();
+	}
+	
+	bool check( uint count )
+	{
+		return ( GetTick() - tick >= count );
+	}
+	
+	uint get()
+	{
+		uint old = tick;
+		refresh();
+		return ( tick - old );
+	}
+	
+	void Log( string&in message )
+	{
+		::ClearLog( message + " [" + ( GetTick() - tick ) + "ms]" );
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@ get_DictKey( );
+	string@ get_ObjectName( ) const;
+	uint[]@ get_SaveData( );
+	void InitData( uint[]& data );
+}
+
+shared interface ManagerObject
+{
+	FileObject @get_ProtoObject( string@ name );
+	void ParseProtoTypes( const string& ex, const FileObject& pattern, const string@ search );
+	FileObject @ParseProtoTypeFile( string& name, const string& ex, const FileObject& pattern, const string@ search );
+	FileObject @AddPrototype( FileObject@ proto );
+	FileObject @StringToFileObject( string& name, string& txt, const FileObject& pattern );
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+}
+
+# ifdef __SERVER
+shared class GlobalData
+{ 
+	uint Hash;
+	string Value;
+	
+	GlobalData( string@ name )
+	{
+		Hash = GetStrHash( name );
+		Value = "";
+	}
+	
+	// запись данных в массив для дальнейшей записи.
+	void SaveData( uint[]& outArray, uint& position ) 
+	{
+		uint len = Value.length();
+
+		outArray.resize( position + 2 + len / 2 ); // Hash == uint type == 4 uint8 + length Value == 8 uint8
+		
+        outArray[ position++ ] = Hash;
+		outArray[ position++ ] = len;
+		
+        for( uint i = 0; i < len; i++ )
+		{
+			outArray[ position ] |= Value[ i++ ] << 24;
+			outArray[ position ] |= Value[ i++ ] << 16;
+			outArray[ position ] |= Value[ i++ ] << 8;
+			outArray[ position++ ] |= Value[ i ];
+		}
+	}
+	
+	// получение данных из массива
+	void LoadData( uint[]&in outArray, uint& position )
+	{
+        Hash = outArray[ position++ ];
+		uint len = outArray[ position++ ];
+		Value.resize( len );
+		
+        for( uint i = 0; i < len; i++ )
+		{
+			Value[ i++ ] = ( outArray[ position ] >> 24 ) & 0xFF;
+			Value[ i++ ] = ( outArray[ position ] >> 16 ) & 0xFF;
+			Value[ i++ ] = ( outArray[ position ] >> 8 ) & 0xFF;
+			Value[ i ] = outArray[ position++ ] & 0xFF;
+
+		}
+	}
+}
+# endif // __SERVER
+
+shared class Hexagonal
+{
+	Hexagonal( )													{ Reset(); }
+	Hexagonal( const uint16&in x, const uint16&in y )	{ Set( x, y ); }
+	Hexagonal( const Hexagonal&	master )					{ Set( master ); }
+# ifdef __SERVER
+	Hexagonal( const Critter&	 	master )					{ Set( master.HexX, master.HexY ); }
+	Hexagonal( const Item&			master )					{ Set( master.HexX, master.HexY ); }
+	Hexagonal( const Scenery&		master )					{ Set( master.HexX, master.HexY ); }
+	
+	bool Entire( Map& map, int entNum )	{ return map.GetEntireCoords( entNum, 0, X, Y ); }
+	bool IsPassed( Map& map ){ return ValidPosition( map ) && map.IsHexPassed( X, Y ); }
+	bool IsPassed( Map& map, Hexagonal& begin, Hexagonal& end ){ return ValidPosition( map, begin, end ) && map.IsHexPassed( X, Y ); }
+	
+	bool ValidPosition( Map& map )
+	{
+		Hexagonal end, begin;
+		if( end.Entire( map, 0 ) && begin.Entire( map, 255 ) )
+			return ValidPosition( map, begin, end );
+		return false;
+	}
+	
+	bool ValidPosition( Map& map, Hexagonal& begin, Hexagonal& end )
+	{
+		return (	X >= begin.X	&& Y >= begin.Y
+				&&	X <= end.X 	&& Y <= end.Y );
+	}
+	
+	bool Transit( Critter& critter, Map& map ){ return Transit( critter, map, critter.Dir ); }
+	bool Transit( Critter& critter, Map& map, uint8 direction )
+	{
+		if( !IsPassed( map ) ) return false;
+		return critter.TransitToMap( map.Id, X, Y, direction );
+	}
+	
+	bool Transit( Critter& critter, uint mapId ){ return Transit( critter, mapId, critter.Dir ); }
+	bool Transit( Critter& critter, uint mapId, uint8 direction )
+	{
+		if( mapId == 0 ) return false;
+		Map@ map = GetMap( mapId );
+		if( @map is null ) return false;
+		return Transit( critter, map, direction );		
+	}
+	
+# endif // __SERVER
+	void Set( const uint16&in x, const uint16&in y )	{ X = x; Y = y;}	
+	void Set( const Hexagonal&in other )				{ Set( other.X, other.Y ); }	
+	void Reset( )												{ X = Y = 0;}
+	uint Distantion( Hexagonal& other ) 				{ return GetDistantion( X, Y, other.X, other.Y ); }
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals( const Hexagonal&in other ){ return ( other.X == X && other.Y == Y ); }	
+	Hexagonal& opAssign( const Hexagonal&in other )
+	{
+		Set( other );
+		return this;
+	}
+	
+	const uint get_UID( const uint w ) const { return X + Y * w; } // Уникальный индефикатор для этой ширины карты
+	string get_Debug( )	{ return "X:" + X + "Y:" + Y; }
+	void Log( string& str ) { ::Log( str + ":" + Debug ); }
+}
+
+# ifdef __SERVER
+
+# define ENTIRE_NUM            	( 255 )
+
+shared class MapHash
+{
+	MapHash( const uint16&in protoId )
+	{
+		ProtoId = protoId;
+		@Min = null;
+		@Max = null;
+	}
+	
+	MapHash& opAssign( Map& map )
+	{
+		@Min = Hexagonal( 0, 0 );
+		@Max = Hexagonal( 0, 0 );
+		map.GetEntireCoords( 0, 0, Max.X, Max.Y );
+		map.GetEntireCoords( ENTIRE_NUM, 0, Min.X, Min.Y );
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal @Min;
+	Hexagonal @Max;	
+}
+# endif // __SERVER
+
+shared class Line
+{
+	Line( Hexagonal& a, Hexagonal& b ) { @A = a; @B = b; }
+	
+	uint get_Length()
+	{
+		return B.Distantion( A );
+	}
+	
+	uint get_Point( Hexagonal& point ) // Находит длину точки на линии
+	{
+		return B.Distantion( point );
+	}
+	
+	float get_Module( Hexagonal& point ) // Находит модуль для точки на линии
+	{
+		return Point[point] / Length;
+	}
+	
+	Hexagonal @get_opIndex( const uint&in size ) // Находит гекс по расстоянию
+	{
+		//this.Log( );
+		const float mod = float( size / Length );
+		return @Hexagonal( A.X + ( B.X - A.X ) * mod, A.Y + ( B.Y - A.Y ) * mod );
+	}
+	
+# ifdef __SERVER
+	Line( Map& map, uint16 grid, MapHash @hash )
+	{
+		if( @hash is null )
+		{
+			Hexagonal min, max;
+			map.GetTransferParams( min.X, min.Y, max.X, max.Y, grid );	// Эту херню желательно хешировать, может жрать такты
+																					// Или сразу линии хешировать, возможно так даже лучше
+			@A = @Hexagonal(min.X,min.Y);
+			@B = @Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if( @hash.Min is null || @hash.Max is null )
+				map.GetTransferParams( hash.Min.X, hash.Min.Y, hash.Max.X, hash.Max.Y, grid ); // Тут уже хешируем эту херню
+			
+			@A = @Hexagonal(hash.Min.X,hash.Min.Y);
+			@B = @Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	}
+# endif // __SERVER
+
+	string get_Debug( )	{ return "A<"+A.Debug+">B<"+B.Debug+">"; }
+	void Log( string& str ) { ::Log( str + ":" + Debug ); }
+	
+	Hexagonal @A;
+	Hexagonal @B;
+}
+
+# ifdef __SERVER
+# ifndef MODULE_WORLD
+import MapHash @GetMapHash( const uint16&in pid ) from "world";
+import uint CreateLocation( Hexagonal& coordinate, uint16 locationPid ) from "world";
+# endif // MODULE_WORLD
+# ifndef SOURCE_READER
+import ManagerObject @get_objectManager() from "world";
+# endif // SOURCE_READER
+# ifndef SOURCE_EVENT_ROOT
+import EventTree @get_EventRoot() from "world";
+# endif // SOURCE_EVENT_ROOT
+# ifndef SOURCE_PROJECT_SOURCE
+import Project @CreateProject( string@ name, string@ path ) from "main";
+import Project @get_Project( string@ name ) from "main";
+# endif // SOURCE_EVENT_ROOT
+# endif // __SERVER
+
+# endif // __ND_API

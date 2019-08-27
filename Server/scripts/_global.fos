@@ -1,0 +1,85 @@
+//globalmap DEFINES
+
+#define ENTIRE_NUM            ( 255 )
+#define MAP_SIZE              ( 150 )
+#define ADD_HEX_COUNT         ( 5 )
+#define SEARCH_HEX_COUNT      ( 3 )
+#define CELL_SIZE             ( 10 )
+#define CELL_LEVEL_DEFAULT    ( 2 )
+#define CELL_LEVEL_MAX        ( 5 )
+
+#define SKILL_OUTDORSMAN_MOD	(20)
+
+
+//bioms
+//type
+//simple types are first
+#define BIOM_TYPE_WATER		(-1) //only for parse used
+
+#define BIOM_MAX            (8)
+
+#define BIOM_TYPE_WASTELAND		(0)
+#define BIOM_TYPE_FOREST		(1)
+#define BIOM_TYPE_RUINS			(2)
+#define BIOM_TYPE_RIVER 		(3)
+#define BIOM_TYPE_RAILROAD		(4)
+#define BIOM_TYPE_ROAD			(5)
+//#define BIOM_TYPE_MOUNTAIN		(7)
+#define BIOM_TYPE_LAKE  		(8)
+//#define BIOM_TYPE_MOUNTAIN_LEFT		(9)
+//#define BIOM_TYPE_MOUNTAIN_RIGHT	(10)
+//#define BIOM_TYPE_MOUNTAIN_DOWN		(11)
+#define BIOM_TYPE_MOUNTAIN		(12)
+
+#define BIOM_COLOR_ROAD     (0x3c3c3c)
+#define BIOM_COLOR_RAILROAD (0x505050)
+#define BIOM_COLOR_WATER    (0x0e5a9a)
+#define BIOM_COLOR_RUINS    (0xc3c3c3)
+#define BIOM_COLOR_MOUNTAIN (0x80751a)
+#define BIOM_COLOR_FOREST   (0x8e5b00)
+
+#define BIOM_COLOR_HEIGH	(0xfe0800)
+
+#define LOCATION_BIOM_START (500)
+#define LOCATION_BIOM_RANGE (50)
+#define LOCATION_BIOM_SHIFT (5)
+
+#define LOCATION_BIOM_WASTELAND (0)
+
+
+
+
+//child flags for parse from graphics mask
+//#define BIOM_TYPE_WASTELAND	(0x4)
+/*#define BIOM_VERTICAL_T		(0x10)
+#define BIOM_VERTICAL_D		(0x20)
+#define BIOM_HORIZONTAL_L	(0x40)
+#define BIOM_HORIZONTAL_R	(0x80)*/
+
+#define BIOM_HAS_CHILD_TOP  (0x1)
+#define BIOM_HAS_CHILD_DOWN  (0x2)
+#define BIOM_HAS_CHILD_LEFT  (0x4)
+#define BIOM_HAS_CHILD_RIGHT  (0x8)
+#define BIOM_HAS_CHILD_TL (0x10)
+#define BIOM_HAS_CHILD_TR (0x20)
+#define BIOM_HAS_CHILD_DL (0x40)
+#define BIOM_HAS_CHILD_DR (0x80)
+#define BIOM_HAS_BRIDGE     (0x100)
+
+#define BIOM_MOUNTAIN_LEFT		(0x200)
+#define BIOM_MOUNTAIN_RIGHT		(0x400)
+#define BIOM_MOUNTAIN_DOWN		(0x800)
+#define BIOM_MOUNTAIN_TOP		(0x1000)
+
+const uint8[] chances_radscorp_waste = {20, 35, 20, 5};
+
+const uint8[] chances_gecko_forest = {30, 30, 20, 10};
+
+const uint8[] chances_rats_forest = {10, 10, 10, 20};
+const uint8[] chances_rats_ruins = {30, 30, 50, 100};
+const uint8[] chances_rats_road = {10, 10, 10, 20};
+
+const uint8[] chances_raiders_ruins = {5, 5, 5, 1};
+const uint8[] chances_raiders_road = {5, 10, 15, 50};
+
+const uint8[] chances_mirelurk = {40, 30, 10, 200};

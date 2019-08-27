@@ -1,0 +1,10 @@
+#==========================================================
+#ND Junkyard
+#==========================================================
+
+Name = Junkyard								
+LocationPid = 43		
+Flags = Static			
+Visible = 50								
+Size = 1 1 									
+Create:Junkyard = 30 17						

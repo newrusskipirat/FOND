@@ -1,0 +1,941 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+
+bool TryRepairItem(Critter&cr,Item&item)
+{   
+	
+	if(not item.IsDeteriorable())
+	return true;
+	
+	if(cr.Timeout[(238)]>0)
+	{
+		cr.SayMsg((11),(3),(791));
+		return true;
+	}
+	
+	if(cr.Timeout[(232)]>0)
+	{
+		cr.SayMsg((11),(3),(3401));
+		return true;
+	}
+	
+	if((((item.BrokenFlags)&((0x40)))!=0)||(((item.BrokenFlags)&((0x08)))!=0))
+	{
+		cr.SayMsg((11),(3),(506));
+		return true;
+	} 
+	
+	int repair=cr.Skill[(213)];
+	uint8 mode=0;
+	uint16 activePid=cr.GetSlotProto((1),mode).ProtoId;
+	
+	bool isItemCased=true; 
+	
+	int type=item.GetProtoId();
+	
+	uint16[]tools;
+	uint16[]parts;  
+	
+	switch(type)
+	{
+		case(602):
+		case(113):
+		case(585):
+		case(558):
+		case(559):
+		repair+=50;
+		parts.insertLast((572));parts.insertLast(1);
+		break;
+		case(74):
+		repair+=25;
+		parts.insertLast((572));parts.insertLast(1);
+		parts.insertLast((1512));parts.insertLast(1);
+		break;
+		case(1):
+		repair+=20;
+		case(265):
+		repair+=20;
+		parts.insertLast((1512));parts.insertLast(3);
+		break;
+		case(379):
+		repair+=15;
+		parts.insertLast((1512));parts.insertLast(4);
+		break;
+		case(1033):
+		tools.insertLast((6));
+		parts.insertLast((1512));parts.insertLast(1);
+		parts.insertLast((1519));parts.insertLast(1);
+		break;
+		case(2):
+		tools.insertLast((6));
+		parts.insertLast((1519));parts.insertLast(1);
+		break;
+		case(380):
+		repair-=25;
+		tools.insertLast((3978));
+		parts.insertLast((1473));parts.insertLast(1);
+		break;
+		case(1457):
+		repair-=25;
+		parts.insertLast((1441));parts.insertLast(1);
+		break;
+		case(586):
+		repair-=50;
+		tools.insertLast((3978));
+		parts.insertLast((1442));parts.insertLast(1);
+		break;
+		case(17):
+		case(381):
+		case(547):
+		case(239):
+		repair-=50;
+		tools.insertLast((3978));
+		parts.insertLast((574));parts.insertLast(20);
+		break;
+		case(3):
+		case(232):
+		case(348):
+		case(349):
+		case(240):
+		repair-=100;
+		tools.insertLast((3978));
+		parts.insertLast((258));parts.insertLast(20);
+		break; 
+		
+		case(1427):
+		case(1428):
+		case(1406):
+		case(1407):
+		case(1410):
+		case(1412):
+		case(1405):
+		repair+=50;
+		parts.insertLast((98));parts.insertLast(1);
+		break; 
+		
+		case(3983):
+		case(3985):
+		case(94):
+		repair+=20;
+		case(385):
+		case(8):
+		repair+=30;
+		case(1409):
+		case(1408):
+		repair+=30;
+		case(11):
+		case(1034):
+		case(1422):
+		case(1400):
+		case(1401):
+		case(1403):
+		case(388):
+		case(3984):
+		case(1402):
+		repair-=30;
+		tools.insertLast((3978));
+		parts.insertLast((98));parts.insertLast(1);
+		parts.insertLast((475));parts.insertLast(1);
+		break; 
+		
+		case(122):
+		case(578):
+		case(242):
+		repair-=15;
+		case(287):
+		repair-=5;
+		case(1039):
+		case(9):
+		case(283):
+		case(332):
+		repair-=10;
+		case(10):
+		case(22):
+		case(1040):
+		repair-=15;
+		case(18):
+		case(404):
+		case(313):
+		case(398):
+		repair-=5;
+		tools.insertLast((3978));
+		parts.insertLast((475));parts.insertLast(1);
+		parts.insertLast((50));parts.insertLast(1);
+		break; 
+		
+		case(390):
+		repair-=30;
+		case(594):
+		case(1520):
+		case(1521):
+		case(600):
+		case(1404):
+		repair-=10;
+		tools.insertLast((3978));
+		parts.insertLast((356));parts.insertLast(1);
+		break; 
+		
+		case(15):
+		repair-=10;
+		case(24):
+		repair-=10;
+		case(118):
+		repair-=10;
+		case(402):
+		repair-=10;
+		case(16):
+		repair-=30;
+		tools.insertLast((3978));
+		parts.insertLast((55));parts.insertLast(2);
+		parts.insertLast((377));parts.insertLast(1);
+		break; 
+		
+		case(268):
+		case(354):
+		case(296):
+		case(400):
+		case(12):
+		case(389):
+		case(350):
+		case(355):
+		case(387):
+		case(1036):
+		repair-=70;
+		tools.insertLast((3978));
+		parts.insertLast((50));parts.insertLast(10);
+		break;
+		
+		default:
+		cr.Say((11),"Не ремонтируемо");return true;
+	}
+	
+	if(tools.length()>0||parts.length()>0)
+	{
+		bool NoTools=false;
+		bool NoParts=false;
+		for(uint8 j=0;j<tools.length();j++)
+		{
+			if(cr.CountItem(tools[j])==0)NoTools=true;
+		}
+		for(uint8 jj=0;jj<parts.length();jj+=2)
+		{
+			if(cr.CountItem(parts[jj])<parts[jj+1])NoParts=true;
+		}
+		
+		if(NoTools||NoParts)
+		{
+			if(tools.length()==0)
+			cr.Say((11),"Инструмент не нужен.");
+			else{
+				cr.Say((11),"Необходимый инструмент:");
+				for(uint8 i=0;i<tools.length();i++)
+				cr.SayMsg((11),(2),100*tools[i]);
+			}
+			cr.Say((11),"Требуемые части для ремонта:");
+			for(uint8 ii=0;ii<parts.length();ii+=2)
+			{
+				cr.SayMsg((11),(2),100*parts[ii]);
+			}
+			return true;
+		}
+		else
+		{
+			for(uint8 iii=0;iii<parts.length();iii+=2)
+			{
+				cr.DeleteItem(parts[iii],parts[iii+1]);
+			}
+		}
+	}
+	
+	if((((item.BrokenFlags)&((0x0F)))!=0))
+	{
+		if((((item.BrokenFlags)&((0x04)))!=0))
+		repair-=100;
+		else if((((item.BrokenFlags)&((0x02)))!=0))
+		repair-=75;
+		else if((((item.BrokenFlags)&((0x01)))!=0))
+		repair-=25;
+		
+		repair-=item.BrokenCount*50/(10);
+		repair=(((repair)>(95))?(95):(((repair)<(6))?(6):(repair)));
+		
+		if(repair>=Random(1,100))
+		{
+			item.Deterioration=0;
+			(item.BrokenFlags=((item.BrokenFlags)&(~((0x0F)))));
+			cr.SayMsg((11),(3),(515));
+			cr.StatBase[(76)]+=400;
+		}
+		else
+		{
+			item.BrokenCount++;
+			if(item.BrokenCount>=(10))
+			(item.BrokenFlags=(item.BrokenFlags)|((0x08)));
+			cr.SayMsg((11),(3),(516));
+		}
+	}
+	
+	else
+	{
+		if((((item.BrokenFlags)&((0x10)))!=0))
+		repair-=25;
+		repair-=item.BrokenCount*50/(10);
+		repair=(((repair)>(95))?(95):(((repair)<(6))?(6):(repair)));
+		
+		if(repair>=Random(1,100))
+		{
+			(item.BrokenFlags=(item.BrokenFlags)|((0x10)));
+			if(activePid==(412))
+			{
+				item.Deterioration=0;
+				cr.DeleteItem((412),1);
+			}
+			else
+			{
+				int cnt=repair*(10000)/100;
+				if(cnt>item.Deterioration)
+				item.Deterioration=0;
+				else
+				item.Deterioration-=cnt;
+			}
+			cr.SayMsg((11),(3),(511));
+			cr.StatBase[(76)]+=200;
+		}
+		else
+		{
+			DeteriorateItem(cr,item,(10000)/5);
+			cr.SayMsg((11),(3),(512));
+		}
+	} 
+	
+	item.Update();
+	cr.TimeoutBase[(232)]=(__FullSecond+((20)*__TimeMultiplier));
+	return true;
+	
+}
+
+void DeteriorateItem(Critter&cr,Item&item,int deteriorationCount)
+{
+	if(deteriorationCount<=0||not item.IsDeteriorable()||(((item.BrokenFlags)&((0x40)))!=0)||(((item.BrokenFlags)&((0x0F)))!=0))
+	return;
+	
+	item.Deterioration+=deteriorationCount;
+	if(item.Deterioration>=(10000))
+	{
+		item.Deterioration=(10000);
+		if(!IsHaveBlade(item.GetProtoId()))
+		{
+			item.BrokenCount++;   
+			
+			int brokenLvl=Random(0,item.BrokenCount/((10)/4));
+			
+			if(item.BrokenCount>=(10)||brokenLvl>=3)
+			(item.BrokenFlags=(item.BrokenFlags)|((0x08)));
+			else if(brokenLvl==2)
+			(item.BrokenFlags=(item.BrokenFlags)|((0x04)));
+			else if(brokenLvl==1)
+			(item.BrokenFlags=(item.BrokenFlags)|((0x02)));
+			else
+			(item.BrokenFlags=(item.BrokenFlags)|((0x01)));
+		}
+		cr.SayMsg((11),(3),(521));
+	}
+	
+	item.Update();
+}
+
+void SetDeterioration(Item&item,int deteriorationProcent)
+{
+	if(not item.IsDeteriorable())
+	return;
+	(item.BrokenFlags=((item.BrokenFlags)&(~((0x0F)))));
+	deteriorationProcent=(((deteriorationProcent)>(100))?(100):(((deteriorationProcent)<(0))?(0):(deteriorationProcent)));
+	item.Deterioration=(10000)*deteriorationProcent/100;
+	item.BrokenCount=(10)*deteriorationProcent/100;
+	if(deteriorationProcent==100)
+	(item.BrokenFlags=(item.BrokenFlags)|((0x0F)));
+	item.Update();
+}
+
+int GetDeteriorationProcent(Item&item)
+{
+	if(not item.IsDeteriorable())
+	return 0;
+	if((((item.BrokenFlags)&((0x0F)))!=0))
+	return 100;
+	int value=item.Deterioration*100/(10000);
+	return(((value)>(100))?(100):(((value)<(0))?(0):(value)));
+} 
+
+void SetItemCost(Item&item)
+{
+	
+	int wearPercent=GetDeteriorationProcent(item);
+	if(wearPercent==100)
+	{
+		item.Cost=uint(item.Proto.Cost/3);
+	}
+	else if(wearPercent>75)
+	{
+		item.Cost=uint(2*item.Proto.Cost/3);
+	}
+	else
+	{
+		item.Cost=item.Proto.Cost;
+	}
+}
+
+bool IsHaveBlade(uint16 pid)
+{
+	if(pid==(4)||
+	pid==(7)||
+	pid==(45)||
+	pid==(116)||
+	pid==(234)||
+	pid==(236)||
+	pid==(280)||
+	pid==(319)||
+	pid==(383)||
+	pid==(517)||
+	pid==(522))
+	return true;
+	
+	return false;
+	
+} 
+
+bool TryDisassembleItem(Critter&cr,Item&item)
+{
+	
+	if(cr.Timeout[(238)]>0){
+		cr.SayMsg((11),(3),(791));
+		return true;
+	}
+	uint targetPID=item.GetProtoId();
+	
+	uint16 science=0;
+	uint16 repair=0;   
+	
+	int[][]groups={};      
+	
+	int[]knifes=
+	{(4),(45),(319),(236),(1419)};
+	groups.insertLast(knifes);
+	
+	int[][]decraft={  
+		
+		{(587),(-101),(0),(0),(572),4},
+		{(1512),(-101),(0),(50),(572),4},
+		{(572),(-101),(0),(0),(439),2},
+		{(127),(-101),(0),(0),(534),10},
+		{(276),(-101),(0),(50),(1512),2},
+		{(556),(-101),(0),(100),(1512),5},
+		{(449),(-101),(0),(50),(1512),4}, 
+		
+		{(1507),(6),(0),(50),(1519),1},
+		{(1508),(6),(0),(50),(1519),1},
+		
+		{(-2),(7),(280),
+			0,(0),(0),
+			(4),1,
+			(320),1,
+			(534),8},
+		{(-4),(113),(524),(585),(602),
+			(-101),(0),(0),(572),5},
+		{(74),(-101),(0),(0),
+			(572),3,
+			(1512),2},
+		{(-2),(1),(379),
+			(-101),(0),(50),
+			(572),4,
+			(1512),8},
+		{(265),(-101),(0),(50),
+			(572),4,
+			(1512),5},
+		{(1033),(-101),(0),(50),
+			(572),5,
+			(475),1,
+			(98),1,
+			(1512),5},
+		{(2),(-2),(75),(6),(0),(100),
+			(1519),1,
+			(475),2,
+			(98),1,
+			(1512),3},
+		{(380),(-2),(75),(6),(0),(100),
+			(1473),1,
+			(475),3,
+			(98),2,
+			(1512),3},
+		{(1457),(75),(0),(100),
+			(1441),2},
+		{(586),(75),(0),(100),
+			(1441),4,
+			(586),1},
+		{(300),(75),(0),(50),
+			(1681),1,
+			(475),1},
+		{(1427),(75),(0),(50),
+			(98),1,
+			(1505),1},
+		{(1428),(75),(0),(50),
+			(98),1,
+			(1506),1,
+			(1503),1,
+			(1505),1},
+		{(1406),(75),(0),(50),
+			(1681),1,
+			(1680),1,
+			(98),1},
+		{(1407),(75),(0),(50),
+			(1681),1,
+			(98),1},
+		{(1410),(75),(0),(50),
+			(538),1,
+			(98),1},
+		{(1412),(75),(0),(50),
+			(1681),1,
+			(1680),1,
+			(1509),1,
+			(98),1},
+		{(1405),(75),(0),(50),
+			(1681),2,
+			(98),1},
+		{(-2),(94),(385),
+			(75),(0),(50),
+			(538),2,
+			(98),1}, 
+		
+		{(1045),(572),(0),(0),(236),1},
+		{(1044),(572),(0),(0),(45),1},
+		{(1043),(572),(0),(0),(7),1},
+		{(1042),(572),(0),(0),(4),1}
+	};                                                 
+	
+	int n=-1,delta=0;
+	
+	for(uint i=0,iEnd=decraft.length();i<iEnd;i++)
+	{
+		int pid=0;
+		if(decraft[i][0]<0)
+		{
+			delta=-decraft[i][0];
+			for(int j=0;j<delta;j++)
+			{
+				pid=decraft[i][1+j];
+				if(pid<=0)
+				{
+					Log("Index is buged! decraft["+i+"]["+(1+j)+"] = "+pid+".");
+					continue;
+				}
+				if(targetPID==uint(pid))
+				{
+					n=i;
+					break;
+				}
+			}
+		}
+		else if(targetPID==uint(decraft[i][0]))
+		{
+			delta=0;
+			n=i;
+			break;
+		}
+	}
+	if(n==-1)
+	{
+		cr.Say((11),"Вы не смогли сходу придумать, как и чем можно разобрать этот предмет.");
+		return true;
+	}  
+	
+	int tools=decraft[n][delta+1];
+	
+	if(tools<0){
+		if(tools<-100){
+			if(groups.length()+100<uint(-tools)){
+				Log("Index is buged! Tools needed index is ["+tools+"] of ["+(groups.length()+100)+"].");
+				return true;
+			}
+			bool noAny=true;
+			for(uint i=0,iEnd=groups[101+tools].length();i<iEnd;i++){
+				if(cr.CountItem(groups[101+tools][i])>0){
+					noAny=false;
+					break;
+				}
+			}
+			if(noAny){
+				cr.Say((11),"Нужен хотя бы один инструмент из списка:");
+				for(uint i=0,iEnd=groups[101+tools].length();i<iEnd;i++)
+				cr.SayMsg((11),(2),100*groups[101+tools][i]);
+				return true;
+			}
+		}else{
+			bool notAll=false;
+			for(int i=0;i<-tools;i++){
+				if(cr.CountItem(decraft[n][delta+2+i])==0){
+					notAll=true;
+					break;
+				}
+			}
+			if(notAll){
+				cr.Say((11),"Вам необходимо иметь:");
+				for(int i=0;i<-tools;i++)
+				cr.SayMsg((11),(2),100*decraft[n][delta+2+i]);
+				return true;
+			}
+			delta+=101+tools;
+		}
+	}else{
+		if(tools>0&&cr.CountItem(tools)==0){
+			cr.Say((11),"У вас нет необходимого инструмента:");
+			cr.SayMsg((11),(2),100*tools);
+			return true;
+		}
+	}
+	if(decraft[n][delta+2]>cr.Skill[(212)]||decraft[n][delta+3]>cr.Skill[(213)]){
+		cr.Say((11),"Нехватает навыков: наука "+decraft[n][delta+2]+"%, ремонт "+decraft[n][delta+3]+"%.");
+		return true;
+	}
+	int[]result={cr.Id,item.Id,30};
+	for(uint i=delta+4,iEnd=decraft[n].length();i<iEnd;i++)
+	result.insertLast(decraft[n][i]);
+	AskBeforeDestroy(cr,result);
+	CreateTimeEvent(__FullSecond+((1)*__TimeMultiplier),"e_disassemble",result,false);
+	return true;
+}
+
+void AskBeforeDestroy(Critter&cr,int[]parts){
+	cr.Say((11),"Если вы разберёте этот предмет, то получите:");
+	for(uint8 i=3;i<parts.length();i+=2){
+		cr.SayMsg((11),(2),100*parts[i]);
+		cr.Say((11),parts[i+1]+" шт.");
+	}
+	cr.ShowScreen((2),2,"answer_disassemble");
+	cr.Say((18),"Что вы хотите сделать?");
+	cr.Say((19+(0)),"разобрать 1 шт");
+	cr.Say((19+(1)),"разобрать все");
+}
+
+void answer_disassemble(Critter&cr,uint answerI,string&answerS){
+	cr.ParamBase[(859)]=answerI+1;
+}
+
+uint e_disassemble(uint[]@values){
+	Critter@cr=GetCritter(values[0]);
+	values[2]-=1;
+	if(values[2]==0||values[2]>=60)return 0;
+	if(!(@cr!=null))return 0;
+	if(cr.ParamBase[(859)]==0)return((1)*__TimeMultiplier);
+	Item@item=GetItem(values[1]);
+	if(!(@item!=null))return 0;
+	uint amount=1;
+	if(cr.ParamBase[(859)]==2)
+	amount=item.GetCount();
+	for(uint i=3,iEnd=values.length();i<iEnd;i+=2)
+	cr.AddItem(values[i],values[i+1]*amount);
+	cr.Say((11),"Вы разобрали предмет"+(amount>1?"ы":"")+".");
+	if(item.GetType()==(3)&&item.AmmoCount>0){
+		if(item.AmmoPid!=0){
+			Item@existAmmo=cr.GetItem(item.AmmoPid,-1);
+			if(!(@existAmmo!=null))cr.AddItem(item.AmmoPid,item.AmmoCount);
+			else existAmmo.SetCount(existAmmo.GetCount()+(item.AmmoCount));
+		}
+		item.AmmoCount=0;
+	}
+	if(item.GetCount()>amount)item.SetCount(item.GetCount()-amount);
+	else DeleteItem(item);
+	cr.ParamBase[(859)]=0;
+	return 0;
+}

@@ -1,0 +1,19 @@
+Name = bridloc
+Flags = Ignored
+LocationPid = 90
+
+copy startloc
+LocationPid = 93
+
+copy dreamloc
+LocationPid = 94
+
+copy arcadeloc
+LocationPid = 95
+
+copy Deadloc
+LocationPid = 96
+
+copy bridge_wtf
+LocationPid = 1000
+

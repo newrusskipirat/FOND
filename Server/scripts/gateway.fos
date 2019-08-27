@@ -1,0 +1,491 @@
+#include "_macros.fos"
+
+uint[] guards;
+
+import bool AddAttackPlane( Critter& npc, uint priority, Critter& target, int minHp ) from "npc_planes";
+import uint EraseAttackPlane( Critter& npc, Critter& target ) from "npc_planes";
+
+#define Out	#(cr)	( cr.Dir == 1 || cr.Dir == 2 || cr.Dir == 3 )
+#define In	#(cr)	( cr.Dir == 4 || cr.Dir == 5 || cr.Dir == 0 )
+
+#define REGULAR_ACCESS		#(br)	( br.GetValue() == 0 )
+#define APPROVED_ACCESS 	#(br)	( br.GetValue() == 1 )
+#define RESTRICTED_ACCESS 	#(br)	( br.GetValue() == 2 )
+#define NO_ACCESS 			#(br)	( br.GetValue() == 3 )
+#define FREE_ACCESS			#(br)	( br.GetValue() == 4 )
+
+#define NO_FACTION			#(cr) 	( cr.Quest[QST_FACTION] == 0 )
+#define FACTION_ADMIN		#(cr) 	( cr.Quest[QST_FACTION] == 1 )
+#define FACTION_POLICE		#(cr) 	( cr.Quest[QST_FACTION] == 2 )
+#define FACTION_MAFIA		#(cr) 	( cr.Quest[QST_FACTION] == 3 )
+#define FACTION_MUTANT		#(cr) 	( cr.Quest[QST_FACTION] == 4 )
+#define FACTION_SATTER		#(cr) 	( cr.Quest[QST_FACTION] == 5 )
+#define FACTION_RAIDER		#(cr) 	( cr.Quest[QST_FACTION] == 6 )
+#define FACTION_SHERIFF		#(cr) 	( cr.Quest[QST_FACTION] == 7 )
+#define FACTION_MAJOR		#(cr) 	( cr.Quest[QST_FACTION] == 8 )
+
+#define RICH		#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 4 )
+#define CITIZEN		#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 3 )
+#define GUEST		#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 2 )
+#define DAYPASS		#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 1 )
+#define STRANGER	#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 0 )
+#define EXILE		#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+#define APPROVED	#(cr)	( cr.Quest[QST_MODOC_CITIZENSHIP] >= 2 )
+
+#define	Near	( val == 5 )
+#define	Far		( val == 4 )
+
+#define StepIn entered
+#define StepOut !entered
+
+#define AnyOf		#(list) list[ Random( 0, list.length() - 1 ) ]
+
+#define PROTO_GUARD_MIN		1930
+#define PROTO_GUARD_MAX		1941
+
+uint ClosestNpcByPrototype( Critter& player, int proto_first, int proto_last )
+{
+    Map@ map = player.GetMap();
+    if( valid( map ) )
+    {
+        Critter @[] npc;
+        uint dist = 15;
+        uint id = 0;
+        if( map.GetCritters( 0, FIND_ALL | FIND_ONLY_NPC, npc ) == 0 )
+        {
+            player.Say( SAY_NETMSG, "нет нужного человека" );
+        }
+        else
+        {
+            for( uint i = 0; i < npc.length(); i++ )
+            {
+                if( npc[i].GetProtoId() >= proto_first && npc[i].GetProtoId() <= proto_last )
+                {
+                    if( npc[i].IsSee( player ) && GetDistantion( player.HexX, player.HexY, npc[i].HexX, npc[i].HexY ) < dist )
+                    {
+                        dist = GetDistantion( player.HexX, player.HexY, npc[i].HexX, npc[i].HexY );
+                        id = npc[i].Id;
+                    }
+                }
+            }
+            return id;
+        }
+    }
+    return 0;
+}
+
+Critter@ GetClosestGuard( Critter& cr ) {
+	return GetCritter( ClosestNpcByPrototype( cr, PROTO_GUARD_MIN, PROTO_GUARD_MAX ) );
+	/*
+	Critter@ closestGuard = null;
+	for( uint i = 0, len = guards.length(); i < len; i++ )
+	{
+		Critter@ guard = GetCritter( guards[ i ] );
+		if( (guard is null) || !guard.IsSee( cr ) || GetDistantion( cr.HexX, cr.HexY, guard.HexX, guard.HexY ) > 15 )
+			continue;
+		@closestGuard = guard;
+	}
+	return closestGuard;
+	*/
+}
+
+void Say( Critter& target, Critter@ guard, string text, int SAY_TYPE ) 
+{
+	if(!valid(guard)) return;
+	uint8 dir = GetDirection( guard.HexX, guard.HexY, target.HexX, target.HexY );
+	guard.SetDir( dir );
+	guard.Say( SAY_TYPE, text );
+}
+void Warn( Critter& target, Critter@ guard, string text ) {
+	Say( target, guard, text, SAY_NORM_ON_HEAD );
+}
+void Cry( Critter& target, Critter@ guard, string text ) {
+	Say( target, guard, text, SAY_SHOUT_ON_HEAD );
+}
+
+void Stop( Critter& target ) {
+	target.SetEvent( CRITTER_EVENT_IDLE, null );
+	target.Wait( 1000 );
+}
+
+string PhraseGetOff() {
+	string[][] parts = { 
+		{ "Таким как ты ", "Тебе ", "Уродам ", "Вам " },
+		{ "здесь ", "тут ", "в городе ", "в Модоке " },
+		{ "не рады", "не место", "делать нечего" },
+		{ "!" }
+	};
+	string[] special = {
+		"В могилу захотелось?", "Проваливай, пока ноги ходят!", "Смотри кто явился! Жить надоело?", "За смертью своей пришёл!?"
+	};
+	string result = "";
+	if( Random(0,3) == 0 ) result = AnyOf(special);
+	else for( uint n = 0, nEnd = parts.length(); n < nEnd; n++ )
+			result += AnyOf(parts[n]);
+	return result;
+}
+
+string LastWarning() {
+	string[] result = {
+		"ЕЩЁ ШАГ И ТЫ ПОКОЙНИК",
+		"СТОЙ! СТРЕЛЯТЬ БУДУ",
+		"НИ ШАГУ ДАЛЬШЕ, МАТЬ ТВОЮ",
+		"КУДА ПРЁШЬ? УБЬЮ НАХРЕН"
+	};
+	return AnyOf(result);
+}
+
+string AttackMsg() {
+	string[] result = {
+		"получай",
+		"я предупреждал",
+		"лежать",
+		"нарушитель"
+	};
+	return AnyOf(result);
+}
+
+string DontGoBack() {
+	string[] result = {
+		"Скатертью дорога!",
+		"Вали туда, отуда пришёл!",
+		"В город тебе прохода нет!",
+		"И не возвращайся!"
+	};
+	return AnyOf(result);
+}
+
+string NeedAccess() {
+	string[] result = {
+		"Кого попало в город не пускаем.",
+		"Сначала раздобудь документы.",
+		"Ты здесь никто. Проваливай.",
+		"Нет пропуска - не пройдёшь."
+	};
+	return AnyOf(result);
+}
+
+string NeedAccessInfo() {
+	string[] result = {
+		"Найди того, кто за тебя поручится.",
+		"Чёртовы иммигранты.",
+		"Ты здесь никто. Проваливай.",
+		"Шевелись, нечего проход загораживать."
+	};
+	return AnyOf(result);
+}
+
+string NeedRegainAccess() {
+	string[] result = {
+		"Пропуск сдан - назад дороги нет.",
+		"Без нового пропуска не возвращайся.",
+		"Пока не раздобудешь ещё один пропуск - в город не пустим.",
+		"Этому городу не нужны бездельники."
+	};
+	return AnyOf(result);
+}
+
+string OnlyApproved() {
+	string[][] parts = { 
+		{ "В городе карантин, ", "Стой! Тебе нельзя, ", "Сколько раз повторять, " },
+		{ "вход только для жителей города!" }
+	};
+	string result = "";
+	for( uint n = 0, nEnd = parts.length(); n < nEnd; n++ )
+		result += AnyOf(parts[n]);
+	return result;
+}
+
+string NoMovement() {
+	return "А ну прочь от КПП! Вход и выход из города запрещены!";
+}
+
+string NoMovementInfo() {
+	return "Не нервируй меня! В следующий раз могу и выстрелить!";
+}
+
+void t_EnterHex( Critter& cr, Scenery& trigger, bool entered, uint8 dir, int val )
+{
+    if( cr.IsNpc() ) return;
+	if( cr.Quest[ QST_INVIS ] != 0 ) return; //GM
+
+    GameVar@ br = GetGlobalVar( GVAR_inf_modoc_border_mode );
+
+    if( FREE_ACCESS(br) ) return; 
+	
+	Critter@ guard = GetClosestGuard(cr);
+
+	if( EXILE(cr) ) {
+		if( In(cr) ) {
+			if( StepIn && Far ) Warn(cr, guard, PhraseGetOff() );
+			if( StepIn && Near ) { Cry(cr, guard, LastWarning() ); Stop(cr); }
+			if( StepOut && Near ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+		if( Out(cr) ) {
+			if( StepOut && Near ) Warn(cr, guard, DontGoBack() );
+		}
+		return;
+	}
+	
+	if( REGULAR_ACCESS(br) ) {
+		if( APPROVED(cr) ) return;
+		if( In(cr) ) {
+			if( DAYPASS(cr) ) {
+				if( StepOut && Far ) cr.Say( SAY_EMOTE_ON_HEAD, "показывает пропуск" );
+			}
+			if( !DAYPASS(cr) ) {
+				if( StepIn && Far ) { Warn(cr, guard, NeedAccess() ); Stop(cr); }
+				if( StepIn && Near ) { Cry(cr, guard, LastWarning() ); Stop(cr); }
+				if( StepOut && Near ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+			}
+		}
+		if( Out(cr) ) {
+			if( StepOut && Near ) {
+				if( DAYPASS(cr) ) {
+                    cr.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+                    cr.Say( SAY_EMOTE_ON_HEAD, "сдает пропуск охране" );
+					Item@[] DayPass;
+					cr.GetItems( -1, DayPass );
+					for( uint i = 0, iEnd = DayPass.length(); i < iEnd; i++ )
+					{
+						if(DayPass[i].GetProtoId() == PID_MODOC_DAY_PASS)
+							_SubItem( DayPass[i], 1 );
+					}
+				} else Warn(cr, guard, NeedAccessInfo() );
+			}
+			if( StepOut && Far ) {
+				if( !DAYPASS(cr) ) {
+					Warn(cr, guard, NeedRegainAccess() );
+				}
+			}
+		}
+		return;
+	}
+
+	if( APPROVED_ACCESS(br) ) {
+		if( APPROVED(cr) && !GUEST(cr) ) return;
+		if( In(cr) ) {
+			if( StepIn && Far ) Warn(cr, guard, OnlyApproved() );
+			if( StepIn && Near ) { Cry(cr, guard, LastWarning() ); Stop(cr); }
+			if( StepOut && Near ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+		if( Out(cr) ) {
+			//if( StepOut && Near ) Warn(cr, guard, DontGoBack() );
+		}
+		return;
+	}
+	
+	if( RESTRICTED_ACCESS(br) ) {
+		if( FACTION_ADMIN(cr) || FACTION_POLICE(cr) || FACTION_MAFIA(cr) ) return;
+		if( FACTION_SHERIFF(cr) || FACTION_MAJOR(cr) ) return;
+		if( In(cr) ) {
+			if( StepIn && Far ) { Warn(cr, guard, NoMovement() ); Stop(cr); }
+			if( StepOut && Near ) Warn(cr, guard, NoMovementInfo() );
+			if( StepIn && Near ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+		if( Out(cr) ) {
+			if( StepIn && Near ) { Warn(cr, guard, NoMovement() ); Stop(cr); }
+			if( StepOut && Far ) Warn(cr, guard, NoMovementInfo() );
+			if( StepIn && Far ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+	}
+	
+	if( NO_ACCESS(br) ) {
+		if( FACTION_SHERIFF(cr) || FACTION_MAJOR(cr) ) return;
+		if( In(cr) ) {
+			if( StepIn && Far ) { Warn(cr, guard, NoMovement() ); Stop(cr); }
+			if( StepOut && Near ) Warn(cr, guard, NoMovementInfo() );
+			if( StepIn && Near ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+		if( Out(cr) ) {
+			if( StepIn && Near ) { Warn(cr, guard, NoMovement() ); Stop(cr); }
+			if( StepOut && Far ) Warn(cr, guard, NoMovementInfo() );
+			if( StepIn && Far ) { Cry(cr, guard, AttackMsg() ); AttackAndCatch( cr, guard ); }
+		}
+		return;
+	}
+}
+
+void AttackAndCatch( Critter& cr, Critter@ guard )
+{
+	if(!valid(guard)) {cr.Say( SAY_NETMSG, "Кажется, с охраной что-то не так.." ); return;}
+	AddAttackPlane( guard, 0, cr, 0 );
+	cr.SetEvent( CRITTER_EVENT_KNOCKOUT, "_KoAndCatch" );
+}
+
+void AttackAndCatch( Critter& cr ) {
+	Map@ map = cr.GetMap();
+    if( map is null )
+        return;
+
+    for( uint i = 0; i < guards.length(); i++ )
+    {
+        Critter@ guard = GetCritter( guards[ i ] );
+        if( guard is null )
+            continue;
+
+        uint len = GetDistantion( cr.HexX, cr.HexY, guard.HexX, guard.HexY );
+        if( len > 25 || !guard.IsSee( cr ) || ( cr.GetMap().Id != guard.GetMap().Id ) )
+            continue;
+
+        AddAttackPlane( guard, 0, cr, 0 );
+    }
+
+    if( cr.Quest[ QST_GAMEMODE ] != GAME_ARCADE && cr.Stat[ ST_BODY_TYPE ] != BT_ZOMBIE )
+        cr.SetEvent( CRITTER_EVENT_KNOCKOUT, "_KoAndCatch" );
+}
+
+
+void _KoAndCatch( Critter& cr, uint anim2begin, uint anim2idle, uint anim2end, uint lostAp, uint knockDist )
+{
+	Map@ map = cr.GetMap();
+    if( valid( map ) )
+    {
+        Critter @[] npc;
+        uint dist = 15;
+        uint id = 0;
+        if( map.GetCritters( 0, FIND_ALL | FIND_ONLY_NPC, npc ) == 0 )
+        {
+        }
+        else
+        {
+            for( uint i = 0; i < npc.length(); i++ )
+            {
+                if( npc[i].GetProtoId() >= PROTO_GUARD_MIN && npc[i].GetProtoId() <= PROTO_GUARD_MAX )
+                {
+					EraseAttackPlane( npc[i], cr );
+                }
+            }
+        }
+    }
+    cr.SetEvent( CRITTER_EVENT_KNOCKOUT, null );
+	/*
+    int  ck = cr.Quest[ QST_GAMEMODE ];
+
+    bool ck2 = false;
+
+    if( !cr.IsDead() )
+    {
+        for( uint i = 0; i < guards.length(); i++ )
+        {
+            Critter@ guard = GetCritter( guards[ i ] );
+
+            if( (guard is null) )
+                continue;
+            if( cr.GetMap().Id != guard.GetMap().Id )
+                continue;
+
+            EraseAttackPlane( guard, cr );
+
+            if( ck2 || ( !guard.IsSee( cr ) ) )
+                continue;
+            
+            ck2 = true;
+        }
+    }
+    cr.SetEvent( CRITTER_EVENT_KNOCKOUT, null );
+	*/
+}
+
+bool catch( Critter& cr )
+{
+
+    Map @ map = cr.GetMap();
+    if( map is null )
+        return false;
+    Location @ loc = map.GetLocation();
+    if( ( loc.GetProtoId() >= 1 && loc.GetProtoId() <= 4 ) || loc.GetProtoId() == 6 )
+    {
+        Map @ map2 = GetLocationByPid( LOCATION_Modoc_Center, 0 ).GetMapByIndex( 0 );
+        if( map2 is null )
+        {
+            Log( "gw map" );
+            return false;
+        }
+        bool ch = false;
+        ch = cr.TransitToMap( map2.Id, 0 );
+        return ch;
+    }
+
+    bool ch = false;
+    ch = cr.TransitToHex( 120 + Random( -5, 5 ), 240 + Random( -5, 5 ), 2 );
+    cr.Say( SAY_NETMSG, "вас выкинули из города" );
+    return ch;
+}
+
+void addGuard( Critter& npc )
+{
+    guards.insertLast( npc.Id );
+}
+
+
+void r_toHex( Critter& master, Critter@ slave, int val )
+{
+    Map@ map = master.GetMap();
+
+    if( map is null )
+        return;
+
+    uint16 hexX = 0, hexY = 0;
+
+    if( !map.GetEntireCoords( val, 0, hexX, hexY ) )
+        return;
+
+    master.TransitToHex( hexX, hexY, 5 );
+}
+
+bool d_isGoOut( Critter& master, Critter@ slave )
+{
+    Map@ map = master.GetMap();
+
+    if( map is null )
+        return false;
+
+    uint16 hexX = 0, hexY = 0;
+
+    if( !map.GetEntireCoords( 83, 0, hexX, hexY ) )
+        return false;
+
+    if( master.HexX == hexX && master.HexY == hexY )
+        return true;
+
+    uint8 dir = GetDirection( master.HexX, master.HexY, hexX, hexY );
+
+    return ( dir > 0 && dir < 4 );
+
+}
+
+void AttackAndCatch( Critter& player, int id, int param1, int param2 )
+{
+	player.Say( SAY_NETMSG, "Команда отключена, извините за причинённые неудобства." );
+	/*
+    Critter@ cr = GetCritter( uint( id ) );
+    if( cr is null )
+        return;
+    AttackAndCatch( cr, guard );
+	*/
+}
+
+void Release( Critter& player, int id, int param1, int param2 )
+{
+    Critter@ cr = GetCritter( id );
+    if( cr is null )
+        return;
+    Map@ map = cr.GetMap();
+    if( map is null || map.GetProtoId() != 18 )
+        return;
+    if( cr.HexX >= 120 || cr.HexX <= 100 || cr.HexY >= 220 || cr.HexY <= 210 )
+        return;
+
+    cr.TransitToHex( player.HexX + 1, player.HexY + 1, 5 );
+    Item@ toCont = map.GetItem( 117, 208, 188 );   // ищем шкаф с pid 188 на гексе #58
+    if( valid( toCont ) )
+    {
+        Item@[] items;
+        toCont.GetItems( cr.Id, items );
+
+        MoveItems( items, cr );       // прячем вещички в шкаф с замком 300
+
+        player.Say( SAY_NETMSG, "Item return ok." );
+    }
+}

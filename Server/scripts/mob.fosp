@@ -1,0 +1,1059 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                                               
+
+const uint16[]npc_group_raiders={(337),(338),(339),(340),(341)};
+const uint16[]npc_group_mirelurk={(330)};
+const uint16[]npc_group_radscorp={(319),(320)};
+const uint16[]npc_group_gecko={(316),(317),(327)};
+const uint16[]npc_group_rats={(310),(313),(314),(315)};                                                                                                                                                                                     
+
+import bool AddAttackPlane(Critter&npc,uint priority,Critter&target)from"npc_planes";
+import bool AddWalkPlane(Critter&npc,uint priority,uint16 hexX,uint16 hexY,uint8 dir,bool run,uint cut)from"npc_planes";
+import uint EraseAttackPlane(Critter&npc,Critter&target)from"npc_planes";
+import bool IsKindFriend(Critter&cr,Critter&check)from"world";  
+
+const uint16[]Pids_BestialMobs=
+{
+	(310),
+	(311),
+	(312),
+	(313),
+	(314),
+	(315),
+	(316),
+	(317),
+	(318),
+	(319),
+	(320),
+	(321),
+	(323),
+	(324),
+	(325),
+	(326),
+	(327),
+	(328),
+	(329),
+	(330)
+};
+
+interface Controller
+{
+	bool Attack(Critter&target);
+}
+
+class MobController:Controller
+{
+	MobController(Critter&npc)
+	{
+		@Npc=npc;
+	}
+	
+	bool Attack(Critter&target)override
+	{
+		return AddAttackPlane(Npc,0,target);
+	}
+	
+	Critter@Npc;
+}
+
+class GroupController:Controller
+{
+	GroupController(Critter&npc)
+	{
+		ListNpc.resize(0);
+		Map@map=npc.GetMap();
+		if(@map!is null)
+		{
+			Critter@[]critters;
+			int teamId=npc.Stat[(106)];
+			for(uint i=0,iEnd=map.GetCritters(0,(0x03)|(0x20),critters);i<iEnd;i++)
+			if(critters[i].Stat[(106)]==teamId)
+			ListNpc.insertLast(critters[i]);
+			TeamId=teamId;
+		}
+	}
+	
+	bool Attack(Critter&target)override
+	{
+		for(uint i=0,iEnd=ListNpc.length();i<iEnd;i++)
+		AddAttackPlane(ListNpc[i],0,target);
+		return true;
+	}
+	
+	int TeamId;
+	Critter@[]ListNpc;
+}
+
+GroupController@GetTeamController(Critter&npc)
+{
+	return@GroupController(npc);
+}
+
+MobController@GetMobController(Critter&npc)
+{
+	return@MobController(npc);
+}
+
+Controller@GetController(Critter&npc)
+{
+	if(0==npc.Stat[(106)])
+	return@GetMobController(npc);
+	return@GetTeamController(npc);
+}
+
+void RandomStep(Critter&npc)
+{
+	int rand=Random(0,9);
+	if(rand==0||(npc.Mode[(517)]==1&&rand<6))
+	{
+		npc.MoveRandom();
+		npc.ModeBase[(517)]=1;
+	}
+}
+
+bool TryGoHome(Critter&npc)
+{
+	if(npc.IsLife())
+	{
+		uint mapId=0;
+		uint16 homeX=0;
+		uint16 homeY=0;
+		uint8 dir=0;
+		npc.GetHomePos(mapId,homeX,homeY,dir);
+		if(npc.GetMapId()==mapId&&GetDistantion(homeX,homeY,npc.HexX,npc.HexY)>5)
+		{
+			npc.DropPlanes();
+			return AddWalkPlane(npc,0,homeX,homeY,dir,false,0);
+		}
+	}
+	return false;
+}
+
+void MobIdle(Critter&mob)
+{
+	if(mob.IsCanWalk())
+	{
+		RandomStep(mob);
+		if(mob.Mode[(517)]==1&&TryGoHome(mob))
+		mob.ModeBase[(517)]=0;
+	}
+}
+
+bool MobAttacked(Critter&mob,Critter&attacker)
+{
+	Controller@controller=@GetController(mob);
+	return controller.Attack(attacker);
+}
+
+void MobShowCritter(Critter&mob,Critter&critter)
+{
+	if((0!=mob.Stat[(106)]&&mob.Stat[(106)]==critter.Stat[(106)])||IsKindFriend(mob,critter))
+	return;
+	
+	Controller@controller=@GetController(mob);
+	controller.Attack(critter);
+}
+
+void MobHideCritter(Critter&npc,Critter&player)
+{
+	
+}
+
+void GM_MobInit(Critter&npc)
+{
+	npc.SetScript("_MobInit");
+}
+
+void GM_MobBossInit(Critter&npc)
+{
+	npc.SetScript("_BossMobInit");
+}
+
+void GM_MobMinionInit(Critter&npc)
+{
+	npc.PerkBase[(316)]=1;
+	npc.SetScript("_MinionMobInit");
+}
+
+void _MobInit(Critter&npc,bool firstTime)
+{
+	npc.SetEvent((0),"MobIdle");
+	npc.SetEvent((16),"MobAttacked");
+	
+	npc.SetEvent((4),"MobShowCritter");
+	npc.SetEvent((8),"MobHideCritter");
+}
+
+void _HumanoidInit(Critter&npc,bool firstTime)
+{
+	_MobInit(npc,firstTime);
+}
+
+void _BossMobInit(Critter&npc,bool firstTime)
+{
+	_MobInit(npc,firstTime);
+	
+}
+
+void _MinionMobInit(Critter&npc,bool firstTime)
+{
+	_MobInit(npc,firstTime);
+}
+
+void _MobsMapInit(Map&map,bool firstTime)
+{
+	ActivateMobScript(map);
+}
+
+void ActivateMobScript(Map&map)
+{
+	Critter@[]critters;
+	for(uint i=0,j=Pids_BestialMobs.length();i<j;i++)
+	map.GetCritters(Pids_BestialMobs[i],(0x0F)|(0x20),critters);
+	
+	for(uint i=0,j=critters.length();i<j;i++)
+	{
+		if(critters[i].GetScriptId()==0&&(critters[i].Stat[(106)]==0||(critters[i].Stat[(106)]>=24&&critters[i].Stat[(106)]<=33)))
+		critters[i].SetScript("_MobInit");
+	}
+}
+
+void _InitSkinningKnife(Item&item,bool firstTime)
+{
+	item.SetEvent((2),"e_InitSkinningUse");
+}
+
+uint16[]DefaultPidsOrder={(310),(311),(312),(322),
+	(321),(318),(318),
+	(313),(314),(316),
+	(317),(327),(319),
+	(320),(319),
+	(325),(330),(323),(323),
+	(329),(328),(337),
+	0,0,(337)
+};
+
+uint16 NewPidToDefault(uint16 pid)
+{
+	if(pid<1000)return pid;
+	uint16 start=1000,
+	size=30,
+	resultPidNumber=(pid-start)/30;
+	if(resultPidNumber>=0&&resultPidNumber<DefaultPidsOrder.length())
+	
+	return(DefaultPidsOrder[resultPidNumber]==0?pid:DefaultPidsOrder[resultPidNumber]);
+	else
+	return pid;
+}
+
+bool e_InitSkinningUse(Item&item,Critter&cr,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	bool skinned=false;
+	uint16 Add1;
+	uint16 Add2;
+	uint16 Add3;
+	uint8 Sum1;
+	uint8 Sum2;
+	uint8 Sum3;
+	uint16 PAdd1;
+	uint16 PAdd2;
+	uint16 PAdd3;
+	uint8 PSum1;
+	uint8 PSum2;
+	uint8 PSum3;
+	string Str1;
+	string Str2;
+	string Str3;
+	int result=Random(0,cr.Skill[(217)]); 
+	
+	if(onCritter.IsDead()&&onCritter.IsNpc())
+	{
+		Item@darts=onCritter.GetItem((1438),-1);
+		if((@darts!=null))
+		{
+			MoveItem(darts,darts.GetCount(),cr);
+			cr.Say((11),"Вы достали дротики.");
+		}
+		
+		if(onCritter.Stat[(187)]!=0)
+		{
+			cr.Say((11),"Уже освежован.");
+			return true;
+		}
+		
+		uint16 npcPid=onCritter.GetProtoId();
+		if(npcPid>1000)npcPid=NewPidToDefault(npcPid);
+		if(npcPid==10)npcPid=(321);   
+		
+		switch(npcPid)
+		{
+			case(310):
+			Add1=(1551);
+			Sum1=1;
+			PAdd1=(572);
+			PSum1=1;
+			Str1="Вы бездарно разделываете бедную крысу";
+			Add2=(1551);
+			Sum2=1;
+			PAdd2=(1512);
+			PSum2=1;
+			Str2="Вы разделываете бедную крысу";
+			Add3=(1551);
+			Sum3=1;
+			PAdd3=(540);
+			PSum3=1;
+			Str3="Вы умело разделываете бедную крысу";
+			break;
+			
+			case(311):
+			case(312):
+			Add1=(539);
+			Sum1=0;
+			PAdd1=(1441);
+			PSum1=0;
+			Str1="Вы не смогли ни сохранить панцирь, ни достать мяса";
+			Add2=(539);
+			Sum2=1;
+			PAdd2=(1441);
+			PSum2=0;
+			Str2="Вы достали мясо, но при этом сломали панцирь";
+			Add3=(539);
+			Sum3=1;
+			PAdd3=(1441);
+			PSum3=1;
+			Str3="Вы сняли панцирь и добрались до мяса";
+			break;
+			
+			case(313):
+			Add1=(539);
+			Sum1=1;
+			PAdd1=(572);
+			PSum1=1;
+			Str1="В процессе добычи мяса вы исполосали кожу животного";
+			Add2=(539);
+			Sum2=1;
+			PAdd2=(1512);
+			PSum2=1;
+			Str2="Вам удалось сохранить кожу животного и достать мяса";
+			Add3=(539);
+			Sum3=2;
+			PAdd3=(1512);
+			PSum3=1;
+			Str3="Вы вырезали самые мясистые места туши, повредив шкуры";
+			break;
+			
+			case(314):
+			case(315):
+			Add1=(539);
+			Sum1=1;
+			PAdd1=(1444);
+			PSum1=0;
+			Str1="В процессе добычи мяса вы повредили желудок кротокрыса";
+			Add2=(539);
+			Sum2=1;
+			PAdd2=(1444);
+			PSum2=1;
+			Str2="Вы вырезали желудок кротокрыса и немного мяса с ним";
+			Add3=(539);
+			Sum3=2;
+			PAdd3=(1444);
+			PSum3=1;
+			Str3="Вы вырезали желудок кротокрыса и немало мяса";
+			break;
+			
+			case(316):
+			Add1=(1552);
+			Sum1=1;
+			PAdd1=(572);
+			PSum1=2;
+			Str1="Ради мяса вы порезали тушу гекко";
+			Add2=(1552);
+			Sum2=2;
+			PAdd2=(1512);
+			PSum2=1;
+			Str2="Вы не особо умело разделываете гекко";
+			Add3=(1552);
+			Sum3=2;
+			PAdd3=(276);
+			PSum3=1;
+			Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+			break;
+			
+			case(317):
+			Add1=(1552);
+			Sum1=1;
+			PAdd1=(572);
+			PSum1=2;
+			Str1="Ради мяса вы порезали тушу гекко";
+			Add2=(1552);
+			Sum2=2;
+			PAdd2=(1512);
+			PSum2=1;
+			Str2="Вы не особо умело разделываете гекко";
+			Add3=(1552);
+			Sum3=2;
+			PAdd3=(277);
+			PSum3=1;
+			Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+			break;
+			
+			case(318):
+			Add1=(539);
+			Sum1=1;
+			PAdd1=(572);
+			PSum1=1;
+			Str1="Вы разделываете тушку пса";
+			Add2=(539);
+			Sum2=Random(1,2);
+			PAdd2=(1512);
+			PSum2=Random(0,1);
+			Str2="Вы не особо умело разделали животное";
+			Add3=(539);
+			Sum3=2;
+			PAdd3=(1512);
+			PSum3=1;
+			Str3="Вы удачно разделали пса";
+			break;
+			
+			case(319):
+			Add1=(539);
+			Sum1=1;
+			PAdd1=(1441);
+			PSum1=0;
+			Str1="Вы достали немного мяса из тела скорпиона";
+			Add2=(539);
+			Sum2=1;
+			PAdd2=(1441);
+			PSum2=1;
+			Str2="Отломав кусок панциря вы добрались до мяса";
+			Add3=(539);
+			Sum3=2;
+			PAdd3=(92);
+			PSum3=1;
+			Str3="Вы умело лишили мертвого скорпиона его жала";
+			break;
+			
+			case(320):
+			Add1=(539);
+			Sum1=2;
+			PAdd1=(1441);
+			PSum1=0;
+			Str1="Вы достали немного мяса из тела скорпиона";
+			Add2=(539);
+			Sum2=2;
+			PAdd2=(1441);
+			PSum2=1;
+			Str2="Отломав кусок панциря вы добрались до мяса";
+			Add3=(539);
+			Sum3=3;
+			PAdd3=(92);
+			PSum3=1;
+			Str3="Вы умело лишили мертвого скорпиона его жала";
+			break;
+			
+			case(321):
+			Add1=(539);
+			Sum1=5;
+			PAdd1=(1512);
+			PSum1=Random(0,2);
+			Str1="Вы исполосали ножом всю шкуру";
+			Add2=(539);
+			Sum2=Random(5,8);
+			PAdd2=(1512);
+			PSum2=Random(2,4);
+			Str2="Вы разделали брамина не так хорошо как хотелось бы";
+			Add3=(539);
+			Sum3=10;
+			PAdd3=(449);
+			PSum3=1;
+			Str3="Вы лишили тушу брамина мяса и шкуры";
+			break;
+			
+			case(322):
+			cr.AddItem((365),4);
+			skinned=true;
+			break;
+			
+			case(323):
+			Add1=(1440);
+			Sum1=3;
+			PAdd1=(1443);
+			PSum1=Random(0,1);
+			Str1="Вы небрежно распотрошили мутанта";
+			Add2=(1440);
+			Sum2=Random(3,4);
+			PAdd2=(1443);
+			PSum2=1;
+			Str2="Вы извлекаете железу твари";
+			Add3=(1440);
+			Sum3=Random(4,5);
+			PAdd3=(1443);
+			PSum3=1;
+			Str3="Вы извлекаете железу твари";
+			break;
+			
+			case(324):
+			case(325):
+			case(326):
+			Add1=(539);
+			Sum1=2;
+			PAdd1=(371);
+			PSum1=0;
+			Str1="Вы распотрошили тушу";
+			Add2=(539);
+			Sum2=3;
+			PAdd2=(371);
+			PSum2=Random(0,1);
+			Str2="Вы усердно поработали ножом над тушей";
+			Add3=(539);
+			Sum3=4;
+			PAdd3=(371);
+			PSum3=1;
+			Str3="Вы вырезали все, что посчитали возможным";
+			break;
+			
+			case(327):
+			Add1=(1552);
+			Sum1=2;
+			PAdd1=(572);
+			PSum1=4;
+			Str1="Ради мяса вы порезали тушу гекко";
+			Add2=(1552);
+			Sum2=3;
+			PAdd2=(1512);
+			PSum2=2;
+			Str2="Вы не особо умело разделываете гекко";
+			Add3=(1552);
+			Sum3=3;
+			PAdd3=(556);
+			PSum3=1;
+			Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+			break;
+			
+			case(328):
+			Add1=(1440);
+			Sum1=3;
+			PAdd1=(1443);
+			PSum1=Random(0,1);
+			Str1="Вы небрежно распотрошили мутанта";
+			Add2=(1440);
+			Sum2=Random(3,4);
+			PAdd2=(1443);
+			PSum2=1;
+			Str2="Вы извлекаете железу твари";
+			Add3=(1440);
+			Sum3=Random(4,5);
+			PAdd3=(1443);
+			PSum3=1;
+			Str3="Вы извлекаете железу твари";
+			break;
+			
+			case(329):
+			Add1=(1440);
+			Sum1=3;
+			PAdd1=(1443);
+			PSum1=Random(0,1);
+			Str1="Вы небрежно распотрошили мутанта";
+			Add2=(1440);
+			Sum2=Random(3,4);
+			PAdd2=(1443);
+			PSum2=1;
+			Str2="Вы извлекаете железу твари";
+			Add3=(1440);
+			Sum3=Random(4,5);
+			PAdd3=(1443);
+			PSum3=1;
+			Str3="Вы извлекаете железу твари";
+			break;
+			
+			case(330):
+			Add1=(539);
+			Sum1=1;
+			PAdd1=(1442);
+			PSum1=0;
+			Str1="Разбив панцирь, вы вырезали немного мяса";
+			Add2=(539);
+			Sum2=2;
+			PAdd2=(1441);
+			PSum2=2;
+			Str2="Вы сломали панцирь в попытках его оторвать от тела болотника";
+			Add3=(539);
+			Sum3=2;
+			PAdd3=(1442);
+			PSum3=1;
+			Str3="Вы успешно срываете панцирь с болотника";
+			break;
+			
+			case(338):
+			case(341):
+			case(345):
+			if(cr.Karma[(480)]!=0)
+			{
+				Add1=(539);
+				Sum1=1;
+				PAdd1=(484);
+				PSum1=0;
+				Str1="Вы отрезали самую вкусную часть умирающего человека";
+				Add2=(539);
+				Sum2=2;
+				PAdd2=(484);
+				PSum2=1;
+				Str2="Вы вырезали как можно больше мяса и взяли ухо как трофей";
+				Add3=(539);
+				Sum3=2;
+				PAdd3=(484);
+				PSum3=2;
+				Str3="Вы вырезали самое вкусное и отрезали уши умершего";
+			}
+			else
+			{
+				cr.Say((11),"Вам не хочется издеваться над трупом");
+			}
+			break;
+			
+			case(337):
+			case(339):
+			case(340):
+			case(342):
+			case(343):
+			case(344):
+			case(346):
+			if(cr.Karma[(480)]!=0)
+			{
+				Add1=(539);
+				Sum1=1;
+				PAdd1=(484);
+				PSum1=0;
+				Str1="Вы отрезали самую вкусную часть умирающего человека";
+				Add2=(539);
+				Sum2=2;
+				PAdd2=(484);
+				PSum2=1;
+				Str2="Вы вырезали как можно больше мяса и взяли ухо как трофей";
+				Add3=(539);
+				Sum3=2;
+				PAdd3=(484);
+				PSum3=2;
+				Str3="Вы вырезали самое вкусное и отрезали уши умершего";
+			}
+			else
+			{
+				cr.Say((11),"Вам не хочется издеваться над трупом");
+			}
+			break;
+			
+			case(347):
+			case(348):
+			if(cr.Karma[(480)]!=0)
+			{
+				Add1=(539);
+				Sum1=1;
+				PAdd1=(484);
+				PSum1=0;
+				Str1="Вы с радостью распотрошили гуля";
+				Add2=(539);
+				Sum2=2;
+				PAdd2=(484);
+				PSum2=0;
+				Str2="Вы вырезали как можно больше мяса";
+				Add3=(539);
+				Sum3=3;
+				PAdd3=(484);
+				PSum3=0;
+				Str3="С тела гуля получилось мясное ассорти, на запах отвратное";
+			}
+			else
+			{
+				cr.Say((11),"Вам не хочется издеваться над трупом");
+			}
+			break;
+			
+			case(349):
+			if(cr.Karma[(480)]!=0)
+			{
+				Add1=(539);
+				Sum1=3;
+				PAdd1=(484);
+				PSum1=0;
+				Str1="Вы отрезали самую вкусную часть умирающего супермутанта";
+				Add2=(539);
+				Sum2=5;
+				PAdd2=(484);
+				PSum2=1;
+				Str2="Вы вырезали как можно больше мяса и взяли ухо как трофей";
+				Add3=(539);
+				Sum3=6;
+				PAdd3=(484);
+				PSum3=2;
+				Str3="Вы вырезали самое вкусное и отрезали уши умершего";
+			}
+			else
+			{
+				cr.Say((11),"Вам не хочется издеваться над трупом");
+			}
+			break;
+		}  
+		
+	}
+	else if(onCritter.IsDead()&&!onCritter.IsNpc())
+	{
+		if(onCritter.Stat[(187)]!=0)
+		{
+			cr.Say((11),"Уже освежован.");
+			return true;
+		}
+		if(cr.Karma[(480)]!=0)
+		{
+			onCritter.ToLife();
+			onCritter.ToDead((110),cr);
+			Add1=(539);
+			Sum1=3;
+			PAdd1=(484);
+			PSum1=0;
+			Str1="Вы отрезали самую вкусную часть умирающего";
+			Add2=(539);
+			Sum2=4;
+			PAdd2=(484);
+			PSum2=1;
+			Str2="Вы вырезали как можно больше мяса и взяли ухо как трофей";
+			Add3=(539);
+			Sum3=5;
+			PAdd3=(484);
+			PSum3=2;
+			Str3="Вы вырезали самое вкусное и отрезали уши умершего";
+		}
+	}
+	
+	if(result>180)
+	{
+		cr.AddItem(Add3,Sum3);
+		cr.Say((11),Str3);
+		skinned=true;
+		if(cr.Perk[(430)]!=0)
+		{
+			cr.AddItem(PAdd3,PSum3);
+		}
+	}
+	else if(result>120)
+	{
+		cr.AddItem(Add2,Sum2);
+		cr.Say((11),Str2);
+		skinned=true;
+		if(cr.Perk[(430)]!=0)
+		{
+			cr.AddItem(PAdd2,PSum2);
+		}
+	}
+	else if(result>60)
+	{
+		cr.AddItem(Add1,Sum1);
+		cr.Say((11),Str1);
+		skinned=true;
+		if(cr.Perk[(430)]!=0)
+		{
+			cr.AddItem(PAdd1,PSum1);
+		}
+	}
+	else
+	{
+		cr.Say((11),"Вы задумались о своем, забыв про разделку");
+	}
+	
+	if(skinned)
+	{
+		onCritter.StatBase[(187)]=1;
+	}
+	return true;
+}

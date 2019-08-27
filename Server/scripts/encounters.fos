@@ -1,0 +1,253 @@
+//encounters
+//powermagic
+
+#include "_global_events.fos"
+#include "_global.fos"
+#include "_npc_pids.fos"
+#include "_macros.fos"
+
+// import uint8 GetBiomType(Critter& cr) from "world";
+
+#define INDEX_CHANGE_MORNING    (0)
+#define INDEX_CHANGE_AFTERNON   (1)
+#define INDEX_CHANGE_EAVNING    (2)
+#define INDEX_CHANGE_NIGHT      (3)
+
+
+#define GROUP_MAX               (2)
+#define GROUP_RAIDER            (0)
+#define GROUP_MIRELURK          (1)
+
+class CEncounterGroup
+{
+    uint8       Count;
+    uint8       Distance;
+    uint8       NpcPowerPerc;
+    uint8[]     Chances;
+    uint16[]    NpcPid;
+    string      GroupName;
+
+
+
+    CEncounterGroup(){
+        NpcPowerPerc = 100;
+
+        Chances.resize(4);
+    }
+
+    CEncounterGroup(uint16[] npcPid, uint8 npcPower, uint8[] chances, uint8 count, uint8 distance, string gName = "Отродья пустоши."){
+        NpcPid = npcPid;
+        NpcPowerPerc = (npcPower != 0 ? npcPower : 100);
+        Chances = chances;
+        Count = count;
+        Distance = distance;
+        GroupName = gName;
+    }
+
+    uint8 GetChance(){
+        return Chances[GetTimeIndex()];
+    }
+
+    void CountChange(uint8 count){
+        Count = count;
+    }
+
+    void PowerChange(uint8 power){
+        NpcPowerPerc = power;
+    }
+
+    bool GroupSpawn(Critter& player){
+        Map @ map = player.GetMap();
+
+        Log("map");
+        if(map is null) return false;
+
+        uint8  dir = player.Dir;
+        uint16 hexX = player.HexX, hexY = player.HexY;
+
+        //REVERSE_DIRECTION(dir, player.Dir);
+
+        map.MoveHexByDir(hexX, hexY, dir, Distance);
+        Log("spawn");
+
+        for(uint8 i = 0; i < Count; ++i){
+            //map.AddNpc()
+            uint rndPid = Random(0, NpcPid.length()-1);
+            map.AddNpc( NpcPid[rndPid], Random(hexX-5, hexX+5), Random(hexY-5, hexY+5), dir, null, null, "mob@_MobInit" );
+        }
+
+        //player.Say(SAY_NETMSG, "group spawn");
+        player.Say(SAY_NETMSG, "|0xffff0000 Вы встретили : "+GroupName+".");
+        //10000010
+        return true;
+    }
+
+    uint8 GetTimeIndex(){
+        uint8 r = 0;
+
+        if(__Hour >= 8){
+            r = 1;
+        }else if(__Hour >= 12){
+            r = 2;
+        }else if(__Hour >= 18){
+            r = 3;
+        }
+
+        return r;
+    }
+}
+
+class CEncounterBiom
+{
+    CEncounterGroup@[] Group;
+
+    CEncounterBiom(){
+        Group.resize(0);
+    }
+
+    void InsertGroup(CEncounterGroup group){
+        Group.insertLast(group);
+    }
+
+    bool EncounterCheck(Critter& player){
+
+        uint16 outdoorsman = player.Skill[SK_OUTDOORSMAN];
+
+        bool r = false;
+
+            //CEncounterGroup @ group = GROUP[]
+
+        uint8[] groupsId;
+
+        for(uint8 i = 0, j = Group.length(); i < j; ++i){
+            if(outdoorsman < Group[i].GetChance()){
+                r = true;
+                groupsId.insertLast(i);
+            }
+        }
+
+        if(r){
+            //for(uint8 i = 0, j = groupsId.length())
+            player.StatBase[ST_VAR9] = Random(0, groupsId.length()-1);
+            Log("ecounter "+player.StatBase[ST_VAR9]);
+        }
+
+	return r;
+    }
+
+    void EncounterSpawn(Critter& player){
+		Group[player.StatBase[ST_VAR9]].GroupSpawn(player);
+		player.StatBase[ST_VAR9] = -1;
+    }
+
+}
+
+CEncounterBiom[]   biomEncounters;
+CEncounterGroup[]   groups;
+
+bool CheckEncounter(Critter& player, uint8 biomType){
+	if( biomEncounters.length() <= biomType )
+	{
+		Log( "Biom type out of bounds: <" + biomType + "> max: <" + biomEncounters.length() + ">" );
+		return false;
+	}
+    return biomEncounters[biomType].EncounterCheck(player);
+}
+/*
+void InitGroups(){
+    groups.resize(GROUP_MAX);
+
+    //uint16[] npcPid;
+
+    //npcPid.insertLast();
+    groups[GROUP_RAIDER] = CEncounterGroup(npc_group_raiders, 100, chances_raiders, 10, 10);
+    groups[GROUP_MIRELURK] = CEncounterGroup(npc_group_mirelurk, 100, chances_mirelurk, 10, 10);
+}*/
+
+void GetEncounter(Critter& cr, uint8 biomType){
+    biomEncounters[biomType].EncounterSpawn(cr);
+}
+
+void GetEncounter(Critter& cr)
+{
+    uint8 type = 0;//GetBiomType(cr);
+    if(type != uint8(-1)){
+		GetEncounter(cr, type);
+    }
+}
+
+void Encounter(Critter& player, uint8 biomType){
+    if(CheckEncounter(player, biomType)){
+        GetEncounter(player, biomType);
+    }
+}
+
+
+ObjectsManager objectMng;
+
+void start( string&in, Handle@ )
+{
+    iManagerModule@  module = objectMng;
+    iManagerElement@ manager = manager_add_module( module, "Encounter", 100 );
+    if( manager is null )
+        return;
+
+    //manager.GetEventFlags() = 0;
+
+    //manager.GetTimeChangeCall() = 0;
+}
+
+void ModuleInit( string&in, Handle@ )
+{
+    EventRoot.SetCallback( "Start", start );
+}
+
+class ObjectsManager : iManagerModule, iManager_loop//, iManager_world_save//, iManager_critter_init
+{
+	bool manager_init()
+	{
+		return true;
+	}
+	
+	bool manager_start(){
+		// вызывается в порядке приоритетов
+		InitEncounters();
+		return true;
+	}
+
+	uint global_loop(){
+		return uint( -1 );
+	 }
+/*
+	bool global_world_save(){
+		used_map_obj.Save();
+		return true;
+	}*/
+
+
+}
+
+void InitEncounters(){
+
+		//InitGroups	();
+
+
+		biomEncounters.resize(BIOM_MAX);
+
+
+		//biomEncounters[BIOM_TYPE_WASTELAND].InsertGroup(groups[GROUP_RAIDER]);
+		//biomEncounters[BIOM_TYPE_WASTELAND].InsertGroup(groups[GROUP_MIRELURK]);
+		//(uint16[] npcPid, uint8 npcPower, uint8[] chances, uint8 count, uint8 distance){
+		biomEncounters[BIOM_TYPE_ROAD].InsertGroup(CEncounterGroup(npc_group_rats, 100, chances_rats_road, 3, 25, "Крыс"));
+		biomEncounters[BIOM_TYPE_ROAD].InsertGroup(CEncounterGroup(npc_group_raiders, 100, chances_raiders_road, 3, 25, "Рейдеров"));
+
+		biomEncounters[BIOM_TYPE_RUINS].InsertGroup(CEncounterGroup(npc_group_raiders, 100, chances_raiders_ruins, 4, 25, "Мародеров"));
+        biomEncounters[BIOM_TYPE_RUINS].InsertGroup(CEncounterGroup(npc_group_rats, 100, chances_rats_ruins, 10, 25, "Крыс"));
+
+        biomEncounters[BIOM_TYPE_FOREST].InsertGroup(CEncounterGroup(npc_group_rats, 100, chances_rats_forest, 8, 25, "Крыс"));
+        biomEncounters[BIOM_TYPE_FOREST].InsertGroup(CEncounterGroup(npc_group_gecko, 100, chances_gecko_forest, 15, 40, "Гекко"));
+
+		biomEncounters[BIOM_TYPE_WASTELAND].InsertGroup(CEncounterGroup(npc_group_radscorp, 100, chances_radscorp_waste, 10, 30, "Радскорпионов"));
+
+		//biomEncounters[BIOM_TYPE_WASTELAND].InsertGroup(CEncounterGroup(npc_group_mirelurk, 100, chances_mirelurk, 10, 10));
+}

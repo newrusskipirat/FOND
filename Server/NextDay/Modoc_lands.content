@@ -1,0 +1,175 @@
+#==========================================================
+#ND Modoc lands
+#==========================================================
+	
+Name = modoc_lands_town							#Имя части контента
+LocationPid = 1232								#Пид локации части контента = Area в locations.cfg
+Flags = Static						#Опции видимости локации. Варинты: Static Encounter Ignored Hidden SpawnItems
+Visible = 50									#Видимость локации на глобале
+Size = 2 2 										#Задает размер локации на глобальной карте для осей "х" и "у" размер прирастает влево и вниз
+Create:modoc_lands_town = 9 5					#Создает экземпляр этой локации с внутренним именем в позиции "х" и "у"
+#Symbol:Client = T								#Символ на клетке глобала
+#Symbol:Color =	60 249 0 1						#Цвет символа на глобале rgba
+#Cell:Color										#Цвет клетки на глобале rgba
+GlobalData = Sheriff Mayor CopList AdminList	#Это для скриптов только. Для прав мэра, списка администрации и подобного.
+
+new modoc_lands_river_turn			
+LocationPid = 1238
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_river_turn = 7 4
+
+new modoc_lands_river_2			
+LocationPid = 1240
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_river_2 = 7 5
+
+new modoc_lands_river_1			
+LocationPid = 1241
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_river_1 = 7 6
+
+new modoc_lands_bridge			
+LocationPid = 1242
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_bridge = 7 7
+
+new modoc_lands_cliff_1			
+LocationPid = 1243
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_cliff_1 = 8 4
+
+new modoc_lands_caravan_camp			
+LocationPid = 1245
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:modoc_lands_caravan_camp = 8 7
+
+new modoc_lands_cliff_2			
+LocationPid = 1246
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_cliff_2 = 9 4
+
+new modoc_lands_gas_station			
+LocationPid = 1248
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_gas_station = 9 7
+
+new modoc_lands_cliff_3			
+LocationPid = 1249
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_cliff_3 = 10 4
+
+new modoc_lands_cliff_4			
+LocationPid = 1250
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_cliff_4 = 10 5
+
+new modoc_lands_graveyard			
+LocationPid = 1251
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_graveyard = 11 7
+
+new modoc_lands_shebang
+LocationPid = 1252
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_shebang = 10 6
+
+new modoc_lands_oasis
+LocationPid = 1253
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_oasis = 10 7
+
+new modoc_lands_forest_3
+LocationPid = 1254
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_forest_3 = 11 4
+
+new modoc_lands_forestfarm
+LocationPid = 1255
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_forestfarm = 11 5
+
+new modoc_lands_forest_1
+LocationPid = 1256
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_forest_1 = 11 6
+
+new modoc_lands_forest_4
+LocationPid = 1257
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_forest_4 = 12 4
+
+new modoc_lands_ghostfarm
+LocationPid = 1260
+Flags = Static
+Visible = 50
+Size = 2 2
+Create:modoc_lands_ghostfarm = 14 3
+
+new modoc_lands_forest_5
+LocationPid = 1262
+Flags = Static
+Visible = 50
+Size = 1 1
+Create:modoc_lands_forest_5 = 12 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,2104 @@
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
+bool LocIsModoc(uint locPid)
+{
+	return(locPid<=(1253));
+}
+
+bool LocIsCity(uint locPid)
+{
+	return(locPid<=(32)||locPid==(1216)||locPid==(43)||locPid==96);
+}
+
+bool LocIsMasked(uint locPid)
+{
+	return(locPid==(42));
+}
+
+bool LocIsHidden(uint locPid)
+{
+	return false;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+shared interface Project
+{
+	string@get_Name();
+	void Build();
+	void SetAssociation(string@ex,string@className,string@classModule);
+}
+
+shared interface FileObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	void FormatStringData(string&nameData,string&data);
+	FileObject@get_Pattern(string&name)const;
+	FileObject@get_Copy(string&name); 
+	
+	void set_GlobalData(string@name,string@value);          
+	
+	string@get_GlobalData(string@name);            
+	
+}
+
+shared class TimeLog
+{
+	uint tick;
+	
+	TimeLog()
+	{
+		refresh();
+	}
+	
+	void refresh()
+	{
+		tick=GetTick();
+	}
+	
+	bool check(uint count)
+	{
+		return(GetTick()-tick>=count);
+	}
+	
+	uint get()
+	{
+		uint old=tick;
+		refresh();
+		return(tick-old);
+	}
+	
+	void Log(string&in message)
+	{
+		::ClearLog(message+" ["+(GetTick()-tick)+"ms]");
+	}
+}
+
+shared interface AnyDataObject
+{
+	string@get_DictKey();
+	string@get_ObjectName()const;
+	uint[]@get_SaveData();
+	void InitData(uint[]&data);
+}
+
+shared interface ManagerObject
+{
+	FileObject@get_ProtoObject(string@name);
+	void ParseProtoTypes(const string&ex,const FileObject&pattern,const string@search);
+	FileObject@ParseProtoTypeFile(string&name,const string&ex,const FileObject&pattern,const string@search);
+	FileObject@AddPrototype(FileObject@proto);
+	FileObject@StringToFileObject(string&name,string&txt,const FileObject&pattern);
+}
+
+shared interface ValueAPI{}
+shared class SettingsAPI
+{
+	string Name;
+	bool IsDebug;
+} 
+
+shared class GlobalData
+{
+	uint Hash;
+	string Value;
+	
+	GlobalData(string@name)
+	{
+		Hash=GetStrHash(name);
+		Value="";
+	} 
+	
+	void SaveData(uint[]&outArray,uint&position)
+	{
+		uint len=Value.length();
+		
+		outArray.resize(position+2+len/2);
+		
+		outArray[position++]=Hash;
+		outArray[position++]=len;
+		
+		for(uint i=0;i<len;i++)
+		{
+			outArray[position]|=Value[i++]<<24;
+			outArray[position]|=Value[i++]<<16;
+			outArray[position]|=Value[i++]<<8;
+			outArray[position++]|=Value[i];
+		}
+	} 
+	
+	void LoadData(uint[]&in outArray,uint&position)
+	{
+		Hash=outArray[position++];
+		uint len=outArray[position++];
+		Value.resize(len);
+		
+		for(uint i=0;i<len;i++)
+		{
+			Value[i++]=(outArray[position]>>24)&0xFF;
+			Value[i++]=(outArray[position]>>16)&0xFF;
+			Value[i++]=(outArray[position]>>8)&0xFF;
+			Value[i]=outArray[position++]&0xFF;
+			
+		}
+	}
+} 
+
+shared class Hexagonal
+{
+	Hexagonal(){Reset();}
+	Hexagonal(const uint16&in x,const uint16&in y){Set(x,y);}
+	Hexagonal(const Hexagonal&master){Set(master);}
+	
+	Hexagonal(const Critter&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Item&master){Set(master.HexX,master.HexY);}
+	Hexagonal(const Scenery&master){Set(master.HexX,master.HexY);}
+	
+	bool Entire(Map&map,int entNum){return map.GetEntireCoords(entNum,0,X,Y);}
+	bool IsPassed(Map&map){return ValidPosition(map)&&map.IsHexPassed(X,Y);}
+	bool IsPassed(Map&map,Hexagonal&begin,Hexagonal&end){return ValidPosition(map,begin,end)&&map.IsHexPassed(X,Y);}
+	
+	bool ValidPosition(Map&map)
+	{
+		Hexagonal end,begin;
+		if(end.Entire(map,0)&&begin.Entire(map,255))
+		return ValidPosition(map,begin,end);
+		return false;
+	}
+	
+	bool ValidPosition(Map&map,Hexagonal&begin,Hexagonal&end)
+	{
+		return(X>=begin.X&&Y>=begin.Y
+		&&X<=end.X&&Y<=end.Y);
+	}
+	
+	bool Transit(Critter&critter,Map&map){return Transit(critter,map,critter.Dir);}
+	bool Transit(Critter&critter,Map&map,uint8 direction)
+	{
+		if(!IsPassed(map))return false;
+		return critter.TransitToMap(map.Id,X,Y,direction);
+	}
+	
+	bool Transit(Critter&critter,uint mapId){return Transit(critter,mapId,critter.Dir);}
+	bool Transit(Critter&critter,uint mapId,uint8 direction)
+	{
+		if(mapId==0)return false;
+		Map@map=GetMap(mapId);
+		if(@map is null)return false;
+		return Transit(critter,map,direction);
+	} 
+	
+	void Set(const uint16&in x,const uint16&in y){X=x;Y=y;}
+	void Set(const Hexagonal&in other){Set(other.X,other.Y);}
+	void Reset(){X=Y=0;}
+	uint Distantion(Hexagonal&other){return GetDistantion(X,Y,other.X,other.Y);}
+	
+	uint16 X;
+	uint16 Y;
+	
+	bool opEquals(const Hexagonal&in other){return(other.X==X&&other.Y==Y);}
+	Hexagonal&opAssign(const Hexagonal&in other)
+	{
+		Set(other);
+		return this;
+	}
+	
+	const uint get_UID(const uint w)const{return X+Y*w;}
+	string get_Debug(){return"X:"+X+"Y:"+Y;}
+	void Log(string&str){::Log(str+":"+Debug);}
+}    
+
+shared class MapHash
+{
+	MapHash(const uint16&in protoId)
+	{
+		ProtoId=protoId;
+		@Min=null;
+		@Max=null;
+	}
+	
+	MapHash&opAssign(Map&map)
+	{
+		@Min=Hexagonal(0,0);
+		@Max=Hexagonal(0,0);
+		map.GetEntireCoords(0,0,Max.X,Max.Y);
+		map.GetEntireCoords((255),0,Min.X,Min.Y);
+		return this;
+	}
+	
+	uint16 ProtoId;
+	Hexagonal@Min;
+	Hexagonal@Max;
+} 
+
+shared class Line
+{
+	Line(Hexagonal&a,Hexagonal&b){@A=a;@B=b;}
+	
+	uint get_Length()
+	{
+		return B.Distantion(A);
+	}
+	
+	uint get_Point(Hexagonal&point)
+	{
+		return B.Distantion(point);
+	}
+	
+	float get_Module(Hexagonal&point)
+	{
+		return Point[point]/Length;
+	}
+	
+	Hexagonal@get_opIndex(const uint&in size)
+	{
+		
+		const float mod=float(size/Length);
+		return@Hexagonal(A.X+(B.X-A.X)*mod,A.Y+(B.Y-A.Y)*mod);
+	} 
+	
+	Line(Map&map,uint16 grid,MapHash@hash)
+	{
+		if(@hash is null)
+		{
+			Hexagonal min,max;
+			map.GetTransferParams(min.X,min.Y,max.X,max.Y,grid);
+			
+			@A=@Hexagonal(min.X,min.Y);
+			@B=@Hexagonal(max.X,max.Y);
+		}
+		else
+		{
+			if(@hash.Min is null||@hash.Max is null)
+			map.GetTransferParams(hash.Min.X,hash.Min.Y,hash.Max.X,hash.Max.Y,grid);
+			
+			@A=@Hexagonal(hash.Min.X,hash.Min.Y);
+			@B=@Hexagonal(hash.Max.X,hash.Max.Y);
+		}
+	} 
+	
+	string get_Debug(){return"A<"+A.Debug+">B<"+B.Debug+">";}
+	void Log(string&str){::Log(str+":"+Debug);}
+	
+	Hexagonal@A;
+	Hexagonal@B;
+}  
+
+import MapHash@GetMapHash(const uint16&in pid)from"world";
+import uint CreateLocation(Hexagonal&coordinate,uint16 locationPid)from"world"; 
+
+import ManagerObject@get_objectManager()from"world"; 
+
+import EventTree@get_EventRoot()from"world"; 
+
+import Project@CreateProject(string@name,string@path)from"main";
+import Project@get_Project(string@name)from"main";                                                                                                                                              
+
+uint __GetColor(int r,int g,int b)
+{
+	r=(((r)>(255))?(255):(((r)<(0))?(0):(r)));
+	g=(((g)>(255))?(255):(((g)<(0))?(0):(g)));
+	b=(((b)>(255))?(255):(((b)<(0))?(0):(b)));
+	return(uint((0xFF<<24)|(((r)&0xFF)<<16)|(((g)&0xFF)<<8)|((b)&0xFF)));
+}
+
+uint __GetGradient(uint colorStart,uint colorEnd,uint8 pos)
+{
+	pos=(((pos)>(100))?(100):(((pos)<(1))?(1):(pos)));
+	
+	int aS=(colorStart>>24)&0xFF,
+	rS=((colorStart>>16)&0xFF),
+	gS=((colorStart>>8)&0xFF),
+	bS=((colorStart)&0xFF),
+	
+	aE=(colorEnd>>24)&0xFF,
+	rE=((colorEnd>>16)&0xFF),
+	gE=((colorEnd>>8)&0xFF),
+	bE=((colorEnd)&0xFF); 
+	
+	rS=(((rE-int(rS*(pos*0.01)))>0)?(rE-int(rS*(pos*0.01))):-(rE-int(rS*(pos*0.01))));
+	gS=(((gE-int(gS*(pos*0.01)))>0)?(gE-int(gS*(pos*0.01))):-(gE-int(gS*(pos*0.01))));
+	bS=(((bE-int(bS*(pos*0.01)))>0)?(bE-int(bS*(pos*0.01))):-(bE-int(bS*(pos*0.01))));
+	
+	return __GetColor(rS,gS,bS);
+}
+
+uint __GetColor(uint8&a,uint8&r,uint8&g,uint8&b,uint color){
+	a=(color>>24)&0xFF;
+	r=((color>>16)&0xFF);
+	g=((color>>8)&0xFF);
+	b=((color)&0xFF);
+	
+	return 0;
+}                                        
+
+import uint GetCellMap(uint16 x,uint16 y)from"world";
+import void unsafe_arcade(Critter&player,int param0,int param1,int param2,string@param3,int[]@param4)from"arcade_menu";
+import string TimeToString(Critter&player)from"gm";
+import void ShowInputBoxScreen(Critter&cr,string funcName,uint16 textLength,uint8 flags)from"main";
+
+void _StartMapInit(Map&map,bool firstTime)
+{
+	map.SetEvent((7),"_crOut");
+	map.SetEvent((6),"_crIn");
+}
+
+void _ArcadeKindmanInit(Critter&cr,bool firstTime)
+{
+	cr.StatBase[(104)]=331;
+	cr.ModeBase[(539)]=1;
+	cr.ModeBase[(540)]=1;
+	cr.ModeBase[(511)]=1;
+	cr.ModeBase[(514)]=1;
+	cr.ModeBase[(527)]=1;
+	cr.ModeBase[(536)]=1;
+	cr.ModeBase[(513)]=1;
+	cr.ModeBase[(537)]=1;
+	cr.QuestBase[(701)]=40;
+	cr.SetEvent((39),"_ArcadeKindman_talk");
+	cr.SetEvent((4),"_Arcade_sight");
+}
+
+void _Arcade_sight(Critter&cr,Critter&showCr)
+{
+	Map@map=cr.GetMap();
+	Critter@[]critters;
+	if(showCr.IsPlayer()&&showCr.QuestBase[(703)]==(0)&&(map.GetCrittersHex(cr.HexX,cr.HexY,15,(0x03)|(0x10),critters)<=1))
+	{
+		uint16[]ArcadeSkins={15,16,19,22,23,24,25,51,52,55,58,59,60,65,67,68,80,81,86,97};
+		cr.ChangeCrType(ArcadeSkins[Random(0,ArcadeSkins.length()-1)]);
+	}
+}
+
+bool _ArcadeKindman_talk(Critter&player,Critter&talkCr,bool attach,uint talkCount)
+{
+	if(talkCr.Param[(703)]==(0))
+	{
+		talkCr.ShowScreen((2),1,"answer_ArcadeKindman_talk");
+		talkCr.Say((18),"НПЦ стоит временно без диалога");
+		talkCr.Say((19+(0)),"Войти в игру аркадой");
+		talkCr.Say((19+(1)),"Постоять пока тут");
+		return false;
+	}
+	else
+	talkCr.Say((11),"Ошибка, обратитесь к ГеймМастерам.");
+	return false;
+}
+
+void answer_ArcadeKindman_talk(Critter&player,uint answerI,string&answerS)
+{
+	if(player.Param[(703)]!=(0))
+	return;
+	if(answerI==0)
+	{ 
+		
+		kind_tele2(player,null,(95));
+		unsafe_arcade(player,0,0,0,null,null);
+	}
+}
+
+void _SurvivalKindmanInit(Critter&cr,bool firstTime)
+{
+	cr.StatBase[(104)]=331;
+	cr.ModeBase[(539)]=1;
+	cr.ModeBase[(540)]=1;
+	cr.ModeBase[(511)]=1;
+	cr.ModeBase[(514)]=1;
+	cr.ModeBase[(527)]=1;
+	cr.ModeBase[(536)]=1;
+	cr.ModeBase[(513)]=1;
+	cr.ModeBase[(537)]=1;
+	cr.QuestBase[(701)]=40;
+	cr.SetEvent((39),"_SurvivalKindman_talk");
+	cr.SetEvent((4),"_Survival_sight");
+}
+
+bool _SurvivalKindman_talk(Critter&player,Critter&talkCr,bool attach,uint talkCount)
+{
+	if(talkCr.QuestBase[(703)]==(0))
+	{
+		talkCr.ShowScreen((2),1,"answer_SurvivalKindman_talk");
+		talkCr.Say((18),"НПЦ стоит временно без диалога");
+		talkCr.Say((19+(0)),"Модок(ИГРАТЬ)");
+		talkCr.Say((19+(1)),"Постоять пока тут");
+		return false;
+	}
+	else
+	talkCr.Say((11),"Ошибка, обратитесь к ГеймМастерам.");
+	return false;
+}
+
+void answer_SurvivalKindman_talk(Critter&player,uint answerI,string&answerS)
+{
+	if(player.QuestBase[(703)]!=(0))
+	return;
+	if(answerI==0)
+	{
+		player.QuestBase[(703)]=(2);
+		kind_tele3(player,null,(1232),false);
+	}
+}
+
+void _Survival_sight(Critter&cr,Critter&showCr)
+{
+	Map@map=cr.GetMap();
+	Critter@[]critters;
+	if(showCr.IsPlayer()&&showCr.QuestBase[(703)]==(0)&&(map.GetCrittersHex(cr.HexX,cr.HexY,15,(0x03)|(0x10),critters)<=1))
+	{
+		uint16[]GMskins=
+		{
+			0,1,2,3,5,6,7,8,9,10,12,13,14,15,16,20,21,26,27,28,29,31,33,34,35,36,37,38,39,40,41,42,43,44,45,48,53,57,61,62,63,64,66,
+			69,71,72,73,74,75,76,77,78,79,82,83,85,87,88,91,94,95,96,99,103,110,120
+		};
+		cr.ChangeCrType(GMskins[Random(0,GMskins.length()-1)]);
+	}
+}
+
+void _InitStartGM(Critter&cr,bool firstTime)
+{
+	cr.StatBase[(1)]=10;
+	cr.StatBase[(104)]=331;
+	cr.ShowCritterDist1=15;
+	cr.ModeBase[(539)]=1;
+	cr.ModeBase[(540)]=1;
+	cr.ModeBase[(511)]=1;
+	cr.ModeBase[(514)]=1;
+	cr.ModeBase[(527)]=1;
+	cr.ModeBase[(536)]=1;
+	cr.ModeBase[(513)]=1;
+	cr.ModeBase[(537)]=1;
+	cr.QuestBase[(701)]=40;
+	cr.SetEvent((39),"_StartGM_talk");
+	cr.SetEvent((4),"_StartGM_sight");
+}
+
+void _StartGM_sight(Critter&cr,Critter&showCr)
+{
+	Map@map=cr.GetMap();
+	Critter@[]critters;
+	if(showCr.IsPlayer()&&showCr.QuestBase[(703)]==(0)&&(map.GetCrittersHex(cr.HexX,cr.HexY,15,(0x03)|(0x10),critters)<=1))
+	{
+		uint16[]GMskins=
+		{
+			0,1,2,3,5,6,7,8,9,10,12,13,14,15,16,20,21,26,27,28,29,31,33,34,35,36,37,38,39,40,41,42,43,44,45,48,53,57,61,62,63,64,66,
+			69,71,72,73,74,75,76,77,78,79,82,83,85,87,88,91,94,95,96,99,103,110,120
+		};
+		cr.ChangeCrType(GMskins[Random(0,GMskins.length()-1)]);
+	}
+}
+
+bool _StartGM_talk(Critter&player,Critter&talkCr,bool attach,uint talkCount)
+{
+	if(talkCr.QuestBase[(703)]==(0))
+	{
+		talkCr.ShowScreen((2),3,"answer_StartGM_talk");
+		talkCr.Say((18),"Выберите РЕЖИМ ИГРЫ, рекомендуется сперва посмотреть обучение!");
+		talkCr.Say((19+(0)),"Снова обучение");
+		talkCr.Say((19+(1)),"Выживание, с нуля");
+		talkCr.Say((19+(2)),"Активация, квента");
+		
+		return false;
+	}
+	else
+	talkCr.Say((11),"Ошибка, обратитесь к ГеймМастерам.");
+	return false;
+}
+
+void answer_StartGM_talk(Critter&player,uint answerI,string&answerS)
+{
+	if(player.QuestBase[(703)]!=(0))
+	{
+		player.Say((11),"У вас не стартовый режим.");
+		return;
+	}
+	if(answerI==0)
+	{
+		Location@loc=GetLocationByPid((90),0);
+		Map@map=loc.GetMapByIndex(0);
+		Map@start=GetMapByPid((400),0);
+		player.Say((11),"Вы выбрали режим обучения.");
+		_crOut(start,player);
+		player.TransitToMap(map.Id,0);
+	}
+	if(answerI==1)
+	{
+		bool tele=false;
+		tele=player.TransitToHex(305+Random(-3,3),240+Random(-3,3),0);
+		if(!tele)
+		player.Say((11),"Попробуйте еще раз.");
+		else
+		player.Say((11),"Вы выбрали режим выживания.");
+	}
+	if(answerI==2)
+	{
+		Map@map=player.GetMap();
+		if(@map is null)
+		{
+			player.Say((11),"Попробуйте еще раз.");
+			return;
+		}
+		
+		uint16 hexX=0,hexY=0;
+		uint8 entireNumber=140;
+		bool tele2=map.GetEntireCoords(entireNumber,0,hexX,hexY);
+		if(!tele2)
+		{
+			player.Say((11),"Попробуйте еще раз.");
+			return;
+		}
+		tele2=player.TransitToHex(hexX,hexY,0);
+		if(!tele2)
+		player.Say((11),"Попробуйте еще раз.");
+		else
+		{
+			player.Say((11),"Вы выбрали режим приключения.");
+			
+		}
+	}
+	if(answerI==3)
+	{
+		bool tele=false;
+		tele=player.TransitToHex(300+Random(-3,3),140+Random(-3,3),5);
+		if(!tele)
+		player.Say((11),"Попробуйте еще раз.");
+		else
+		player.Say((11),"Вы выбрали Аркадный режим.");
+	}
+}
+
+void _InitAdventureGM(Critter&cr,bool firstTime)
+{
+	cr.StatBase[(104)]=331;
+	cr.ModeBase[(539)]=1;
+	cr.ModeBase[(540)]=1;
+	cr.ModeBase[(511)]=1;
+	cr.ModeBase[(514)]=1;
+	cr.ModeBase[(527)]=1;
+	cr.ModeBase[(536)]=1;
+	cr.ModeBase[(513)]=1;
+	cr.ModeBase[(537)]=1;
+	cr.QuestBase[(701)]=40;
+	cr.SetEvent((39),"_StartAdventureGM_talk");
+	
+}
+
+void _StartAdventureGM_sight(Critter&cr,Critter&showCr)
+{
+	Map@map=cr.GetMap();
+	Critter@[]critters;
+	if(showCr.IsPlayer()&&showCr.QuestBase[(703)]==(0)&&(map.GetCrittersHex(cr.HexX,cr.HexY,15,(0x03)|(0x10),critters)<=1))
+	{
+		uint16[]GMskins=
+		{
+			0,1,2,3,5,6,7,8,9,10,12,13,14,15,16,20,21,26,27,28,29,31,33,34,35,36,37,38,39,40,41,42,43,44,45,48,53,57,61,62,63,64,66,
+			69,71,72,73,74,75,76,77,78,79,82,83,85,87,88,91,94,95,96,99,103,110,120
+		};
+		cr.ChangeCrType(GMskins[Random(0,GMskins.length()-1)]);
+	}
+}
+
+void LvlUp(Critter&player,int param0,int param1,int param2){
+	if(param0==0){player.Say((11),"Введите айди персонажа!");return;}
+	Critter@target=GetCritter(param0);
+	if(!(@target!=null)){player.Say((11),"Персонаж не найден!");return;}
+	int level=target.StatBase[(77)];
+	if(level<12){
+		if(isReadyToLvlUp(target)){
+			target.StatBase[(76)]=1000*LvlProgression(level);
+			player.Say((11),"Персонаж "+target.Name+" апнулся с "+level+" уровня!");
+		}
+		else{
+			player.Say((11),"Персонаж "+target.Name+" не может прогрессировать (перк нераспределён) с "+level+" уровня!");return;
+		}
+	}
+	else{
+		player.Say((11),"Персонажу "+target.Name+" некуда прогрессировать с "+level+" уровня!");return;
+	}
+}
+
+int LvlProgression(int level){
+	return level>1?level+LvlProgression(level-1):1;
+}
+
+bool isReadyToLvlUp(Critter&player){
+	if(player.StatBase[(79)]>0
+	&&(((player.StatBase[(77)]+1)%(3+player.Trait[(564)]))==0))return false;
+	
+	return true;
+}
+
+bool _StartAdventureGM_talk(Critter&player,Critter&talkCr,bool attach,uint talkCount)
+{
+	int level=talkCr.StatBase[(77)];
+	if(level<12)
+	{
+		if(isReadyToLvlUp(talkCr))talkCr.StatBase[(76)]=1000*LvlProgression(level);
+		else talkCr.Say((11),"Выберите перк!");
+		return false;
+	}
+	
+	GameVar@activation=GetLocalVar((6100),talkCr.Id);
+	GameVar@request=GetLocalVar((6101),talkCr.Id);
+	
+	if(talkCr.QuestBase[(703)]==(0))
+	{
+		if(activation.GetValue()==-2)
+		{
+			talkCr.ShowScreen((2),3,"answer_StartAdventureGM_activ");
+			talkCr.Say((18),"Вы АКТИВИРОВАННЫ");
+			talkCr.Say((19+(0)),"В Модок");
+			talkCr.Say((19+(1)),"На Пирс");
+			talkCr.Say((19+(2)),"Править чарлист");
+		}
+		else if(activation.GetValue()==-1)
+		{
+			talkCr.ShowScreen((2),1,"answer_StartAdventureGM_unactiv");
+			talkCr.Say((18),"Вам отказанно в активации и скорее всего повторно рассматривать не будут.");
+			talkCr.Say((19+(0)),"Править чарлист");
+			talkCr.Say((19+(1)),"Оставить как есть");
+		}
+		else if(activation.GetValue()!=0)
+		{
+			talkCr.ShowScreen((2),1,"answer_StartAdventureGM_unactiv");
+			talkCr.Say((18),"Вы уже подтвердили выбор, правки отзовут реквест активации.");
+			talkCr.Say((19+(0)),"Править чарлист");
+			talkCr.Say((19+(1)),"Оставить как есть");
+		}
+		else
+		{
+			MainMenu(talkCr);
+		}
+		return false;
+	}
+	else
+	talkCr.Say((11),"Ошибка, обратитесь к ГеймМастерам.");
+	return false;
+}
+
+void answer_StartAdventureGM_activ(Critter&player,uint answerI,string&answerS)
+{ 
+	
+	if(answerI==2)
+	{
+		GetLocalVar((6101),player.Id)+=1;
+		GetLocalVar((6100),player.Id)=0;
+		file f;
+		if(f.open(".\\adventurers\\"+player.Id+".txt","w")!=-1)
+		f.close();
+		
+		MainMenu(player);
+		return;
+	}
+	
+	player.QuestBase[(703)]=(1);
+	if(player.Quest[(705)]==11)
+	player.QuestBase[(705)]=(2);
+	else if(player.Quest[(705)]==12)
+	player.QuestBase[(705)]=(3);
+	else if(player.Quest[(705)]==13)
+	{
+		player.QuestBase[(705)]=(2);
+		player.QuestBase[(703)]=(2);
+	}
+	else
+	player.QuestBase[(705)]=(0);
+	if(player.Quest[(705)]==3)
+	{
+		Item@pass=player.AddItem((910),1);
+		string@name=GetPlayerName(player.Id);
+		pass.SetLexems("$ModocRegistrationName"+name);
+	}
+	kind_tele3(player,null,(1232),false);
+}
+
+void answer_StartAdventureGM_unactiv(Critter&player,uint answerI,string&answerS)
+{ 
+	
+	if(answerI==0)
+	{
+		file f;
+		if(f.open(".\\adventurers\\"+player.Id+".txt","w")!=-1)
+		f.close();
+		
+		GetLocalVar((6101),player.Id)+=1;
+		GetLocalVar((6100),player.Id)=0;
+		MainMenu(player);
+	}
+}
+
+void answer_StartAdventureGM_talk(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		player.ShowScreen((2),4,"answer_StartAdventureGM_talk_STATS");
+		player.Say((18),"Параметры игрока");
+		player.Say((19+(0)),"[НЕДОСТУПНО]");
+		player.Say((19+(1)),"SKILLS 0-9");
+		player.Say((19+(2)),"SKILLS 10-20");
+		player.Say((19+(3)),"Назад");
+	}
+	if(answerI==1)
+	{
+		player.ShowScreen((2),7,"answer_StartAdventureGM_talk_RACE");
+		player.Say((18),"Выберите Расу, при выборе человека сбросится на стандартный");
+		player.Say((19+(0)),"Белый Человек");
+		player.Say((19+(1)),"Негроид");
+		player.Say((19+(2)),"Гуль-зеленый");
+		player.Say((19+(3)),"Гуль-светлый");
+		player.Say((19+(4)),"Гуль-светящийся");
+		player.Say((19+(5)),"Супермутант");
+		player.Say((19+(6)),"Назад");
+	}
+	if(answerI==2)
+	{
+		ShowInputBoxScreen(player,"map_start@unsafe_Description#Описание, приметы",0,(0x00000001));
+	}
+	if(answerI==3)
+	{
+		string post;
+		if(player.Quest[(705)]==0)
+		post="чужак";
+		else if(player.Quest[(705)]==11)
+		post="гость";
+		else if(player.Quest[(705)]==12)
+		post="гражданин";
+		player.ShowScreen((2),4,"answer_StartAdventureGM_talk_MODOC");
+		player.Say((18),"Сейчас вы - "+post);
+		player.Say((19+(0)),"Не нужен пропуск");
+		player.Say((19+(1)),"Нужен пропуск");
+		player.Say((19+(2)),"Нужно гражданство");
+		player.Say((19+(3)),"Назад");
+	}
+	if(answerI==4)
+	{
+		player.ShowScreen((2),6,"answer_StartAdventureGM_talk_ITEMS");
+		player.Say((18),"Вещи для широкого круга ролей");
+		player.Say((19+(0)),"оружие");
+		player.Say((19+(1)),"броня");
+		player.Say((19+(2)),"патроны и крышки");
+		player.Say((19+(3)),"инструменты");
+		player.Say((19+(4)),"разное");
+		player.Say((19+(5)),"назад в меню");
+	}
+	if(answerI==5)
+	{
+		player.ShowScreen((2),4,"answer_StartAdventureGM_talk_SPECITEMS");
+		player.Say((18),"Вещи для спец ролей, берите ТОЛЬКО если в курсе ограничений, иначе чарсет даже не будут рассматривать");
+		player.Say((19+(0)),"экипировка");
+		player.Say((19+(1)),"патроны и деньги");
+		player.Say((19+(2)),"инструменты");
+		player.Say((19+(3)),"назад в меню");
+	}
+	if(answerI==6)
+	{
+		player.ShowScreen((2),1,"answer_StartAdventureGM_talk_HELP");
+		player.Say((18),"Форум - www.fonextday.ru , Discord = https://clck.ru/DU2U6 , обращение к ГМам $help [ваш текст]");
+		player.Say((19+(0)),"назад в меню");
+	}
+	if(answerI==7)
+	{
+		player.Say((11),"В вашем кармане что-то появилось..");
+		if(player.CountItem(905)<1)
+		player.AddItem(905,1);
+	}
+	if(answerI==8)
+	{
+		player.ShowScreen((2),1,"answer_StartAdventureGM_talk_CONFIRM");
+		player.Say((18),"Вы уверены в своем выборе?");
+		player.Say((19+(0)),"Да, абсолютно");
+		player.Say((19+(1)),"Нет.");
+	}
+}
+
+void answer_StartAdventureGM_talk_HELP(Critter&player,uint answerI,string&answerS)
+{
+	
+	if(answerI==0)
+	MainMenu(player);
+}
+
+void answer_StartAdventureGM_talk_SPECITEMS(Critter&player,uint answerI,string&answerS)
+{
+	
+	if(answerI==0)
+	{
+		OpenCrate(player,6);
+	}
+	if(answerI==1)
+	{
+		OpenCrate(player,7);
+	}
+	if(answerI==2)
+	{
+		OpenCrate(player,8);
+	}
+	if(answerI==3)
+	{
+		MainMenu(player);
+	}
+}
+
+void answer_SELECT_DEFAULT_ITEMS_SUBTYPES(Critter&player,uint answerI,string&answerS)
+{
+	player.ShowScreen((2),1,"answer_StartAdventureGM_talk_CONFIRM");
+	player.Say((18),"Вы уверены в своем выборе?");
+	player.Say((19+(0)),"Да, абсолютно");
+	player.Say((19+(1)),"Нет.");
+}
+
+void answer_SELECT_DEFAULT_ITEMS_WEAPONS(Critter&player,uint answerI,string&answerS)
+{
+	
+}
+
+void answer_SELECT_DEFAULT_ITEMS_WEAPONS_GUNS(Critter&player,uint answerI,string&answerS)
+{
+	
+}
+
+void answer_SELECT_DEFAULT_ITEMS_WEAPONS_BLUNT(Critter&player,uint answerI,string&answerS)
+{
+	
+}
+
+void answer_SELECT_DEFAULT_ITEMS_WEAPONS_STABBING(Critter&player,uint answerI,string&answerS)
+{
+	
+}
+
+void answer_StartAdventureGM_talk_ITEMS(Critter&player,uint answerI,string&answerS)
+{
+	
+	if(answerI==0)
+	{
+		OpenCrate(player,1);
+	}
+	if(answerI==1)
+	{
+		OpenCrate(player,2);
+	}
+	if(answerI==2)
+	{
+		OpenCrate(player,3);
+	}
+	if(answerI==3)
+	{
+		OpenCrate(player,4);
+	}
+	if(answerI==4)
+	{
+		OpenCrate(player,5);
+	}
+	if(answerI==5)
+	{
+		MainMenu(player);
+	}
+}
+
+void OpenCrate(Critter&player,uint type)
+{
+	Map@map=GetMapByPid((400),0);
+	uint16 x=0,y=0;
+	switch(type)
+	{
+		case(1):
+		map.GetEntireCoords(1,0,x,y);
+		break;
+		case(2):
+		map.GetEntireCoords(2,0,x,y);
+		break;
+		case(3):
+		map.GetEntireCoords(3,0,x,y);
+		break;
+		case(4):
+		map.GetEntireCoords(4,0,x,y);
+		break;
+		case(5):
+		map.GetEntireCoords(5,0,x,y);
+		break;
+		case(6):
+		map.GetEntireCoords(6,0,x,y);
+		break;
+		case(7):
+		map.GetEntireCoords(7,0,x,y);
+		break;
+		case(8):
+		map.GetEntireCoords(8,0,x,y);
+		break;
+		case(9):
+		map.GetEntireCoords(9,0,x,y);
+		break;
+		default:
+		break;
+	}
+	Item@Cont=map.GetItem(x,y,245);
+	CheckItems(Cont,type);
+	player.ShowContainer(null,Cont,(7));
+}
+
+void CheckItems(Item&cont,uint type)
+{
+	Item@myitem=null;
+	if(type==1)
+	{
+		uint[]items=
+		{
+			(1405),
+			(1407),
+			(1406),
+			(1407),
+			(1408),
+			(1410),
+			(1411),
+			(1412),
+			(1427),
+			(1402),
+			(1403),
+			(299),
+			(4),
+			(319),
+			(7),
+			(320),
+			(5),
+			(1421),
+			(20),
+			(384),
+			(6),
+			(386),
+			(21),
+			(1425),
+			(1426),
+			(1423),
+			(1420),
+			(300)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)
+			DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],19,0);
+			}
+		}
+	}
+	else if(type==2)
+	{
+		uint[]items=
+		{
+			(74),
+			(1),
+			(379),
+			(265),
+			(1457),
+			(113),
+			(558),
+			(559),
+			(585),
+			(602)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)
+			DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],19,0);
+			}
+		}
+	}
+	else if(type==3)
+	{
+		uint[]items=
+		{
+			(519),
+			(1430),
+			(1431),
+			(1432),
+			(1433),
+			(1434),
+			(1438)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)
+			DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())
+				cont.AddItem(items[i],199,0);
+			}
+		}
+	}
+	else if(type==4)
+	{
+		uint[]items=
+		{
+			(19),
+			(84),
+			(597),
+			(598),
+			(289),
+			(543),
+			(101),
+			(318),
+			(127),
+			(273),
+			(125),
+			(1321),
+			(1322),
+			(1323),
+			(1324),
+			(1325),
+			(1326),
+			(1320)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)
+			DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],19,0);
+			}
+		}
+	}
+	else if(type==5)
+	{
+		uint[]items=
+		{
+			(542),
+			(532),
+			(533),
+			(1627),
+			(125),
+			(315),
+			(325),
+			(436),
+			(333),
+			(415),
+			(433),
+			(56),
+			(690),
+			(1527),
+			(1528),
+			(1529),
+			(1530),
+			(1548),
+			(539),
+			(541)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],49,0);
+			}
+		}
+	}
+	else if(type==6)
+	{
+		uint[]items=
+		{
+			(1428),
+			(1520),
+			(16),
+			(3983),
+			(3984),
+			(3985),
+			(1401),
+			(122),
+			(8),
+			(18),
+			(313),
+			(10),
+			(1039),
+			(23),
+			(400),
+			(94),
+			(385),
+			(11),
+			(1404),
+			(1400),
+			(236),
+			(522),
+			(160),
+			(1033),
+			(2),
+			(380)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],19,0);
+			}
+		}
+	}
+	else if(type==7)
+	{
+		uint[]items=
+		{
+			(41),
+			(29),
+			(31),
+			(111),
+			(35),
+			(360),
+			(121),
+			(33),
+			(357),
+			(34),
+			(95),
+			(908),
+			(1435),
+			(361),
+			(38),
+			(32)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],199,0);
+			}
+		}
+	}
+	else if(type==8)
+	{
+		uint[]items=
+		{
+			(75),
+			(410),
+			(565),
+			(1317),
+			(1318),
+			(237),
+			(102),
+			(80),
+			(86),
+			(76),
+			(73),
+			(1547),
+			(1522)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],49,0);
+			}
+		}
+	}
+	else if(type==9)
+	{
+		uint[]items=
+		{
+			(910),
+			(100),
+			(584),
+			(1454),
+			(1455),
+			(1456),
+			(1458),
+			(329),
+			(1317),
+			(1318),
+			(1319),
+			(269),
+			(308),
+			(54),
+			(52),
+			(59),
+			(1502),
+			(1503),
+			(1504),
+			(1505),
+			(1506),
+			(1507),
+			(1508),
+			(1509),
+			(1510),
+			(1511),
+			(1517),
+			(1519),
+			(1680),
+			(1681),
+			(439),
+			(572),
+			(1512),
+			(356),
+			(55),
+			(377),
+			(98),
+			(475),
+			(50)
+		};
+		
+		Item@[]allitems;
+		for(uint i=0,iEnd=cont.GetItems(uint(-1),allitems);i<iEnd;i++)
+		{
+			if(items.find(allitems[i].GetProtoId())==-1)DeleteItem(allitems[i]);
+		}
+		
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		{
+			if(!(@cont.GetItem(items[i],0)!=null))
+			{
+				@myitem=cont.AddItem(items[i],1,0);
+				if(myitem.IsStackable())cont.AddItem(items[i],49,0);
+			}
+		}
+	}
+}
+
+void answer_StartAdventureGM_talk_STATS(Critter&player,uint answerI,string&answerS)
+{
+	if(player is null)
+	return;
+	if(answerI==0)
+	{
+		player.Say((11),"Ребилдинг отключен.");
+		MainMenu(player);           
+		
+	}
+	if(answerI==1)
+	{
+		player.ShowScreen((2),12,"answer_StartAdventureGM_talk_STATS_SKILL1");
+		player.Say((18),"Навыки игрока, осталось "+player.StatBase[(97)]+" очков навыков");
+		player.Say((19+(0)),""+player.SkillBase[(200)]+" - легкое");
+		player.Say((19+(1)),""+player.SkillBase[(201)]+" - тяжелое");
+		player.Say((19+(2)),""+player.SkillBase[(202)]+" - энерго");
+		player.Say((19+(3)),""+player.SkillBase[(203)]+" - рукопашная");
+		player.Say((19+(4)),""+player.SkillBase[(204)]+" - холодное");
+		player.Say((19+(5)),""+player.SkillBase[(205)]+" - метание");
+		player.Say((19+(6)),""+player.SkillBase[(206)]+" - санитар");
+		player.Say((19+(7)),""+player.SkillBase[(207)]+" - доктор");
+		player.Say((19+(8)),""+player.SkillBase[(208)]+" - скрытность");
+		player.Say((19+(9)),""+player.SkillBase[(209)]+" - взлом");
+		player.Say((19+(10)),""+player.SkillBase[(210)]+" - кража");
+		player.Say((19+(11)),"Назад");
+	}
+	if(answerI==2)
+	{
+		player.ShowScreen((2),8,"answer_StartAdventureGM_talk_STATS_SKILL2");
+		player.Say((18),"Навыки игрока, осталось "+player.StatBase[(97)]+" очков навыков");
+		player.Say((19+(0)),""+player.SkillBase[(211)]+" - ловушки");
+		player.Say((19+(1)),""+player.SkillBase[(212)]+" - наука");
+		player.Say((19+(2)),""+player.SkillBase[(213)]+" - ремонт");
+		player.Say((19+(3)),""+player.SkillBase[(214)]+" - разговор");
+		player.Say((19+(4)),""+player.SkillBase[(215)]+" - торговля");
+		player.Say((19+(5)),""+player.SkillBase[(216)]+" - игра");
+		player.Say((19+(6)),""+player.SkillBase[(217)]+" - скиталец");
+		player.Say((19+(7)),"Назад");
+	}
+	if(answerI==3)
+	{
+		MainMenu(player);
+	}
+}
+
+void ask_StartAdventureGM_talk_STATS_SPECIAL(Critter&player,uint answerI,string&answerS)
+{
+	int parameter=player.Stat[(91)];
+	if(!(@player!=null))
+	return;
+	if(answerS.length()>0)
+	{
+		int number=0;
+		StrToInt(answerS,number);
+		if(parameter>=0&&parameter<=6)
+		{
+			if(number>10||number<1)
+			player.Say((11),"недопустимое значение");
+			else if(player.StatBase[(96)]-number+player.StatBase[parameter]<0)
+			player.Say((11),"недоcтаточно очков");
+			else
+			{
+				player.StatBase[(96)]-=number-player.StatBase[parameter];
+				player.StatBase[parameter]=number;
+				player.Say((11),"вы изменили параметр");
+			}
+		}
+		if(parameter>=200&&parameter<=217)
+		{
+			if(number>300)
+			player.Say((11),"недопустимое значение");
+			else if(number<30)
+			player.Say((11),"нельзя указывать значение навыка меньше 35");
+			else if(player.StatBase[(97)]-number+player.SkillBase[parameter]<0)
+			player.Say((11),"недоcтаточно очков навыков");
+			else
+			{
+				player.StatBase[(97)]-=number-player.SkillBase[parameter];
+				player.SkillBase[parameter]=number;
+				player.Say((11),"вы изменили параметр");
+			}
+		}
+		if(parameter==3&&player.StatBase[parameter]<=3)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_STATS_SPECIAL_POWERBUILD");
+			player.Say((18),"к персонажам с низкой харизмой другие игроки относятся с неприязнью, убедитесь что это соответствует роли");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter>=0&&parameter<=6&&(player.StatBase[parameter]>=9||player.StatBase[parameter]<=2))
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"значение параметра граничное, убедитесь что это важно по роли, иначе активация маловероятна");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter==211&&player.SkillBase[parameter]>=50)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"навык ловушек больше 50, убедитесь что по роли вам это необходимо и история персонажа соответствует, иначе активация маловероятна");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter==210&&player.SkillBase[parameter]>=50)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"воровство больше 50, убедитесь что по роли вам это необходимо и история персонажа соответствует, иначе активация маловероятна");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter==209&&player.SkillBase[parameter]>=50)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"взлом больше 50, допустим только для ролей преступников и детективов, убедитесь что персонаж соответствует, иначе активация маловероятна");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter==212&&player.SkillBase[parameter]>=80)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"значение науки больше 80, допустимо только для образованных персонажей, убедитесь что роль соответствует");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter==213&&player.SkillBase[parameter]>=80)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"значение ремонта больше 80, допустимо только для профильных персонажей, часто занимающихся техникой, убедитесь что роль соответствует");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter>=200&&parameter<=217&&player.SkillBase[parameter]>=160)
+		{
+			player.ShowScreen((2),1,"answer_StartAdventureGM_talk_POWERBUILD");
+			player.Say((18),"значение навыка больше 160, допустимо только для узкоспециализированных в этой области персонажей, убедитесь что роль соответствует");
+			player.Say((19+(0)),"к параметрам");
+		}
+		else if(parameter>=0&&parameter<=6)
+		{
+			player.ShowScreen((2),8,"answer_StartAdventureGM_talk_STATS_SPECIAL");
+			player.Say((18),"SPECIAL игрока, осталось "+player.StatBase[(96)]+" очков");
+			player.Say((19+(0)),""+player.StatBase[(0)]+" - сила");
+			player.Say((19+(1)),""+player.StatBase[(1)]+" - восприятие");
+			player.Say((19+(2)),""+player.StatBase[(2)]+" - выносливость");
+			player.Say((19+(3)),""+player.StatBase[(3)]+" - харизма");
+			player.Say((19+(4)),""+player.StatBase[(4)]+" - интеллект");
+			player.Say((19+(5)),""+player.StatBase[(5)]+" - ловкость");
+			player.Say((19+(6)),""+player.StatBase[(6)]+" - удача");
+			player.Say((19+(7)),"Назад");
+		}
+		else if(parameter>=200&&parameter<=210)
+		{
+			player.ShowScreen((2),12,"answer_StartAdventureGM_talk_STATS_SKILL1");
+			player.Say((18),"Навыки игрока, осталось "+player.StatBase[(97)]+" очков навыков");
+			player.Say((19+(0)),""+player.SkillBase[(200)]+" - легкое");
+			player.Say((19+(1)),""+player.SkillBase[(201)]+" - тяжолое");
+			player.Say((19+(2)),""+player.SkillBase[(202)]+" - энерго");
+			player.Say((19+(3)),""+player.SkillBase[(203)]+" - рукопашная");
+			player.Say((19+(4)),""+player.SkillBase[(204)]+" - холодное");
+			player.Say((19+(5)),""+player.SkillBase[(205)]+" - метание");
+			player.Say((19+(6)),""+player.SkillBase[(206)]+" - санитар");
+			player.Say((19+(7)),""+player.SkillBase[(207)]+" - доктор");
+			player.Say((19+(8)),""+player.SkillBase[(208)]+" - скрытность");
+			player.Say((19+(9)),""+player.SkillBase[(209)]+" - взлом");
+			player.Say((19+(10)),""+player.SkillBase[(210)]+" - кража");
+			player.Say((19+(11)),"Назад");
+		}
+		if(parameter>=211&&parameter<=217)
+		{
+			player.ShowScreen((2),8,"answer_StartAdventureGM_talk_STATS_SKILL2");
+			player.Say((18),"Навыки игрока, осталось "+player.StatBase[(97)]+" очков навыков");
+			player.Say((19+(0)),""+player.SkillBase[(211)]+" - ловушки");
+			player.Say((19+(1)),""+player.SkillBase[(212)]+" - наука");
+			player.Say((19+(2)),""+player.SkillBase[(213)]+" - ремонт");
+			player.Say((19+(3)),""+player.SkillBase[(214)]+" - разговор");
+			player.Say((19+(4)),""+player.SkillBase[(215)]+" - торговля");
+			player.Say((19+(5)),""+player.SkillBase[(216)]+" - игра");
+			player.Say((19+(6)),""+player.SkillBase[(217)]+" - скиталец");
+			player.Say((19+(7)),"Назад");
+		}
+	}
+}
+
+void answer_StartAdventureGM_talk_POWERBUILD(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		player.ShowScreen((2),4,"answer_StartAdventureGM_talk_STATS");
+		player.Say((18),"Параметры игрока");
+		player.Say((19+(0)),"[НЕДОСТУПНО]");
+		player.Say((19+(1)),"SKILLS 0-9");
+		player.Say((19+(2)),"SKILLS 10-20");
+		player.Say((19+(3)),"Назад");
+	}
+} 
+
+void answer_StartAdventureGM_talk_STATS_SKILL2(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		player.StatBase[(91)]=211;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Ловушки");
+	}
+	if(answerI==1)
+	{
+		player.StatBase[(91)]=212;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Наука");
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(91)]=213;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Ремонт");
+	}
+	if(answerI==3)
+	{
+		player.StatBase[(91)]=214;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Разговор");
+	}
+	if(answerI==4)
+	{
+		player.StatBase[(91)]=215;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Торговля");
+	}
+	if(answerI==5)
+	{
+		player.StatBase[(91)]=216;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Азартные игры");
+	}
+	if(answerI==6)
+	{
+		player.StatBase[(91)]=217;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Скиталец");
+	}
+	if(answerI==7)
+	{
+		player.ShowScreen((2),3,"answer_StartAdventureGM_talk_STATS");
+		player.Say((18),"Параметры игрока");
+		player.Say((19+(0)),"[НЕДОСТУПНО]");
+		player.Say((19+(1)),"SKILLS 0-9");
+		player.Say((19+(2)),"SKILLS 10-20");
+		player.Say((19+(3)),"Назад");
+	}
+}
+
+void answer_StartAdventureGM_talk_STATS_SKILL1(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		player.StatBase[(91)]=200;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Легкое");
+	}
+	if(answerI==1)
+	{
+		player.StatBase[(91)]=201;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Тяжелое");
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(91)]=202;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Энерго");
+	}
+	if(answerI==3)
+	{
+		player.StatBase[(91)]=203;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Рукопашная");
+	}
+	if(answerI==4)
+	{
+		player.StatBase[(91)]=204;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Холодное");
+	}
+	if(answerI==5)
+	{
+		player.StatBase[(91)]=205;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Метание");
+	}
+	if(answerI==6)
+	{
+		player.StatBase[(91)]=206;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Санитар");
+	}
+	if(answerI==7)
+	{
+		player.StatBase[(91)]=207;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Доктор");
+	}
+	if(answerI==8)
+	{
+		player.StatBase[(91)]=208;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Скрытность");
+	}
+	if(answerI==9)
+	{
+		player.StatBase[(91)]=209;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Взлом");
+	}
+	if(answerI==10)
+	{
+		player.StatBase[(91)]=210;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Воровство");
+	}
+	if(answerI==11)
+	{
+		player.ShowScreen((2),3,"answer_StartAdventureGM_talk_STATS");
+		player.Say((18),"Параметры игрока");
+		player.Say((19+(0)),"[НЕДОСТУПНО]");
+		player.Say((19+(1)),"SKILLS 0-9");
+		player.Say((19+(2)),"SKILLS 10-20");
+		player.Say((19+(3)),"Назад");
+	}
+}
+
+void answer_StartAdventureGM_talk_STATS_SPECIAL(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI==0)
+	{
+		player.StatBase[(91)]=0;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Сила");
+	}
+	if(answerI==1)
+	{
+		player.StatBase[(91)]=1;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Восприятие");
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(91)]=2;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Выносливость");
+	}
+	if(answerI==3)
+	{
+		player.StatBase[(91)]=3;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Харизма");
+	}
+	if(answerI==4)
+	{
+		player.StatBase[(91)]=4;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Интеллект");
+	}
+	if(answerI==5)
+	{
+		player.StatBase[(91)]=5;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Ловкость");
+	}
+	if(answerI==6)
+	{
+		player.StatBase[(91)]=6;
+		player.ShowScreen((5),0,"map_start@ask_StartAdventureGM_talk_STATS_SPECIAL");
+		player.Say((39),"Удача");
+	}
+	if(answerI==7)
+	{
+		player.ShowScreen((2),3,"answer_StartAdventureGM_talk_STATS");
+		player.Say((18),"Параметры игрока");
+		player.Say((19+(0)),"[НЕДОСТУПНО]");
+		player.Say((19+(1)),"SKILLS 0-9");
+		player.Say((19+(2)),"SKILLS 10-20");
+		player.Say((19+(3)),"Назад");
+	}
+}
+
+void unsafe_Description(Critter&player,int skill,int p1,int p2,string@message,int[]@p4)
+{
+	if(message.length()!=0)
+	{
+		player.SetLexems(message);
+		MainMenu(player);
+	}
+}
+
+void answer_StartAdventureGM_talk_CONFIRM(Critter&player,uint answerI,string&answerS)
+{
+	if(player is null)
+	return;
+	if(answerI==0)
+	{
+		ShowInputBoxScreen(player,"map_start@unsafe_Kventa#Ссылка на квенту",0,(0x00000001));
+	}
+}
+
+void unsafe_Kventa(Critter&player,int skill,int p1,int p2,string@message,int[]@p4)
+{
+	if(message.length()==0)
+	message="[без квенты]";
+	string date=TimeToString(player);
+	string race="";
+	GetLocalVar((6100),player.Id)=player.Quest[(705)]+1;
+	switch(player.Stat[(67)])
+	{
+		case(4):race="Гуль";break;
+		case(3):race="Супермутант";break;
+		default:race="Человек";break;
+	}
+	string pass="";
+	switch(player.Quest[(705)])
+	{
+		case 11:race="гость";break;
+		case 12:race="гражданин";break;
+		default:race="чужак";break;
+	}
+	
+	GameVar@request=GetLocalVar((6101),player.Id);
+	GameVar@TotalPlayers=GetGlobalVar((4));
+	if(uint(TotalPlayers.GetValue())<player.Id)
+	TotalPlayers=player.Id;
+	request+=1;
+	file f;
+	if(f.open(".\\adventurers\\"+player.Id+".txt","w")!=-1)
+	{
+		f.writeString(request.GetValue()+"\n"+
+		race+"\n"+
+		date+"  -  "+pass+"\n"+
+		GetPlayerName(player.Id)+"\n"+
+		message+"\n"+
+		player.StatBase[0]+"\n"+
+		player.StatBase[1]+"\n"+
+		player.StatBase[2]+"\n"+
+		player.StatBase[3]+"\n"+
+		player.StatBase[4]+"\n"+
+		player.StatBase[5]+"\n"+
+		player.StatBase[6]+"\n"+"\n"+
+		player.SkillBase[200]+"\n"+
+		player.SkillBase[201]+"\n"+
+		player.SkillBase[202]+"\n"+
+		player.SkillBase[203]+"\n"+
+		player.SkillBase[204]+"\n"+
+		player.SkillBase[205]+"\n"+
+		player.SkillBase[206]+"\n"+
+		player.SkillBase[207]+"\n"+
+		player.SkillBase[208]+"\n"+
+		player.SkillBase[209]+"\n"+
+		player.SkillBase[210]+"\n"+
+		player.SkillBase[211]+"\n"+
+		player.SkillBase[212]+"\n"+
+		player.SkillBase[213]+"\n"+
+		player.SkillBase[214]+"\n"+
+		player.SkillBase[215]+"\n"+
+		player.SkillBase[216]+"\n"+
+		player.SkillBase[217]+"\n"+"\n"+"Инвентарь"+"\n");
+		
+		Item@[]items;
+		player.GetItems((3),items);
+		player.GetItems((1),items);
+		player.GetItems((2),items);
+		player.GetItems((0),items);
+		for(uint i=0;i<items.length();i++)
+		{
+			f.writeString(items[i].GetCount()+"\n");
+			f.writeString(items[i].GetProtoId()+"\n");
+		}
+		f.writeString(12345+"\n");
+		f.close();
+	}
+}
+
+void answer_StartAdventureGM_talk_MODOC(Critter&player,uint answerI,string&answerS)
+{
+	switch(answerI)
+	{
+		case 0:
+		{
+			player.QuestBase[(705)]=(0);
+			player.Say((11),"Теперь вы чужой в Модоке.");
+		}break;
+		case 1:
+		{
+			player.QuestBase[(705)]=(11);
+			player.Say((11),"Теперь вы гость в Модоке.");
+			Item@pass=player.AddItem((911),1);
+			pass.Val1=player.Id;
+			player.MercBase[(800)]=player.Id;
+			player.ShowScreen((5),0,"handcuffs@PassportLex");
+			player.Say((39),"Имя в пропуск");
+			player.StatBase[(93)]=pass.Id;
+		}break;
+		case 2:
+		{
+			player.QuestBase[(705)]=(12);
+			player.Say((11),"Теперь вы гражданин Модока.");
+			Item@pass=player.AddItem((910),1);
+			pass.Val1=player.Id;
+			player.MercBase[(800)]=player.Id;
+			player.ShowScreen((5),0,"handcuffs@PassportLex");
+			player.Say((39),"Имя в паспорт");
+			player.StatBase[(93)]=pass.Id;
+		}break;
+		default:break;
+	}
+}
+
+void answer_StartAdventureGM_talk_RACE(Critter&player,uint answerI,string&answerS)
+{
+	if(answerI!=6){
+		Item@[]items;
+		player.GetItems((3),items);
+		player.GetItems((1),items);
+		player.GetItems((2),items);
+		for(uint i=0,iEnd=items.length();i<iEnd;i++)
+		player.MoveItem(items[i].Id,items[i].GetCount(),(0));
+	}
+	if(answerI==0||answerI==1)
+	{
+		player.StatBase[(183)]=0;
+		player.StatBase[(7)]=0;
+		player.PerkBase[(314)]=0;
+		if(player.Stat[(71)]==(0))
+		{
+			player.StatBase[(67)]=(0);
+			player.ChangeCrType(answerI==0?((62)):(140));
+			player.StatBase[(112)]=answerI==0?((62)):(140);
+		}
+		else
+		{
+			player.StatBase[(67)]=(1);
+			player.ChangeCrType(answerI==0?((61)):(83));
+			player.StatBase[(112)]=answerI==0?((61)):(83);
+		}
+		player.Say((11),"Теперь вы выглядите...  нормально.");
+		
+	}
+	if(answerI==2)
+	{
+		player.StatBase[(183)]=3;
+		player.StatBase[(7)]=100;
+		player.PerkBase[(314)]=0;
+		player.StatBase[(67)]=(4);
+		player.ChangeCrType(28);
+		player.StatBase[(112)]=28;
+		player.Say((11),"Теперь вы выглядите...  страннее.");
+	}
+	if(answerI==3)
+	{
+		player.StatBase[(183)]=3;
+		player.StatBase[(7)]=100;
+		player.PerkBase[(314)]=0;
+		player.StatBase[(67)]=(4);
+		player.ChangeCrType(79);
+		player.StatBase[(112)]=79;
+		player.Say((11),"Теперь вы выглядите...  страннее.");
+	}
+	if(answerI==4)
+	{
+		player.StatBase[(183)]=3;
+		player.StatBase[(7)]=100;
+		player.PerkBase[(314)]=0;
+		player.StatBase[(67)]=(4);
+		player.ChangeCrType(29);
+		player.StatBase[(112)]=29;
+		player.Say((11),"Теперь вы выглядите...  страннее.");
+	}
+	if(answerI==5)
+	{
+		player.StatBase[(183)]==3;
+		player.StatBase[(7)]=100;
+		player.PerkBase[(314)]=3;
+		player.StatBase[(67)]=(3);
+		player.ChangeCrType(21);
+		player.StatBase[(112)]=21;
+		player.Say((11),"Теперь вы выглядите...  сильнее.");
+	}
+	if(answerI==6)
+	{
+		MainMenu(player);
+	}
+}
+
+void MainMenu(Critter&player){
+	player.ShowScreen((2),9,"answer_StartAdventureGM_talk");
+	player.Say((18),"Выберите опцию");
+	player.Say((19+(0)),"Настроить персонажа");
+	player.Say((19+(1)),"Выбрать расу");
+	player.Say((19+(2)),"Ввести доп описание");
+	player.Say((19+(3)),"пропуск в Модок");
+	player.Say((19+(4)),"вещи");
+	player.Say((19+(5)),"особые вещи");
+	player.Say((19+(6)),"справка");
+	player.Say((19+(7)),"Изм. Внешность");
+	player.Say((19+(8)),"|"+((uint((0xFF<<24)|(((0xC8)&0xFF)<<16)|(((0)&0xFF)<<8)|((0)&0xFF))))+" Подтвердить");
+}
+
+void r_toHex(Critter&master,Critter@slave,int val)
+{
+	Map@map=master.GetMap();
+	
+	if(map is null)
+	return;
+	
+	uint16 hexX=0,hexY=0;
+	
+	if(!map.GetEntireCoords(val,0,hexX,hexY))
+	return;
+	
+	master.TransitToHex(hexX,hexY,5);
+}
+
+void kind_tele2(Critter&master,Critter@slave,int val)
+{
+	kind_tele3(master,slave,val,true);
+}
+
+void kind_tele3(Critter&master,Critter@slave,int val,bool isRandom)
+{
+	if(not(@master!=null))
+	return;
+	
+	Location@loc=GetLocationByPid(val,0);
+	if(not(@loc!=null))
+	{
+		slave.Say((11),"Location not found");
+		return;
+	}
+	
+	Map@map=loc.GetMapByIndex(0);
+	if(not(@map!=null))
+	{
+		master.Say((11),"Map index not found");
+		return;
+	}
+	
+	Item@[]items;
+	master.GetItems((0),items);
+	master.GetItems((3),items);
+	master.GetItems((1),items);
+	master.GetItems((2),items);
+	DeleteItems(items);
+	
+	if(master.Quest[(703)]==(1))
+	{
+		file f;
+		if(f.open(".\\adventurers\\"+master.Id+".txt","r")!=-1)
+		{
+			Item@item;
+			string text="";
+			uint pos=0;
+			uint line=0;
+			int number=0;
+			int count=0;
+			bool isCount=true;
+			f.setPos(0);
+			while(!f.isEndOfFile())
+			{
+				line++;
+				f.readLine(text);
+				text.resize(text.length()-1);
+				StrToInt(text,number);
+				if(number==12345)break;
+				if(line>=6&&line<=12)
+				{
+					master.StatBase[line-6]=number;
+				}
+				else if(line>=14&&line<=31)
+				{
+					master.SkillBase[line+186]=number;
+				}
+				else if(line>=34)
+				{
+					
+					if(number==12345)break;
+					if(isCount)
+					{
+						count=number;
+						isCount=false;
+					}
+					else
+					{
+						@item=master.AddItem(number,count);
+						if(item.AmmoCount!=0)item.AmmoCount=0;
+						isCount=true;
+					}
+				}
+			}
+			f.close();
+		}
+		else
+		return;
+	}
+	master.ToKnockout((((Random(0,1)==1))?(82):(83)),(((Random(0,1)==1))?(86):(87)),(((Random(0,1)==1))?(88):(89)),10,master.HexX,master.HexY);
+	
+	uint16 hexX=0,hexY=0,hexX0=0,hexY0=0;
+	map.GetEntireCoords(255,0,hexX0,hexY0);
+	
+	if(val==(1232))
+	{
+		
+		hexX0=439;
+		hexY0=505;
+	}
+	
+	for(uint i=0;i<10;i++)
+	{
+		hexX=hexX0+(isRandom?Random(20,130):0);
+		hexY=hexY0+(isRandom?Random(130,150):0);
+		if(map.GetCrittersHex(hexX,hexY,10,(0x01)|(0x20),null)==0)break;
+	}
+	
+	master.SetEvent((19),null);
+	master.SetEvent((23),null);
+	master.SetEvent((15),null);
+	master.SetEvent((2),null);
+	master.ModeBase[(514)]=0;
+	
+	master.TransitToMap(map.Id,hexX,hexY,0);
+	
+	if(master.GetTimeEvents((40),null,null,null)<1)
+	master.AddTimeEvent("gameplay@cte_IncreaseStudyExp",15,(40),0);
+	if(master.GetTimeEvents((48),null,null,null)<1)
+	master.AddTimeEvent("gameplay@cte_Hunger",15,(48),0);
+	if(master.GetTimeEvents((50),null,null,null)<1)
+	master.AddTimeEvent("gameplay@cte_Exp",15,(50),0);
+}
+
+void _crIn(Map&map,Critter&cr)
+{
+	if(cr.IsPlayer()&&cr.GetAccess()==(0))
+	{
+		
+		cr.SetEvent((19),"_Start_Player_use");
+		cr.SetEvent((23),"_Start_Player_drop");
+		cr.SetEvent((15),"_Start_Player_attack");
+		cr.SetEvent((2),"_Start_Player_dead");
+	}
+}
+
+void _crOut(Map&map,Critter&cr)
+{
+	if(cr.IsPlayer()&&cr.GetAccess()>(0))
+	{
+		cr.SetEvent((19),null);
+		cr.SetEvent((23),null);
+		cr.SetEvent((15),null);
+		cr.SetEvent((2),null);
+		
+	}
+	else if(cr.QuestBase[(703)]==(0))
+	{
+		Item@[]items;
+		cr.GetItems((0),items);
+		cr.GetItems((1),items);
+		cr.GetItems((2),items);
+		DeleteItems(items);
+	}
+}
+
+void _Start_Player_dead(Critter&cr,Critter@killer)
+{
+	Map@start=GetMapByPid((400),0);
+	_crOut(start,cr);
+	Item@[]items;
+	cr.GetItems((3),items);
+	cr.GetItems((0),items);
+	cr.GetItems((1),items);
+	cr.GetItems((2),items);
+	DeleteItems(items);
+}
+
+void _Start_Player_drop(Critter&cr,Item&item)
+{
+	cr.Say((11),"Предмет был поглощен пустотой.");
+	if((@item!=null))
+	DeleteItem(item);
+}
+
+bool _Start_Player_attack(Critter&cr,Critter&target)
+{
+	cr.Say((11),"Вам кажется сейчас это неуместо.");
+	return true;
+}
+
+bool _Start_Player_use(Critter&cr,Item&item,Critter@onCritter,Item@onItem,Scenery@onScenery)
+{
+	cr.Say((11),"Вам кажется сейчас это неуместо.");
+	return true;
+}

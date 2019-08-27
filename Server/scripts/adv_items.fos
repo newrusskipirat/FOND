@@ -1,0 +1,393 @@
+// #include "_defines.fos"
+#include "_macros.fos"
+#include "_colors.fos"
+// #include "math.fos"
+
+import bool ShowMenu(Critter& cr) from "cooking";
+import void InjureCritter( Critter& cr, uint dmg, uint dmgType, uint8 dir, uint attackerId ) from "combat"; // Export
+
+#define PID_FIREBARREL    ( 7900 )
+#define PID_FIREPLACE     ( 7901 )
+#define PID_WELL_1		  ( 7902 )
+#define PID_WELL_2		  ( 7903 ) //Нужно поправить описание!
+#define PID_WELL_3		  ( 7904 ) //У него спрайт кактуса!
+#define PID_CACTUS_1      ( 7905 )
+#define PID_CACTUS_2      ( 7906 ) //У него спрайт генератора!
+#define PID_POWER_GEN     ( 7907 ) //У него нет спрайта!
+#define PID_LIGHT_ENV     ( 7908 ) // val1 = lightColor, val2 = radius
+
+int[][] groups = { {}, {7907}, {7900}, {7901, 286}, {7902,7903,7904}, {7905, 7906} };
+string[] group_descriptions = { "ERROR", "генераторе", "бочке", "костре", "колодце", "кактусе"};
+#define TYPE_NONE        ( 0 )
+#define TYPE_POWERGEN    ( 1 )
+#define TYPE_FIREBARREL  ( 2 )
+#define TYPE_FIREPIT     ( 3 )
+#define TYPE_WELL 		 ( 4 )
+#define TYPE_CACTUS 	 ( 5 )
+
+int FindGroup(Item& item) {
+    int PID = item.GetProtoId();
+	for( uint i = 0, iEnd = groups.length(); i < iEnd; i++ )
+		if( groups[i].find(PID) != -1 ) return i;
+	return TYPE_NONE;
+}
+
+#define STATE Val0
+#define MAX Val1
+#define VAL Val2
+#define EVENT Val3
+#define BREAK Val4
+#define TYPE Val5
+
+#define WATER_FILL_TIME __FullSecond + REAL_MINUTE( Random( 15, 45 ) )
+void _InitItem( Item& item, bool firstTime )
+{
+	int key = FindGroup(item);
+    if( key > TYPE_NONE ) 
+	{
+        ChangeFrame( item, 0 );
+        item.STATE = 0;
+		if( key == TYPE_WELL || key == TYPE_CACTUS ) {
+			item.MAX = ( key == TYPE_CACTUS ? Random(10,15) : Random(25,75) );
+			item.VAL = item.MAX;
+		}
+		else 
+		{
+			item.MAX = 10;
+			item.VAL = 0;
+		}
+		item.EVENT = 0;
+		if(key == TYPE_WELL) {
+			uint[] values = { item.Id };
+			item.EVENT = CreateTimeEvent( WATER_FILL_TIME, "e_WellCharge", values, false );
+		}
+		item.BREAK = 0;
+		item.TYPE = key;
+		item.SetEvent( ITEM_EVENT_SKILL, "e_Skill" );
+        item.SetEvent( ITEM_EVENT_USE_ON_ME, key == TYPE_CACTUS ? "e_Cut" : "e_Repair" );
+    }
+}
+
+bool e_Skill( Item& item, Critter& cr, int skill ) 
+{
+	if(item.STATE != 0 ) {
+		cr.Say(SAY_NETMSG, "Предмет требует починки!" );
+		return true;
+	}
+	string description = group_descriptions[item.TYPE];
+    switch( skill ) 
+	{
+		case SK_SCIENCE:
+			cr.Say( SAY_NETMSG, "В " + description + " осталось " + item.VAL + "." );
+			return true;
+		case SKILL_PICK_ON_GROUND:
+		switch(item.TYPE) {
+			case(TYPE_FIREBARREL):
+			case(TYPE_FIREPIT):
+				if( item.VAL > 0 ) return ShowMenu( cr ); 
+				else { cr.Say(SAY_NETMSG, "Огонь погас, используйте древесину и зажигалку."); item.STATE = 1; }
+				return true;
+			//case(TYPE_CACTUS):
+			case(TYPE_WELL):
+				if( item.VAL > 0 ) return ShowMenuWater( cr, item );
+				else { 
+					cr.Say(SAY_NETMSG, "В " + description + " почти нет воды. Подождите часок-другой или поработайте лопатой."); 
+					item.STATE = 3;
+				}
+				return true;
+			default: break;
+		}
+    }
+    return false;
+}
+
+bool ShowMenuWater(Critter& cr, Item& item) {
+	if( item.VAL <= 0 ) { cr.Say(SAY_NETMSG, "В колодце кончилась вода. Подождите часок-другой или поработайте лопатой."); item.STATE = 3; return true; }
+	cr.ShowScreen( SCREEN_DIALOGBOX, 1, "adv_items@answer_WATER" );
+	cr.StatBase[ST_VAR7] = item.Id;
+	cr.Say( SAY_DIALOGBOX_TEXT, "В " + group_descriptions[item.TYPE] + " осталось " + item.VAL + "." );
+	cr.Say( SAY_DIALOGBOX_BUTTON( 0 ), "набрать воды" );
+	return true;
+}
+
+int[] BottlePIDs_before = { PID_BOTTLE_GLASS, PID_BOTTLE_EMPTY };
+int[] BottlePIDs_after = { PID_GLASS_BOTTLE_FULL, PID_BOTTLE_FULL };
+void answer_WATER( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 ) {
+		Item@ hand = _CritGetItemHand( cr );
+		if(!valid(hand)) { cr.Say( SAY_NETMSG, "Возьмите пустую тару в руки!" ); return; }
+		int n = BottlePIDs_before.find( hand.GetProtoId() );
+		if(n == -1) { cr.Say( SAY_NETMSG, "Эта тара не подходит!" ); return; }
+		if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) {
+			cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return; 
+		}
+		Map@ map = cr.GetMap();
+		if(!valid(map)) { Log("Вызов с глобала!"); return; }
+		Item@ source = map.GetItem(cr.StatBase[ST_VAR7]);
+		if(!valid(source)) { Log("Потеря указателя на предмет!"); return; }
+		/*
+        if((cr.Stat[ST_LUCK]-5) * 5 + 
+		   (cr.Stat[ST_AGILITY]-5) * 3 + 
+		   (cr.Stat[ST_INTELLECT]-5) * 3 + 
+		   (cr.Stat[ST_PERCEPTION]-5) * 2 -
+		   (cr.Stat[ST_STRENGTH]-5) * 5 - 
+		   (cr.Stat[ST_ENDURANCE]-5) * 3 < 0)
+		{
+			int rand = Random( 1, 100 );
+			if(rand > 90)       { source.STATE = 3; cr.Say( SAY_EMOTE, "Случайно выбивает лебёдку и роняет контрукцию в колодец" ); return;}
+			else if(rand > 50 ) { source.STATE = 2; cr.Say( SAY_EMOTE, "Случайно ломает механизм лебёдки" ); return;}
+			else if(rand > 10 ) { source.STATE = 1; cr.Say( SAY_EMOTE, "Случайно рвёт верёвку" ); return;}
+		}
+		*/
+		source.VAL--;
+		_SubItem(hand, 1);
+		_CritAddItem( cr, BottlePIDs_after[n], 1 );
+		cr.Say( SAY_EMOTE, "набирает воду" );
+		cr.TimeoutBase[ TO_SK_REPAIR ] = __FullSecond + /*(11 - cr.Stat[ ST_ENDURANCE ] )*/ 5 * REAL_SECOND( 3 );
+		cr.AddTimeEvent( "main@cte_Tired", 5 * REAL_SECOND( 3 ), CTE_TIRED, 0 );
+		ShowMenuWater(cr, source);
+	}
+}
+
+#define CACTUS_REST_TIME __FullSecond + REAL_MINUTE( Random( 15, 45 ) )
+#define CACTUS_WATERING_TIME __FullSecond + REAL_MINUTE( Random( 1, 3 ) )
+int[] CactusCutting_tools = { PID_KNIFE, PID_AXE, PID_COMBAT_KNIFE, PID_THROWING_KNIFE, PID_LIL_JESUS_WEAPON, 
+								PID_REVKNIFE1, PID_REVKNIFE2, PID_SHIV, PID_SWITCHBLADE, PID_WAKIZASHI_BLADE };
+bool e_Cut( Item& item, Critter& cr, Item@ usedItem )
+{
+	if( item.VAL == 0 ) {
+		cr.Say( SAY_NETMSG, "Этот кактус полностью выжат, ему потребуется около получаса на восстановление." );
+		uint[] values = { item.Id };
+		item.EVENT = CreateTimeEvent( CACTUS_REST_TIME, "e_CactusCharge", values, false );
+		return true;
+	}
+	if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) {
+		cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; 
+	}
+	if( !valid(usedItem) || CactusCutting_tools.find(usedItem.GetProtoId()) == -1 ) {
+		cr.Say( SAY_NETMSG, "Что бы извлечь из кактуса влагу, вам потребуется использовать любой инструмент из списка:" );
+		for(uint i = 0, iEnd = CactusCutting_tools.length(); i < iEnd; i++)
+			cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM,  CactusCutting_tools[i] * 100 );
+		return true;
+	}
+	Item@ hand = _CritGetItemHand( cr );
+	if(!valid(hand)) { cr.Say( SAY_NETMSG, "Возьмите пустую тару в руки!" ); return true; }
+	int n = BottlePIDs_before.find( hand.GetProtoId() );
+	if(n == -1) { cr.Say( SAY_NETMSG, "Эта тара не подходит!" ); return true; }
+	_SubItem(hand, 1);
+	_CritAddItem( cr, BottlePIDs_after[n], 1 );
+	cr.TimeoutBase[ TO_SK_REPAIR ] = __FullSecond + /*(11 - cr.Stat[ ST_ENDURANCE ] )*/ 1 * REAL_SECOND( 30 );
+	cr.AddTimeEvent( "main@cte_Tired", 1 * REAL_SECOND( 30 ), CTE_TIRED, 0 );
+	cr.Say( SAY_EMOTE, "набирает воду" );
+	return false;
+}
+
+#define WELL_BROKEN_ROPE  ( 1 )
+#define WELL_BROKEN_WHEEL ( 2 )
+#define WELL_BROKEN_SHAFT ( 3 )
+#define FIRE_BURNING_TIME REAL_SECOND( Random( 4, 10 ) )
+int[][] Repairing_resources =  {{ PID_ROPE, PID_CRAFT_M_STEL, PID_FIREWOOD }, {PID_FIREWOOD}};
+int[][] Repairing_tools =      {{ PID_MULTI_TOOL, PID_SUPER_TOOL_KIT, PID_SHOVEL }, {PID_LIGHTER}};
+int[][] Repairing_iterations = {{ 1, 2, 3 }, {0}};
+//item.SetEvent( ITEM_EVENT_SKILL, "e_BrokenItem" );
+bool e_Repair( Item& item, Critter& cr, Item@ usedItem )
+{
+	if(item.STATE == 0 && !valid(usedItem)) return e_Skill( item, cr, SKILL_PICK_ON_GROUND ); 
+	if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) {
+		cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; 
+	}
+	int n = -1;
+	uint[] values = { item.Id, 0 };
+	bool initFire = false;
+    switch( item.TYPE ) {
+		case(TYPE_NONE): 
+			if (item.GetProtoId() == PID_FIREWOOD) {
+				_SubItem(usedItem, 1);
+				item.VAL = 2;
+				item.TYPE = TYPE_FIREPIT; 
+				item.EVENT = CreateTimeEvent(  __FullSecond + FIRE_BURNING_TIME, "e_FireBurn", values, false );
+				LightControl( item, true, 0, 0 );
+				item.ChangeProto(PID_FIREPLACE);
+				item.SetEvent( ITEM_EVENT_SKILL, "e_Skill" );
+				item.SetEvent( ITEM_EVENT_USE_ON_ME, "e_Repair" );
+				item.SetEvent( ITEM_EVENT_WALK, "e_Hot" );
+				item.Update();
+				return true;
+			} break;
+		case(TYPE_WELL): n = 0; break;
+		case(TYPE_FIREBARREL):
+		case(TYPE_FIREPIT): n = 1; initFire = true; break;
+		default: break;
+    }
+	if(n == -1) return false;
+	if( initFire && valid(usedItem) ) {
+		if( usedItem.GetProtoId() == PID_FIREWOOD && item.STATE == 0 ) {
+			if( item.VAL < item.MAX ) {
+				cr.Say( SAY_EMOTE, "подкладывает дрова" );
+				_SubItem(usedItem, 1);
+				item.VAL++;
+			} else cr.Say( SAY_NETMSG, "Дрова уже некуда класть, дайте этим прогореть!" );
+			return true;
+		}
+		if( usedItem.GetProtoId() == PID_CROWBAR) {
+			int count = item.VAL * 8 / 10;
+			if(count > 0 ) _CritAddItem( cr, PID_FIREWOOD, count );
+			cr.Say( SAY_EMOTE, "выгребает древесину" );
+			item.VAL = 0;
+			item.EVENT = CreateTimeEvent( 0, "e_FireBurn", values, false );
+			return true;
+		}
+		int pid = BottlePIDs_after.find(usedItem.GetProtoId());
+		if( pid != -1 ) {
+			cr.Say( SAY_EMOTE, "тушит огонь" );
+			_SubItem(usedItem, 1);
+			_CritAddItem(cr, BottlePIDs_before[pid], 1);
+			EraseTimeEvent(item.EVENT);
+			item.EVENT = 0;
+			item.STATE = 1;
+			Map@ map = GetMap( item.MapId );
+			if(valid(map)) map.SetText(item.HexX,item.HexY,COLOR_GRAY,":шипение пара:");
+			return true;
+		}
+	}
+	Item@ hand = _CritGetItemHand( cr );
+	if( !valid(usedItem) || usedItem.GetProtoId() != Repairing_resources[n][item.STATE-1] ) return NeededItem( cr, Repairing_resources[n][item.STATE-1] );
+	if(!valid(hand)) { cr.Say( SAY_NETMSG, "Что бы приступить к ремонту, возьмите инструмент в руки!" ); 
+		return NeededItem( cr, Repairing_tools[n][item.STATE-1] ); }
+	if( hand.GetProtoId() != Repairing_tools[n][item.STATE-1] ) return NeededItem( cr, Repairing_tools[n][item.STATE-1] );
+	cr.Say( SAY_EMOTE, initFire ? "разжигает огонь" : "ремонтирует" );
+	cr.TimeoutBase[ TO_SK_REPAIR ] = __FullSecond + ( 11 - cr.Stat[ ST_ENDURANCE ] ) * REAL_SECOND( 30 );
+	if(item.BREAK < Repairing_iterations[n][item.STATE-1] ) { 
+		item.BREAK++;  
+		cr.Say( SAY_NETMSG, "Осталось ещё " + ( Repairing_iterations[n][item.STATE-1] - item.BREAK + 1 ) + " итераций." ); 
+		return true; 
+	} else {
+		item.VAL += initFire ? 1 : Repairing_iterations[n][item.STATE-1] * 3;
+		item.STATE = 0; 
+		item.BREAK = 0;
+		_SubItem(usedItem, 1);
+		if(initFire) {
+			item.EVENT = CreateTimeEvent( FIRE_BURNING_TIME, "e_FireBurn", values, false );
+			LightControl( item, true, 0, 0 );
+		}
+		return e_Skill( item, cr, SKILL_PICK_ON_GROUND );
+	}
+}
+
+void e_Hot(Item& item, Critter& crit, bool entered, uint8 dir) {
+	if(entered) crit.AddTimeEvent( "cte_Hot", 0, CTE_DYSPNEA, 0 );
+	else crit.EraseTimeEvents(CTE_DYSPNEA);
+}
+
+uint cte_Hot( Critter& cr, int identifier, uint& rate )
+{
+	InjureCritter( cr, rate, DAMAGE_NORMAL, 0, 0 );
+	rate++;
+	return REAL_SECOND( 1 );
+}
+
+uint e_FireBurn( uint[] @ values )
+{
+    Item@ item = GetItem( values[ 0 ] );
+    if( item.VAL > 0 ) {
+        values[1]++;
+		if(values[1]>= 60) { values[1] = 0; item.VAL--; }
+		if(Random(0,1)==0) {
+			Map@ map = GetMap( item.MapId );
+			if(valid(map)) map.SetText(item.HexX,item.HexY,COLOR_GRAY,":огонь горит:");
+		}
+        return FIRE_BURNING_TIME;
+    }
+	LightControl( item, false, 0, 0 );
+	if( item.TYPE == TYPE_FIREPIT )
+	{
+		DeleteItem(item);
+		return 0;
+	}
+	ChangeFrame( item, 0 );
+	item.STATE = 1;
+	EraseTimeEvent( item.EVENT );
+	item.EVENT = 0;
+    return 0;
+}
+
+void ChangeFrame( Item& item, uint8 frame )
+{
+    item.AnimStayBegin      = frame;
+    item.AnimStayEnd        = frame;
+    item.AnimShowBegin      = frame;
+    item.AnimShowEnd        = frame;
+    item.AnimHideBegin      = frame;
+    item.AnimHideEnd        = frame;
+    item.Update();
+    return;
+}
+
+bool NeededItem( Critter& cr, uint16 protoId )
+{
+    cr.Say( SAY_NETMSG, "Требуется:" );
+    cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, protoId * 100 );
+	return true;
+}
+ 
+void LightControl( Item& item, bool onOff, uint color, uint8 radius )
+{
+    item.LightIntensity = onOff ? int8( 100 ) : -1;
+    item.LightColor = color;
+    item.Update();
+}
+
+uint LightColor( int color )
+{
+    switch( color )
+    {
+    case 1:
+        color = 9999666;
+        break;                         
+    default:
+        color = 0;
+        break;
+    }
+    return color;
+}
+
+void addlight( Critter& player, int param0, int param1, int param2 )
+{
+    Map @ map = player.GetMap();
+    uint16 hexX = 0, hexY = 0;
+    for( uint8 i = 240; i < 242; i++ )
+    {
+        if( not map.GetEntireCoords( i, 0, hexX, hexY ) )
+        {
+            Log( "entire num " + i + " not found(light env)" );
+            return;
+        }
+        Log( "hexX = " + hexX + " hexY = " + hexY );
+        Item@ light = map.AddItem( hexX, hexY, PID_LIGHT_ENV, 1 );
+        Log( "light" + ( valid( light ) ? " " : " not ") + "valid" );
+    }
+}
+
+
+uint e_WellCharge( uint[] @ values ) 
+{
+	Item @ well = GetItem( values[ 0 ] );
+	well.MAX = Random(25,75);
+	well.VAL += CLAMP(Random(25,well.MAX), 0, well.MAX);
+	Map@ map = GetMap( well.MapId );
+	if(valid(map)) map.SetText(well.HexX,well.HexY,COLOR_GRAY,":журчание воды:");
+	well.STATE = 0;
+	return WATER_FILL_TIME;
+}
+uint e_CactusCharge( uint[] @ values )
+{
+    Item @ cactus = GetItem( values[ 0 ] );
+    if( cactus.MAX >= cactus.VAL )
+    {
+        cactus.VAL += Random( 0, 1 ) + Random( 0, 1 ) + Random( 0, 1 );
+        return CACTUS_WATERING_TIME;
+    }
+	cactus.EVENT = 0;
+    return 0;
+}

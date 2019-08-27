@@ -1,0 +1,2597 @@
+// temprorary interactive objects for sutter
+// powermagic
+
+# include "_global_events.fos"
+
+# include "_macros.fos"
+# include "_defines.fos"
+# include "_itempid.fos"
+# include "_maps.fos"
+# include "_interactive_groups.fos"
+
+import void DropBleed( Critter& cr ) from "critter_status";
+import void DropToxic( Critter& cr ) from "critter_status";
+
+import void Prolonged_Doc ( Critter& targetCr, uint16 doctime, uint16 damage ) from "heal";
+import void Prolonged_heal ( Critter& targetCr, uint16 sk ) from "heal";
+
+# define PID_OBJECT_WATERPUMP	( 1300 )
+# define PID_OBJECT_WATTS		( 1303 )
+# define PID_OBJECT_AIRLOCK		( 1302 )
+# define PID_OBJECT_DOC			( 1304 )
+# define PID_OBJECT_LIGHT		( 1305 )
+# define PID_OBJECT_WINDMILL	( 1306 )
+# define PID_OBJECT_SWITCHER	( 1307 )
+# define PID_OBJECT_SAWMILL		( 1308 )
+# define PID_OBJECT_FOUNDRY		( 1309 )
+# define PID_OBJECT_WELL		( 1310 )
+# define PID_OBJECT_SHITDEN		( 10108 )		//Компостная яма
+
+
+/*bool s_WaterPump(Critter& cr, Scenery& scen, int skill, Item@ item){
+        if(skill == SKILL_PICK_ON_GROUND){
+                GameVar @ switcher = GetLocalVar(LIVAR_Object_Switcher, );
+        }
+   }*/
+
+/*
+ * val0 - generatorValue
+ * val1 - powerOn
+ * val2 - switcher
+ * val3 - (power, water, charge)
+ * val4 - max charge
+ * val5 - tool pid
+ * val6 - repair skill
+ * val7 - science skill
+ */
+
+#define CUMO_DATA_NAME	("CUMO")
+
+#define CUMO_VAL_GENERATOR	(0)
+#define CUMO_VAL_POWER		(1)
+#define CUMO_VAL_SWITCHER	(2)
+#define CUMO_VAL_CHARGE		(3)
+#define CUMO_VAL_CHARGE_MAX	(4)
+#define CUMO_VAL_TOOLPID	(5)
+#define CUMO_VAL_REPAIR		(6)
+#define CUMO_VAL_SCIENCE	(7)
+#define CUMO_VAL_AUTODOOR	(8)
+#define CUMO_VAL_BREAK_COMP	(9)
+
+#define CUMO_CHARGE_WATER	(50)
+#define CUMO_CHARGE_POWER	(10)
+#define CUMO_CHARGE_DOC		(100)
+
+string[] valDesc = {"Генератор", "Энергия", "Включено", "Заряды", "Заряды.Макс", "PID инструм.", "ремонт%", "наука%", "(Двери)Питание", "слж.поломки"};
+
+ObjectsManager objectMng;
+
+void start( string&in, Handle@ )
+{
+    iManagerModule@  module = objectMng;
+    iManagerElement@ manager = manager_add_module( module, "objects", 100 );
+    if( @manager is null )
+        return;
+
+    //manager.GetEventFlags() = 0;
+    //manager.GetTimeChangeCall() = 0;
+}
+
+void ModuleInit( string&in, Handle@ )
+{
+    EventRoot.SetCallback( "Start", start );
+}
+
+class ObjectsManager : iManagerModule, iManager_loop, iManager_world_save, iManager_time
+{
+
+	bool manager_init()
+	{
+		return true;
+	}
+	
+	bool manager_start(){
+		// вызывается в порядке приоритетов
+		used_map_obj.Load();
+		return true;
+	}
+
+	bool global_world_save(){
+
+		return true;
+	}
+
+	 uint global_loop(){
+		return uint( -1 );
+	 }
+
+	 bool global_time( int8 type ){
+		if( type == TIME_NEW_HOUR ){
+			used_map_obj.ObjectTimeLoop();
+			used_map_obj.Save();
+		}
+
+		return true;
+	 }
+}
+
+
+class CUMO
+{
+	uint Id;
+	uint ItemId;
+	uint PID;
+
+	int[] Val;
+
+	CUMO(){
+		Id = 0;
+		ItemId = 0;
+		for(uint8 i = 0;i < 10; ++i){
+			Val.insertLast(0);
+		}
+	}
+
+	CUMO(Item& item, uint id){
+		Id = id;
+		ItemId = item.Id;
+		PID = item.GetProtoId();
+
+		/*for(uint8 i = 0;i < 10; ++i){
+			Val[i] = 0;
+		}*/
+
+		Val[0] = item.Val0;
+		Val[1] = item.Val1;
+		Val[2] = item.Val2;
+		Val[3] = item.Val3;
+		Val[4] = item.Val4;
+		Val[5] = item.Val5;
+		Val[6] = item.Val6;
+		Val[7] = item.Val7;
+		Val[8] = item.Val8;
+		Val[9] = item.Val9;
+	}
+
+	CUMO(int[] val, uint id){
+		Id = id;
+
+		uint len = val.length()-1;
+
+		ItemId 	= uint(val[len-1]);
+		PID 	= uint(val[len]);
+		val.resize(len);
+		Val = val;
+
+		//Log("CUMO NEW : "+ItemId+" "+PID);
+	}
+
+	string SGetVal(){
+		string sout = "";
+		for(uint8 i = 0; i < 10; ++i){
+			sout += this.Val[i]+"\n";
+		}
+
+		return (sout != "" ? sout : "ERROR "+this.Id);
+	}
+}
+
+class CUMOBREAKGROUP
+{
+	uint8	BreakPosition;
+
+	uint[] BreakPids;
+	uint[] BreakCounts;
+	uint[] BreakScience;
+	uint[] BreakRepair;
+
+	CUMOBREAKGROUP(uint[] pids, uint[] counts, uint[] science, uint[] repair){
+		BreakPids = pids;
+		BreakCounts = counts;
+		BreakScience = science;
+		BreakRepair = repair;
+
+		if(BreakPids.length() != BreakCounts.length()) {Log("LENGTH ERROR");}
+	}
+
+	uint GetLen(){
+		return BreakPids.length();
+	}
+
+	uint GetPid(uint8 index){
+		return BreakPids[index];
+	}
+
+	uint GetCount(uint8 index){
+		return BreakCounts[index];
+	}
+
+	uint GetScience(uint8 index){
+		return BreakScience[index];
+	}
+
+	uint GetRepair(uint8 index){
+		return BreakRepair[index];
+	}
+
+	void GetBreakRandom(uint& pid, uint& count, uint& science, uint& repair){
+		uint8 index = (Random(0, BreakPids.length()-1));
+
+		pid = BreakPids[index];
+		count = BreakCounts[index];
+		science = BreakScience[index];
+		repair = BreakRepair[index];
+	}
+}
+
+class CUMOBREAK
+{
+
+	uint8 BreakChance;
+	uint CUMOPid;
+	uint BreakPeriod;
+
+
+	CUMOBREAKGROUP[] BreakGroups;
+
+	CUMOBREAK(uint pid, uint8 chance){
+		CUMOPid = pid;
+		BreakChance = chance;
+
+		Init();
+	}
+
+	void AddBreakGroup(CUMOBREAKGROUP& breakGroup){
+		BreakGroups.insertLast(breakGroup);
+	}
+
+	bool IsThisCUMO(uint pid){
+		return pid == CUMOPid;
+	}
+
+	bool CheckBreak(CUMO& cum){
+		if(!IsThisCUMO(cum.PID)) return false;
+
+		uint8 chance = (Random(0, 99));
+
+		if(BreakChance > chance){
+			uint8 complexity = cum.Val[CUMO_VAL_BREAK_COMP]++;
+
+			uint len = BreakGroups.length();
+
+			uint pid = 0, count = 0, science = 0, repair = 0;
+
+			BreakGroups[Random(0, len-1)].GetBreakRandom(pid, count, science, repair);
+
+			count = uint(count * complexity * 0.2);
+
+			cum.Val[CUMO_VAL_TOOLPID] = ((count << 12) | (pid));
+			cum.Val[CUMO_VAL_SCIENCE] = science + (science * complexity * 0.2);
+			cum.Val[CUMO_VAL_REPAIR] = repair + (repair * complexity * 0.2);
+
+			return true;
+
+		}
+
+		return false;
+	}
+
+	void Init(){}
+}
+
+class CUMOBREAK_WINDMILL : CUMOBREAK
+{
+
+	CUMOBREAK_WINDMILL(){
+		CUMOPid = PID_OBJECT_WINDMILL;
+		BreakPeriod = 48;
+
+		Init();
+	}
+	void Init(){
+		AddBreakGroup(CUMOBREAKGROUP(alcoPart, alcoCount, alcoScience, alcoRepair));
+	}
+}
+
+CUMOBREAK[] cumo_breaks;
+
+void GetState( Critter& cr, int, int ,int )
+{
+	
+}
+
+void InitBreak(){
+	cumo_breaks.resize(0);
+
+	cumo_breaks.insertLast(CUMOBREAK_WINDMILL());
+}
+
+class CUMOA
+{
+	CUMO[] cumos;
+	AirLock[] airLocks;
+
+	CUMOA(){
+		cumos.resize(0);
+	}
+
+	bool Load()
+	{
+		if(!IsAnyData(CUMO_DATA_NAME)) return false;
+
+		int[] cumos_data;
+		GetAnyData(CUMO_DATA_NAME, cumos_data);
+
+		uint len = cumos_data.length();
+
+		if(len % 12 != 0) return false;
+
+		int[] val;
+
+		for(uint i = 0; i < len; ++i){
+
+			val.insertLast(cumos_data[i]);
+			if(val.length() == 12){
+				uint cumoslen = cumos.length();
+
+//				cumos.resize(cumoslen+1);
+
+				cumos.insertLast(CUMO(val, cumoslen));
+
+				//Log("CUMO LOAD : "+val[10]+" "+val[11]+" OBJECTS");
+
+				val.resize(0);
+			}
+
+		}
+
+		InitBreak();
+
+		Log("CUMO LOAD : "+cumos.length()+" OBJECTS");
+		return true;
+		//cumos.
+	}
+
+	void Save()
+	{
+		int[] cumos_data(0);
+		//Log("LENGTH : "+cumos.length());
+
+		for(uint i = 0, j = cumos.length(); i < j; ++i){
+			CUMO cumo = cumos[i];
+
+			for(uint8 ii = 0; ii < 10; ++ii){
+				cumos_data.insertLast(cumo.Val[ii]);
+			}
+
+			cumos_data.insertLast(int(cumo.ItemId));
+			cumos_data.insertLast(int(cumo.PID));
+
+			if(cumos_data.length() % 12 != 0) {Log("INVALID LENGTH");return;}//else{Log("OBJECT ID "+cumo.Id+" ITEM ID "+cumo.ItemId+" PID "+cumo.PID+" VAL\n"+cumo.SGetVal());}
+		}
+		//int[] cumos;
+		//
+		if(IsAnyData(CUMO_DATA_NAME)){
+
+			//GetAnyData(CUMO_DATA_NAME, cumos);
+			//cumos = cumos_data;
+			EraseAnyData(CUMO_DATA_NAME);
+		}
+
+		SetAnyData(CUMO_DATA_NAME, /*(cumos.length() > 0 ? cumos :*/cumos_data);
+	}
+
+	int GetValue(uint index, uint8 val, int& rV)
+	{
+		if(index < cumos.length()){
+			rV = cumos[index].Val[val];
+			return 0;
+		}
+
+		return -1;
+	}
+
+	int SetValue(uint index, uint8 val, int rV)
+	{
+		if(index < cumos.length()){
+
+			if(val == CUMO_VAL_CHARGE)
+				rV = CLAMP(rV, 0, CUMO_VAL_CHARGE_MAX);
+
+			cumos[index].Val[val] = rV;
+
+			if(val == CUMO_VAL_CHARGE && cumos[index].Val[CUMO_VAL_CHARGE] <= 0){
+				if(cumos[index].PID == PID_OBJECT_WATTS){
+					ShutDown(index, 0);
+				}/*else{
+					cumos[index].Val[CUMO_VAL_SWITCHER] = 0;
+				}*/
+			}
+
+			return 0;
+		}
+
+		return -1;
+	}
+
+	uint GetIndexByItemId(uint itemId)
+	{
+		for(uint i = 0, j = cumos.length(); i < j; ++i){
+			//Log("CUMOA FIND : "+cumos[i].ItemId+"|"+itemId);
+			if(cumos[i].ItemId == itemId) return i;
+		}
+
+		return uint(-1);
+	}
+
+	uint GetGeneratorId(uint8 generatorGroup){
+
+		for(uint i = 0, j = cumos.length(); i < j; ++i){
+			if(cumos[i].PID == PID_OBJECT_WATTS && cumos[i].Val[CUMO_VAL_GENERATOR] == generatorGroup)
+			  return i/*cumos[i].Id*/;
+		}
+
+		return uint(-1);
+	}
+
+	void ShutDown(uint index, int val)
+	{
+
+		uint8 generatorGroup = cumos[index].Val[CUMO_VAL_GENERATOR];
+
+		for(uint i = 0, j = cumos.length(); i < j; ++i)
+		{
+			CUMO@ cumo = cumos[i];
+			
+			
+			if( cumo.Val[CUMO_VAL_GENERATOR] != generatorGroup ) continue;
+			
+			if( cumo.PID == PID_OBJECT_WATTS )
+			{
+				Item@ item = GetItem(cumo.ItemId);
+				if(@item is null) continue;
+				uint16 x = 0, y = 0;
+				Map@ map = item.GetMapPosition ( x, y );
+				if(@map is null) continue;
+				
+				map.SetData( MAP_DATA_POWER, val );
+			}
+
+			if(IsDoorAutomatic(cumo.PID)){
+
+				Item@ item = GetItem(cumo.ItemId);
+				if(item is null) continue;
+
+				item.Val8 = val; //CUMO_VAL_AUTODOOR
+
+				cumo.Val[CUMO_VAL_AUTODOOR] = val;
+
+				//Log("DOOR "+val);
+
+			} 
+			else if(cumo.PID == PID_OBJECT_LIGHT)
+			{
+
+				Item@ item = GetItem(cumo.ItemId);
+
+				if(item is null) continue;
+
+				if(val > 0){
+					item.LightIntensity = 100;
+				}else{
+					item.LightIntensity = 0;
+				}
+
+				cumo.Val[CUMO_VAL_POWER] = val;
+
+				//Log("LIGHT "+val+" "+item.LightIntensity);
+
+				item.Update();
+			}else if(val > 0){
+				cumo.Val[CUMO_VAL_POWER] = val;
+			}else{
+				cumo.Val[CUMO_VAL_POWER] = val;
+				cumo.Val[CUMO_VAL_SWITCHER] = val;
+			}
+		}
+	}
+
+	void UseSwitcher(uint index, uint switcher)
+	{
+		uint pid = cumos[index].PID;
+
+		if(pid == PID_OBJECT_AIRLOCK || pid == PID_OBJECT_WATERPUMP){
+			cumos[index].Val[CUMO_VAL_SWITCHER] = switcher;
+		}else if(pid == PID_OBJECT_WATTS){
+			ShutDown(index, switcher);
+		}else if(pid == PID_OBJECT_SAWMILL){
+			if(cumos[index].Val[CUMO_VAL_SWITCHER] > 0){
+
+				Item @ item = GetItem(cumos[index].ItemId);
+				if(item is null) return;
+
+				Item@[]@ cont;
+				item.GetItems(uint( -1 ), cont);
+
+				if(@cont is null) return;
+
+				for(uint i = 0, j = cont.length(); i<j; ++i){
+					if(cont[i].GetProtoId() == PID_FIREWOOD){
+						item.AddItem(PID_WOOD_PART, uint(cont[i].GetCount()*0.5), 0);
+					}else{item.AddItem(PID_CRAFT_M_JUNK, uint(cont[i].GetCount()*Random(0,3)), 0);}
+				}
+			}
+		}else if(pid == PID_OBJECT_FOUNDRY){
+			if(cumos[index].Val[CUMO_VAL_SWITCHER] > 0){
+
+				Item @ item = GetItem(cumos[index].ItemId);
+				if(item is null) return;
+
+				Item@[]@ cont;
+				item.GetItems( uint( -1 ), cont);
+
+				if(@cont is null) return;
+
+				for(uint i = 0, j = cont.length(); i<j; ++i){
+					if(cont[i].GetProtoId() == PID_CRAFT_M_BARS){
+						item.AddItem(PID_CRAFT_M_STEL, uint(cont[i].GetCount()*0.2), 0);
+					}
+				}
+			}
+		}
+
+	}
+
+	void Generate(){
+
+	}
+
+	void ObjectTimeLoop()
+	{//335
+
+		airLocks.resize(0);
+
+		for(uint i = 0, j = cumos.length(); i < j; ++i)
+		{
+			CUMO@ cumo = cumos[i];
+			/*
+			if(cumo.Val[CUMO_VAL_SWITCHER] != 1) continue;
+
+			switch(cumo.PID){
+				case PID_OBJECT_WATERPUMP : 	cumo.Val[CUMO_VAL_CHARGE]++; break;
+				case PID_OBJECT_AIRLOCK : 	AirLock airLock(GetItem(cumo.ItemId).MapId, (cumo.Val[CUMO_VAL_SWITCHER] > 0 ? true : false));
+								airLocks.insertLast(airLock);
+								break;
+				case PID_OBJECT_WATTS :		GameVar @ timeLoop = GetLocalItemVar(LIVAR_Object_WattsTimeLoop, cumo.ItemId);
+								if(timeLoop is null) continue;
+
+								if(timeLoop.GetValue() >= 24){
+									timeLoop.opAssign(0);
+									cumo.Val[CUMO_VAL_CHARGE]--;
+								}
+
+								timeLoop.opAddAssign(1);
+								break;
+			}*/
+
+			if(cumo.PID == PID_OBJECT_AIRLOCK){
+				AirLock airLock(GetItem(cumo.ItemId).MapId, (cumo.Val[CUMO_VAL_SWITCHER] > 0 ? true : false));
+				airLocks.insertLast(airLock);
+			}
+			
+			if(cumo.PID == PID_OBJECT_SHITDEN){
+                ShitDen(cumo.ItemId);
+            }
+
+			if(cumo.PID == PID_OBJECT_WELL){
+					cumo.Val[CUMO_VAL_CHARGE]++;
+			}
+
+			if(cumo.Val[CUMO_VAL_SWITCHER] > 0){
+
+				if(cumo.PID == PID_OBJECT_WATERPUMP){
+
+					cumo.Val[CUMO_VAL_CHARGE]++;
+
+				}else if(cumo.PID == PID_OBJECT_WATTS){
+
+					GameVar @ timeLoop = GetLocalVar(LIVAR_Object_WattsTimeLoop, cumo.ItemId);
+
+					if(timeLoop is null) continue;
+
+					int multiplier = (cumo.Val[CUMO_VAL_CHARGE_MAX] > 0 ? cumo.Val[CUMO_VAL_CHARGE_MAX] : 1);
+
+					if(timeLoop.GetValue() >= 24*multiplier){
+						timeLoop.opAssign(0);
+						cumo.Val[CUMO_VAL_CHARGE]--;
+					}
+
+					timeLoop.opAddAssign(1);
+
+					if(cumo.Val[CUMO_VAL_CHARGE] <= 0){
+						used_map_obj.ShutDown(cumo.Id, 0);
+						cumo.Val[CUMO_VAL_SWITCHER] = 0;
+					}
+
+				}
+			}
+		}
+
+		uint[] mapId;
+		uint[] airLen;
+		uint[] airAct;
+		
+		//Log( "++++++++++++++++++++++++++++++++++++++");
+		for(uint i = 0, j = airLocks.length(); i < j; ++i)
+		{
+
+			//Log("i "+i+" act "+(airLocks[i].IsActive? "yes" : "no"));
+
+			int index = mapId.find(airLocks[i].MapId);
+
+			if(index != -1)
+			{
+				airLen[index]++;
+				if(airLocks[i].IsActive) airAct[index]++;
+			}
+			else
+			{
+				mapId.insertLast(airLocks[i].MapId);
+				airLen.insertLast(1);
+				airAct.insertLast(airLocks[i].IsActive ? 1 : 0);
+			}
+		}
+
+		//Log("LEN "+mapId.length()+" "+airLen.length()+" "+airAct.length());
+
+
+		for(uint8 i = 0, j = mapId.length(); i < j; ++i){
+
+			Map @ map = GetMap(mapId[i]);
+			if(map is null) continue;
+
+			uint8 airMod = 100 / (airLen[i] > 0 ? airLen[i] : 1),
+			      airPer = airMod * (airAct[i]);
+
+			GameVar @ dyspnea = GetLocalVar( LMVAR_Dyspnea, map.Id );
+			if(dyspnea is null) continue;
+			//Log( "dyspnea " + dyspnea.GetValue() );
+			if( airPer < 70 )
+			{
+				dyspnea.opAddAssign( 25 );
+				map.SetData( MAP_DATA_DYSPNEA, 1 );
+			}
+			else
+			{
+				dyspnea.opSub( 20 );
+				map.SetData( MAP_DATA_DYSPNEA, 0 );
+			}
+
+			//Log("i "+airPer+" dsp "+dyspnea.GetValue()+" mp "+map.GetData(MAP_DATA_DYSPNEA));
+
+
+		}
+		//Log( "------------------------------------");
+	}
+	/*
+	void GetAirLocks(){
+		for(uint i = 0, j = cumos.length(); i < j; ++i){
+
+		}
+	}*/
+
+}
+
+
+//Помежуточный класс компостной ямы
+class ShitDen
+{
+    uint ItemId;
+
+    ShitDen(uint itemId){
+        ItemId = itemId;
+        ProduceShit();
+    }
+
+    void ProduceShit()
+    {
+
+        Item@ sd = GetItem(ItemId);
+        if (sd is null) return;
+
+        Item@[] insideMes();
+        Item@ item = null;
+
+        for(uint i = 0, iEnd = sd.GetItems(uint( -1 ), @insideMes); i < iEnd; ++i)
+        {
+            @item = @insideMes[i];
+            if (@item is null || item.IsNotValid ) continue;
+            if (item.Proto.Type != 15 || item.Proto.Type != 16 || item.GetProtoId() == PID_SHIT_SMALL ) continue;
+
+            DeleteItem( item );
+            ChangeConstBool( item.IsNotValid, true );
+              sd.AddItem( PID_SHIT_SMALL, 1, 0 );
+        }
+    }
+
+    void ChangeConstBool( bool& var, bool value )
+    {
+        var = value;
+    }
+}
+
+void ChangeConstBool( bool& var, bool value )
+{
+    var = value;
+}
+
+
+
+class AirLock
+{
+	bool IsActive;
+	uint MapId;
+
+	AirLock(){
+		MapId = 0;
+		IsActive = false;
+	}
+
+	AirLock(uint mapId, bool isActive){
+		MapId = mapId;
+		IsActive = isActive;
+	}
+}
+/*
+class AirLockArray
+{
+	AirLock[] airLocks;
+
+	AirLockArray(){
+		airLocks.resize(0);
+	}
+
+	void Drop(){
+		airLocks.resize(0);
+	}
+
+	void AddAirLock(uint mapId, bool isActive){
+		AirLock airLock(mapId, isActive);
+		airLocks.insertLast(airLock);
+	}
+}
+*/
+void cumoa_parse(Critter& cr, int scriptSet, int, int)
+{
+
+	uint[] count(6);
+
+	Item@[] items;
+	Item@[] doors;
+	Map@[] maps;
+	uint mlen = GetAllMaps( 0, maps );
+	 for( uint i = 0; i < mlen; i++ ){
+		if( maps[ i ] is null ) continue;
+
+		Map@ map = maps[ i ];
+
+		map.GetItems( PID_OBJECT_WATTS, items );
+		map.GetItems( PID_OBJECT_WATERPUMP, items );
+		map.GetItems( PID_OBJECT_AIRLOCK, items );
+		map.GetItems( PID_OBJECT_DOC, items );
+		map.GetItems( PID_OBJECT_LIGHT, items );
+		map.GetItems( PID_OBJECT_SWITCHER, items );
+		map.GetItems( PID_OBJECT_WELL, items );
+		map.GetItems( PID_OBJECT_SAWMILL, items );
+		map.GetItems( PID_OBJECT_FOUNDRY, items );
+		map.GetItems( PID_OBJECT_WINDMILL, items );
+			//add
+			map.GetItems( PID_OBJECT_SHITDEN, items );
+		map.GetItemsByType( ITEM_TYPE_DOOR, doors );
+
+	}
+	//Log("doors "+doors.length());
+	int[] iA;
+	cumoa_add(iA, items);
+    if(scriptSet > 0){
+        for(uint i = 0, j = items.length(); i < j; ++i){
+            Item @ temp = GetItem(iA[i]);
+            if(temp is null) continue;
+
+	    string sScript = GetScriptName(temp.GetProtoId());
+
+
+            if(temp.GetType() != ITEM_TYPE_DOOR)
+                temp.SetScript(sScript);
+        }
+	}
+
+	cumoa_add(iA, doors);
+	/*
+	int[] cumos;
+		//EraseAnyData(CUMO_DATA_NAME);
+		if(IsAnyData(CUMO_DATA_NAME)){
+
+			GetAnyData(CUMO_DATA_NAME, cumos);
+			cumos = iA;
+		}
+		*/
+		string msg = "PARSE ERROR";
+
+		if(IsAnyData(CUMO_DATA_NAME)){
+
+			//GetAnyData(CUMO_DATA_NAME, cumos);
+			//cumos = cumos_data;
+			EraseAnyData(CUMO_DATA_NAME);
+		}
+
+		if(SetAnyData(CUMO_DATA_NAME, iA)){
+			msg = "Динамических обьектов : "+(iA.length() / 12);
+		}
+	/*
+	EraseAnyData(CUMO_DATA_NAME);
+	SetAnyData(CUMO_DATA_NAME, iA);*/
+	/*
+	uint iC = 0;
+
+	for(uint8 i = 0; i < 6; ++i){
+		iC += count[i];
+	}
+	*/
+
+	used_map_obj.Load();
+
+	cr.Say(SAY_NETMSG, msg);//+iC+" из них :\nген: "+count[0]+"\nвод: "+count[1]+"\nвоз: "+count[2]+"\nмед: "+count[3]+"\nсвт: "+count[4]+"\nдвр: "+count[5]);
+
+}
+
+string GetScriptName(uint16 pid)
+{
+	string sScript = "interactive_obj@";
+	switch(pid)
+	{
+		case PID_OBJECT_AIRLOCK     : sScript+="AirLockInit"; break;
+		case PID_OBJECT_WATTS       : sScript+="WattsInit"; break;
+		case PID_OBJECT_WATERPUMP   : sScript+="WaterPumpInit"; break;
+		case PID_OBJECT_DOC         : sScript+="DocInit"; break;
+		case PID_OBJECT_LIGHT       : sScript+="LightInit"; break;
+		case PID_OBJECT_SWITCHER    : sScript+="SwitcherInit"; break;
+		case PID_OBJECT_WELL        : sScript+="WellInit"; break;
+		case PID_OBJECT_SAWMILL     : sScript+="SawmillInit"; break;
+		case PID_OBJECT_FOUNDRY     : sScript+="FoundaryInit"; break;
+		case PID_OBJECT_WINDMILL    : sScript+="WindmillInit"; break;
+		default                    	 : break;
+    }
+	return sScript;
+}
+
+bool cumo_add(int itemId, int setScript){
+
+	Item @ item = GetItem(uint(itemId));
+
+	if(item is null){
+		Log("Wrong item id.");
+		return false;
+	}else{
+		if(setScript > 0){
+			item.SetScript(GetScriptName(item.GetProtoId()));
+		}
+	}
+
+	int[] iA;
+	Item@[]	itms = {item};
+
+	GetAnyData(CUMO_DATA_NAME, iA);
+
+	cumoa_add(iA, itms);
+
+	SetAnyData(CUMO_DATA_NAME, iA);
+
+	used_map_obj.Load();
+
+	Log("object add");
+
+	return true;
+}
+
+void cumoa_add(int[]& iA, Item@[] items){
+	for( uint16 i = 0, j = items.length(); i < j; ++i ){
+	      Item @ item = items[ i ];
+
+	      if( item is null || (item.GetType() == ITEM_TYPE_DOOR && !IsDoorAutomatic(item.GetProtoId()))){
+			//Log("DOOR ERROR");
+
+			continue;
+	      }
+
+	      iA.insertLast(item.Val0);
+	      iA.insertLast(item.Val1);
+	      iA.insertLast(item.Val2);
+	      iA.insertLast(item.Val3);
+	      iA.insertLast(item.Val4);
+	      iA.insertLast(item.Val5);
+	      iA.insertLast(item.Val6);
+	      iA.insertLast(item.Val7);
+	      iA.insertLast(item.Val8);
+	      iA.insertLast(item.Val9);
+
+	      iA.insertLast(/*int(*/items[i].Id/*)*/);
+	      iA.insertLast(/*int(*/items[i].GetProtoId()/*)*/);
+
+	      //Log("CUMO ITEM PARSE "+items[i].Id+"|"+iA[iA.length()-2]+" TYPE "+items[i].GetProtoId()+"|"+iA[iA.length()-1]+(item.GetType() == ITEM_TYPE_DOOR ? " DOOR" : ""));
+
+	}
+
+}
+
+CUMOA used_map_obj;
+
+
+void WaterPumpInit( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_SKILL, "_WaterPumpSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_WaterPumpOnMe" );
+}
+
+const uint[] bottlePid = { PID_BOTTLE_GLASS, PID_BOTTLE_EMPTY };
+const uint[] bottleFull = { PID_GLASS_BOTTLE_FULL, PID_BOTTLE_FULL };
+
+//deprecated
+const uint[] ALLamapPids = { MAP_SUTTER_CENTER_DN, MAP_SUTTER_CENTER_DN_2, MAP_PHOENIX_DN};
+/*const uint[] Phoenix_mapPids = { MAP_PHOENIX_DN };
+const uint[] mapPids = { /*MAP_SUTTER_CENTER, * MAP_SUTTER_CENTER_DN, MAP_SUTTER_CENTER_DN_2 /*, MAP_SUTTER_CENTER_UP, MAP_SUTTER_CENTER_UP_1* };
+const uint[] mapLight = { MAP_SUTTER_CENTER, MAP_SUTTER_CENTER_DN, MAP_SUTTER_CENTER_DN_2, MAP_PHOENIX_DN };*/
+
+bool IsRepair(Critter& cr, int science, int parts, int repair){
+	if ( science > 0 ) {cr.Say( SAY_NETMSG, "Требуется внимательный осмотр." ); return true;}
+	else if ( parts > 0 ) {cr.Say( SAY_NETMSG, "Требуется деталь:" ); cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, parts*100 ); return true;}
+	else if ( repair > 0 ) {cr.Say( SAY_NETMSG, "Требуется ремонт." ); return true;}
+
+	return false;
+}
+
+bool _WaterPumpSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;
+*/
+        int power = 0,
+	    switcher = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+        if( power/*.GetValue()*/ > 0 )
+        {
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "Включено";
+            }
+            else
+            {
+                msg = "Выключено";
+            }
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+
+            cr.Say( SAY_NETMSG, "" + msg + ". Вода " + ( val > 0 ? "" : "не" ) + " очищается." );
+        }
+        else
+        {
+            cr.Say( SAY_NETMSG, "Энергоснабжение отклчено. Запустите генератор сначала." );
+        }
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "";
+
+        if( val > 0 )
+        {
+            msg = "включено";
+        }
+        else
+        {
+            msg = "выключено";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + "." );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+	}
+	return true;
+}
+
+bool _WaterPumpOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+
+    if( usedItem is null )
+        return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+    uint pid = usedItem.GetProtoId();
+
+    if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+	int8 index = bottlePid.find( pid );
+
+    if( index != -1 )
+    {
+
+
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;
+*/
+        int power = 0,
+	    switcher = 0,
+	    charge = 0;
+
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+
+
+        if( power/*.GetValue()*/ > 0 )
+        {
+            if( switcher > 0 )
+            {
+                if( charge > 0 )
+                {
+                    _SubItem( usedItem, 1 );
+		    cr.AddItem( bottleFull[index], 1 );
+                    charge--;
+		    used_map_obj.SetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+                }
+                else
+                {
+                    cr.Say( SAY_NETMSG, "Воды больше нет." );
+                }
+            }
+            else
+            {
+                cr.Say( SAY_NETMSG, "Помпа отключена. Включите ее сначала." );
+            }
+        }
+        else
+        {
+            cr.Say( SAY_NETMSG, "Энергия отключена. Включите генератор." );
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+void WellInit(Item& item, bool firstTime){
+    item.SetEvent( ITEM_EVENT_SKILL, "_WellSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_WellOnMe" );
+}
+
+bool _WellSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;
+*/
+        int parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	//used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	//used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+	if(IsRepair(cr, science, parts, repair)) return true;
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+    }
+
+    return true;
+}
+
+bool _WellOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+
+    if( usedItem is null )
+        return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+    uint pid = usedItem.GetProtoId();
+
+    if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    int8 index = bottlePid.find( pid );
+
+    if( index != -1 )
+    {
+
+
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;
+*/
+        int charge = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+
+            if( charge > 0 )
+            {
+                    _SubItem( usedItem, 1 );
+		    cr.AddItem( bottleFull[index], 1 );
+                    charge--;
+		    used_map_obj.SetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+            }
+            else
+            {
+                    cr.Say( SAY_NETMSG, "Воды больше нет." );
+            }
+
+        return true;
+    }
+
+    return false;
+}
+
+void SwitcherInit(Item& item, bool firstTime){
+    item.SetEvent( ITEM_EVENT_SKILL, "_SwitcherSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_SwitcherOnMe" );
+}
+
+bool _SwitcherSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) {Log("CUMO INDEX ERROR"); return false;}
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    objId = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, objId);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+	//no charge
+        //if( charge/*.GetValue()*/ > 0/* || offpower > 0*/)
+        //{
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+	    used_map_obj.UseSwitcher(objId, val);
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "включен";
+            }
+            else
+            {
+                msg = "выключен";
+            }
+
+
+
+            cr.Say( SAY_NETMSG, "Переключатель " + msg + "." );
+        /*}
+        else
+        {
+            cr.Say( SAY_NETMSG, "Кончился заряд. Зарядите генератор." );
+        }*/
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "";//, addMsg = "";
+
+        if( val > 0 )
+        {
+            msg = "включен";
+            //addMsg = " Уровень заряда генератора : " + charge/*power.GetValue()*/ + " .";
+        }
+        else
+        {
+            msg = "выключен";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + ".");// + addMsg );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+    }
+
+    return true;
+}
+
+bool _SwitcherOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+		return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    return true;
+}
+
+void SawmillInit(Item& item, bool firstTime){
+    item.SetEvent( ITEM_EVENT_SKILL, "_SawmillSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_SawmillOnMe" );
+}
+
+bool _SawmillSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) {Log("CUMO INDEX ERROR"); return false;}
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	//no charge
+	//used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+	//no charge
+        //if( charge/*.GetValue()*/ > 0/* || offpower > 0*/)
+        //{
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "включен";
+            }
+            else
+            {
+                msg = "выключен";
+            }
+
+	    WattsRelease(thisIndex, val );
+
+            cr.Say( SAY_NETMSG, "Деревообрабатывающий станок " + msg + "." );
+        /*}
+        else
+        {
+            cr.Say( SAY_NETMSG, "Кончился заряд. Зарядите генератор." );
+        }*/
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "";//, addMsg = "";
+
+        if( val > 0 )
+        {
+            msg = "включен";
+            //addMsg = " Уровень заряда генератора : " + charge/*power.GetValue()*/ + " .";
+        }
+        else
+        {
+            msg = "выключен";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + ".");// + addMsg );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+    }/*else if( skill == SK_STEAL ){
+
+    }*/
+
+    return true;
+}
+
+bool _SawmillOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+		return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    return true;
+}
+
+void FoundryInit(Item& item, bool firstTime){
+    item.SetEvent( ITEM_EVENT_SKILL, "_FoundrySkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_FoundryOnMe" );
+}
+
+bool _FoundrySkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) {Log("CUMO INDEX ERROR"); return false;}
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	//no charge
+	//used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+	//no charge
+        //if( charge/*.GetValue()*/ > 0/* || offpower > 0*/)
+        //{
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "включен";
+            }
+            else
+            {
+                msg = "выключен";
+            }
+
+	    //WattsRelease(thisIndex, val );
+
+            cr.Say( SAY_NETMSG, "Плавильня " + msg + "." );
+        /*}
+        else
+        {
+            cr.Say( SAY_NETMSG, "Кончился заряд. Зарядите генератор." );
+        }*/
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "";//, addMsg = "";
+
+        if( val > 0 )
+        {
+            msg = "включен";
+            //addMsg = " Уровень заряда генератора : " + charge/*power.GetValue()*/ + " .";
+        }
+        else
+        {
+            msg = "выключен";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + ".");// + addMsg );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+    }/*else if( skill == SK_STEAL ){
+
+    }*/
+
+    return true;
+}
+
+bool _FoundryOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+		return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    return true;
+}
+
+void WindmillInit(Item& item, bool firstTime){
+    item.SetEvent( ITEM_EVENT_SKILL, "_WindmillSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_WindmillOnMe" );
+}
+
+bool _WindmillSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) {Log("CUMO INDEX ERROR"); return false;}
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	//no charge
+	//used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+	//no charge
+        //if( charge/*.GetValue()*/ > 0/* || offpower > 0*/)
+        //{
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "включен";
+            }
+            else
+            {
+                msg = "выключен";
+            }
+
+	    WattsRelease(thisIndex, val );
+
+            cr.Say( SAY_NETMSG, "Ветряк " + msg + "." );
+        /*}
+        else
+        {
+            cr.Say( SAY_NETMSG, "Кончился заряд. Зарядите генератор." );
+        }*/
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "";//, addMsg = "";
+
+        if( val > 0 )
+        {
+            msg = "включен";
+            //addMsg = " Уровень заряда генератора : " + charge/*power.GetValue()*/ + " .";
+        }
+        else
+        {
+            msg = "выключен";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + ".");// + addMsg );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+    }
+
+    return true;
+}
+
+bool _WindmillOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+		return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    return true;
+}
+
+void WattsInit( Item& item, bool firstTime )
+{
+    // item.SetEvent(ITEM_EVENT_SKILL, "_WaterPumpSkill");
+    item.SetEvent( ITEM_EVENT_SKILL, "_WattsSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_WattsOnMe" );
+}
+
+bool _WattsSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) {Log("CUMO INDEX ERROR"); return false;}
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+        if( charge/*.GetValue()*/ > 0/* || offpower > 0*/)
+        {
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, val);
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "включен";
+            }
+            else
+            {
+                msg = "выключен";
+            }
+
+	    WattsRelease(thisIndex, val );
+
+            cr.Say( SAY_NETMSG, "Генератор " + msg + "." );
+        }
+        else
+        {
+            cr.Say( SAY_NETMSG, "Кончился заряд. Зарядите генератор." );
+        }
+    }
+    else if( skill == SK_SCIENCE )
+    {
+	if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+        int    val = switcher;
+
+        string msg = "", addMsg = "";
+
+        if( val > 0 )
+        {
+            msg = "включен";
+            addMsg = " Уровень заряда генератора : " + charge/*power.GetValue()*/ + " .";
+        }
+        else
+        {
+            msg = "выключен";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + "." + addMsg );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+	}
+
+    return true;
+}
+
+bool _WattsOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+		return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+	if( usedItem.GetProtoId() != PID_MICRO_FUSION_CELL )
+        return false;
+
+
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+
+	charge += 20;
+	used_map_obj.SetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+
+	_SubItem( usedItem, 1 );
+
+    cr.Say( SAY_NETMSG, "Вы подзарядили генератор." );
+
+    return true;
+}
+
+void WattsRelease( uint index, int val )
+{
+	used_map_obj.ShutDown(index, val);
+}
+
+bool IsDoorAutomatic( uint pid )
+{
+    bool automat = ( pid == 2142 || pid == 2143 || pid == 3169 || pid == 3170 || pid == 4763 || pid == 4765 );
+
+    return automat;
+}
+
+bool IsDoorAutomatic( Item& door, bool& isPower )
+{
+	if( IsDoorAutomatic( door.GetProtoId() ) )
+	{
+		int value = -1;
+		if( intgetval( door.Id, CUMO_VAL_AUTODOOR, value ) )
+			isPower = value > 0;
+		return true;
+	}
+	return false;
+}
+
+void AirLockInit( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_SKILL, "_AirLockSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_AirLockOnMe" );
+}
+
+bool _AirLockSkill( Item& item, Critter& cr, int skill )
+{
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	/*genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+    int power = 0,
+	    switcher = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {
+		if(IsRepair(cr, science, parts, repair)) 
+		{
+			used_map_obj.ObjectTimeLoop();
+			return true;
+		}
+        //uint8 switcher = item.Val2;
+
+        if( power/*.GetValue()*/ > 0 )
+        {
+            int val = switcher;
+            val = ( val > 0 ? 0 : 1 );
+
+            string msg = "";
+
+            if( val > 0 )
+            {
+                msg = "Включено";
+            }
+            else
+            {
+                msg = "Выключено";
+            }
+
+            //item.Val2 = val;
+            switcher = val;
+			used_map_obj.SetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+            cr.Say( SAY_NETMSG, "" + msg + ". Воздух " + ( val > 0 ? "" : "не" ) + " поступает." );
+        }
+        else
+        {
+            cr.Say( SAY_NETMSG, "Энергия отключена. Включите генератор." );
+        }
+    }
+    else if( skill == SK_SCIENCE )
+    {
+		if ( !check_science( used_map_obj.cumos[thisIndex], cr ))
+		{
+			used_map_obj.ObjectTimeLoop();
+			return true;
+		}
+
+		//uint8  switcher = item.Val2;
+
+        int    val = switcher;
+
+        string msg = "";
+
+        if( val > 0 )
+        {
+            msg = "включено";
+        }
+        else
+        {
+            msg = "выключено";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + "." );
+    }
+    else if( skill == SK_REPAIR && /*item.Val5*/repair >0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr ))
+		{
+			used_map_obj.ObjectTimeLoop();
+			return true;
+		}
+    }
+	used_map_obj.ObjectTimeLoop();
+    return true;
+}
+
+bool _AirLockOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null )
+        return false;
+
+    uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+    uint pid = usedItem.GetProtoId();
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    return false;
+}
+
+void DocInit( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_SKILL, "_DocSkill" );
+    item.SetEvent( ITEM_EVENT_USE_ON_ME, "_DocOnMe" );
+}
+
+bool _DocSkill( Item& item, Critter& cr, int skill )
+{
+
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	/*genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int power = 0,
+	    switcher = 0,
+	    charge = 0,
+	    parts = 0,
+	    repair = 0,
+	    science = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_TOOLPID, parts);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_REPAIR, repair);
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SCIENCE, science);
+
+    if( skill == SKILL_PICK_ON_GROUND )
+    {/*
+		GameVar@ power = GetGlobalVar( GVAR_Sutter_Power );
+		if ( cr.GetMap().GetProtoId() == 31 ) @ power = GetGlobalVar( GVAR_Phoenix_Power );
+
+        uint16 parts = item.Val4;
+        uint16 repair = item.Val5;
+		uint16 science = item.Val6;
+
+		if ( science > 0 ) {cr.Say( SAY_NETMSG, "Требуется внимательный осмотр." ); return true;}
+		if ( parts > 0 ) {cr.Say( SAY_NETMSG, "Требуется деталь:" ); cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, parts*100 ); return true;}
+		if ( repair > 0 ) {cr.Say( SAY_NETMSG, "Требуется ремонт." ); return true;}
+	*/
+	if(IsRepair(cr, science, parts, repair)) return true;
+
+        //uint8 charge = item.Val3;
+
+        if( power/*.GetValue()*/ > 0 )
+        {
+            if( charge > 0 )
+            {
+                DocHeal( cr );
+
+                charge--;
+                charge = CLAMP( charge, 0, 100 );
+		used_map_obj.SetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+                //item.Val3 = charge;
+            }
+            else
+            {
+                cr.Say( SAY_NETMSG, "Закончился биогель, обновите резервуар." );
+            }
+        }
+        else
+        {
+            cr.Say( SAY_NETMSG, "Энергия отключена. Включите генератор." );
+        }
+    }
+    else if( skill == SK_SCIENCE )
+    {
+		if ( !check_science( used_map_obj.cumos[thisIndex], cr )) return true;
+
+		/*GameVar@ power = GetGlobalVar( GVAR_Sutter_Power );
+		if ( cr.GetMap().GetProtoId() == 31 ) @ power = GetGlobalVar( GVAR_Phoenix_Power );
+
+        uint8  charge = item.Val3;
+*/
+        string msg = "", addMsg = "";
+
+        if( power/*.GetValue()*/ > 0 )
+        {
+            msg = "включено";
+            addMsg = " Биогеля хватит на " + charge + " операций.";
+        }
+        else
+        {
+            msg = "выключено";
+        }
+
+        cr.Say( SAY_NETMSG, "Сейчас " + msg + "." + addMsg );
+    }
+    else if( skill == SK_REPAIR &&/* item.Val5*/repair > 0)
+    {
+		if ( !check_repair( used_map_obj.cumos[thisIndex], cr )) return true;
+	}
+
+    return true;
+}
+
+bool _DocOnMe( Item& item, Critter& cr, Item@ usedItem )
+{
+    if( usedItem is null)
+        return false;
+
+    	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+
+	if ( !check_parts( used_map_obj.cumos[thisIndex], cr, usedItem )) return true;
+
+    if( usedItem.GetProtoId() != PID_BIO_GEL )
+        return false;
+
+
+
+	/*genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;*/
+
+        int charge = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+/*
+	GameVar@ power = GetGlobalVar( GVAR_Sutter_Power );
+
+    uint8 charge = item.Val3;
+*/
+    if( charge <= 0 )
+    {
+
+        charge = 100;
+        _SubItem( usedItem, 1 );
+
+        cr.Say( SAY_NETMSG, "Вы залили биогель в резервуар." );
+    }
+    else
+    {
+        cr.Say( SAY_NETMSG, "Биогель пока не требуется." );
+    }
+
+    return true;
+}
+
+void DocHeal( Critter& cr )
+{
+	if ( !valid(cr) ) return;
+
+    DropBleed( cr );
+    DropToxic( cr );
+    cr.StatBase[ ST_CRSTATUS ] = 0;
+	cr.EraseTimeEvents( CTE_HEAL );
+	cr.EraseTimeEvents( CTE_DOC );
+
+    for( uint16 i = 502; i < 506; ++i )
+    {
+        if ( cr.Damage[ i ] != 0 ) Prolonged_Doc ( cr, Random (500, 1000), i );
+    }
+
+	Prolonged_heal ( cr, 300);
+}
+
+#include "_colors.fos"
+
+void LightInit( Item& item, bool firstTime )
+{
+    // item.SetEvent(ITEM_EVENT_SKILL, "_WaterPumpSkill");
+    item.SetEvent( ITEM_EVENT_SKILL, "_LightSkill" );
+
+    // item.LightDistance = 6;
+    // item.LightColor = COLOR_DRED;
+    // item.LightIntensity = 100;
+
+    //SETFLAG(item.Flags, ITEM_COLORIZE);
+    //SETFLAG(item.Flags, ITEM_ALWAYS_VIEW);
+     //UNSETFLAG(item.Flags, ITEM_LIGHT);
+
+    string picName = "art\\scenery\\whitePXL.frm";
+
+    uint   hash = GetStrHash( picName );
+    item.SetMapPic( hash );
+
+    //Log("LICGHT COLOR "+item.LightColor);
+    item.LightColor = (item.Val3 != 0 ? item.Val3 : 9999666);
+    item.LightDistance = 6;
+
+   // if(FLAG(item.Flags, ITEM_COLORIZE)) Log("COLORIZE");
+    //if(FLAG(item.Flags, ITEM_LIGHT)) Log("LIGHT");
+
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return;
+
+	int switcher = 0;
+
+	used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+
+    item.LightIntensity = ( switcher > 0 ? 100 : 0 );
+
+    item.Update();
+    // item.SetEvent(ITEM_EVENT_USE_ON_ME, "_DocOnMe");
+}
+
+bool _LightSkill( Item& item, Critter& cr, int skill )
+{
+    return true;
+}
+/*
+void ObjectTimeLoop(){
+	used_map_obj.ObjectTimeLoop();
+}
+
+// void Air
+/*
+void ObjectTimeLoop()
+{
+
+	for(uint16 i = 0, j = used_map_obj.cumoa.length(); i < j; ++i){
+
+		uint16 pid = used_map_obj.cumoa.[i].PID;
+		uint charge = 0,
+		     switcher = 0;
+
+		used_map_obj.GetValue(i, CUMO_VAL_CHARGE, charge);
+		used_map_obj.GetValue(i, CUMO_VAL_CHARGE, switcher);
+
+		if(switcher != 1) continue;
+
+		switch(pid){
+			case PID_OBJECT_WATERPUMP : used_map_obj.SetValue(i, CUMO_VAL_CHARGE, charge+1); break;
+			case PID_OBJECT_AIRLOCK : break;
+		}
+	 /*
+	uint thisIndex = used_map_obj.GetIndexByItemId(item.Id), genIndex = 0;
+	if(thisIndex == uint(-1)) return false;
+/*
+	genIndex = used_map_obj.GetGeneratorId(thisIndex);
+	if(genIndex == uint(-1)) return false;
+*
+        int power = 0,
+	    switcher = 0,
+	    charge = 0;
+
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_POWER, power);
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_SWITCHER, switcher);
+	    used_map_obj.GetValue(thisIndex, CUMO_VAL_CHARGE, charge);
+	    *
+	}
+/*
+	GameVar@ Phoenixpower = GetGlobalVar( GVAR_Phoenix_Power );
+	GameVar@ power = GetGlobalVar( GVAR_Sutter_Power );
+
+	if( Random (0, 23) == 0 )
+	{
+	if( Phoenixpower.GetValue() > 0 ) Phoenixpower.opSub( 1 );
+	if( power.GetValue() > 0 ) power.opSub( 1 );
+	}
+
+    for( uint8 i = 0; i < mapPids.length(); ++i )
+    {
+        Map @ map = GetMapByPid( mapPids[ i ], 0 );
+        if( map is null )
+            continue;
+
+        Item@[] water;
+        Item@[] air;
+
+        map.GetItems( PID_OBJECT_WATERPUMP, water );
+        map.GetItems( PID_OBJECT_AIRLOCK, air );
+        uint8 airLen = air.length();
+        uint8 airMod = 100 / ( airLen > 0 ? airLen : 1 );
+        uint8 airPer = 0;
+
+        for( uint8 ii = 0, jj = air.length(); ii < jj; ++ii )
+        {
+            Item @ item = air[ ii ];
+
+            if( item is null )
+                continue;
+
+            uint8 switcher = item.Val2;
+
+            if( switcher > 0 )
+            {
+                airPer += airMod;
+            }
+        }
+
+        GameVar @ dyspnea = GetLocalVar( LMVAR_Dyspnea, map.Id );
+        if( !(dyspnea is null) )
+        {
+            if( airPer < 70 )
+            {
+                dyspnea.opAddAssign( 25 );
+                map.SetData( MAP_DATA_DYSPNEA, 1 );
+            }
+            else
+            {
+                dyspnea.opSub( 20 );
+                map.SetData( MAP_DATA_DYSPNEA, 0 );
+            }
+        }
+
+        for( uint8 ii = 0, jj = water.length(); ii < jj; ++ii )
+        {
+            Item @ item = water[ ii ];
+
+            if( item is null )
+                continue;
+
+            uint8 switcher = item.Val2;
+            uint8 water = item.Val3;
+
+            if( power.GetValue() > 0 )
+            {
+                water++;
+                water = CLAMP( water, 0, 100 );
+                item.Val3 = water;
+            }
+        }
+    }
+
+    for( uint8 i = 0; i < Phoenix_mapPids.length(); ++i )
+    {
+        Map @ map = GetMapByPid( Phoenix_mapPids[ i ], 0 );
+        if( map is null )
+            continue;
+
+        Item@[] water;
+
+        map.GetItems( PID_OBJECT_WATERPUMP, water );
+
+        for( uint8 ii = 0, jj = water.length(); ii < jj; ++ii )
+        {
+            Item @ item = water[ ii ];
+
+            if( item is null )
+                continue;
+
+            uint8 switcher = item.Val2;
+            uint8 water = item.Val3;
+
+            if( Phoenixpower.GetValue() > 0 )
+            {
+                water++;
+                water = CLAMP( water, 0, 100 );
+                item.Val3 = water;
+            }
+        }
+    }*
+}
+*/
+void ProccessAir(){
+
+}
+
+void ShowLight( Critter& cr, int x, int, int )
+{
+    Item@[] item;
+    Map @ map = cr.GetMap();
+
+    if( map is null )
+        return;
+
+    map.GetItems( PID_OBJECT_LIGHT, item );
+
+    for( uint16 i = 0, j = item.length(); i < j; ++i )
+    {
+        string picName = "art\\scenery\\";
+
+        if( x > 0 )
+        {
+            picName += "grid_wall.frm";
+        }
+        else
+        {
+            picName += "whitePXL.frm";
+        }
+
+        uint hash = GetStrHash( picName );
+        item[ i ].SetMapPic( hash );
+
+        cr.Say( SAY_NETMSG, "flag " + item[ i ].Flags );
+    }
+
+}
+/*
+   void DyspneaTimeLoop(){
+        for(uint8 i = 0; i < mapPids.length(); ++i){
+                Map @ map = GetMapByPid(mapPids[i], 0);
+                if(map is null) continue;
+
+                Critter@[] crs;
+                if(map.GetCritters(0, FIND_LIFE|FIND_ONLY_PLAYERS, crs) > 0){
+                        for(uint8 ii = 0, jj = crs.length(); ++ii){
+
+                        }
+                }
+        }
+   }*/
+/* val1 - powerOn
+ * val2 - switcher
+ * val3 - (power, water, charge)*/
+
+
+void debugOnOff(Critter& cr, int index, int val, int){
+	used_map_obj.ShutDown(index, val);
+}
+
+void spawn_autodoors(Critter& cr, int val, int, int)
+{
+	for( uint8 i = 0; i < ALLamapPids.length(); ++i )
+	{
+        Map @ map = GetMapByPid( ALLamapPids[ i ], 0 );
+        if( map is null )
+            continue;
+
+        Item@[] door;
+
+        map.GetItemsByType( ITEM_TYPE_DOOR, door );
+
+        for( uint8 ii = 0, jj = door.length(); ii < jj; ++ii )
+        {
+            Item @ item = door[ ii ];
+
+            if( item is null )
+                continue;
+
+            if( IsDoorAutomatic( item.GetProtoId() ) )
+            {
+				uint16 x=item.HexX;
+				uint16 y=item.HexY;
+				for( uint8 i = 0; i < 6; i++ )
+				{
+					map.MoveHexByDir( x, y, i, 1 );
+					if ( !valid (map.GetItem( x, y, PID_AUTODOOR )) )
+						{
+						Item@ pedal = map.AddItem( x, y, PID_AUTODOOR, 1 );
+						pedal.Val1 = item.Id;
+						}
+					x=item.HexX;
+					y=item.HexY;
+				}
+
+            }
+        }
+
+    }
+}
+
+
+void debugDyspnea(Critter& cr, int val, int, int){
+	Map @ map = cr.GetMap();
+	if(map is null) return;
+
+	GameVar @ dyspnea = GetLocalVar( LMVAR_Dyspnea, map.Id );
+        if(dyspnea is null) return;
+
+	dyspnea.opAssign(CLAMP(val, 0, 100));
+	map.SetData(MAP_DATA_DYSPNEA, CLAMP(val, 0, 1));
+
+
+	return;
+}
+
+bool check_parts( CUMO& cumo, Critter& cr, Item& usedItem )
+{
+ /*   if( usedItem is null )
+        return false;*/
+
+    uint pid = usedItem.GetProtoId();
+
+	if ( cumo.Val[CUMO_VAL_SCIENCE] >0 ) {cr.Say( SAY_NETMSG, "Пока еще непонятно в чем проблема." ); return false;}
+	if ( cumo.Val[CUMO_VAL_TOOLPID] >0 )
+	{
+
+		uint partPid = cumo.Val[CUMO_VAL_TOOLPID]&0xFFF;
+		uint partCount = (cumo.Val[CUMO_VAL_TOOLPID]>>12)&0xF;
+
+		if ( pid == partPid)//cumo.Val[CUMO_VAL_TOOLPID] )
+		{
+			cr.Say( SAY_NETMSG, "Вы установили требуемую деталь." );
+			cr.StatBase[ST_EXPERIENCE] += (50);
+			_SubItem( usedItem, 1 );
+
+			partCount--;
+
+			if(partCount > 0){
+				partCount = ((partCount << 12) | (partPid));
+			}else{
+				partCount = 0;
+				cumo.Val[CUMO_VAL_BREAK_COMP]--;
+				CLAMP(cumo.Val[CUMO_VAL_BREAK_COMP], 0, 9);
+
+				for(uint8 i = 0, j = cumo_breaks.length(); i<j; ++i){
+					if(cumo_breaks[i].CheckBreak(cumo)) break;
+				}
+			}
+
+			cumo.Val[CUMO_VAL_TOOLPID] = partCount;
+			return true;
+		}
+
+		cr.Say( SAY_NETMSG, "Деталь не подходит." );
+		return false;
+	}
+    return true;
+}
+
+bool check_repair( CUMO& cumo, Critter& cr)
+{
+    /*if( item is null )
+        return false;*/
+
+	if ( cumo.Val[CUMO_VAL_SCIENCE] > 0 ) {cr.Say( SAY_NETMSG, "Пока еще непонятно в чем проблема." ); return false;}
+	if ( cumo.Val[CUMO_VAL_TOOLPID] > 0 ) {cr.Say( SAY_NETMSG, "Пока еще нет нужной детали." ); return false;}
+	if ( cr.Skill[ SK_REPAIR ] < cumo.Val[CUMO_VAL_REPAIR] ) {cr.Say( SAY_NETMSG, "Недостаточно навыка для того чтобы исправить проблему." ); return false;}
+	else
+		{
+		cr.Say( SAY_NETMSG, "Вы определили неисправность и устранили ее." );
+		cr.StatBase[ST_EXPERIENCE] += (cumo.Val[CUMO_VAL_REPAIR] * 2);
+		cumo.Val[CUMO_VAL_REPAIR] = 0;
+		}
+    return true;
+}
+
+bool check_science( CUMO& cumo, Critter& cr)
+{
+   /* if( item is null )
+        return false;*/
+
+	uint16 science = cumo.Val[CUMO_VAL_SCIENCE];
+	uint16 parts = cumo.Val[CUMO_VAL_TOOLPID];
+	if ( science > 0 )
+	{
+		if ( cr.Skill[ SK_SCIENCE ] < science ) {cr.Say( SAY_NETMSG, "Недостаточно навыка для того чтобы определить проблему." ); return false;}
+		else
+			{
+			if ( parts >0 ) {cr.Say( SAY_NETMSG, "Вы определили и пометили неисправность, требуется деталь:" ); cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, parts*100 );}
+			else if ( cumo.Val[CUMO_VAL_REPAIR] >0 ) cr.Say( SAY_NETMSG, "Вы определили и пометили неисправность, остается применить практические навыки." );
+			else cr.Say( SAY_NETMSG, "Вы определили неисправность и устранили ее." );
+			cumo.Val[CUMO_VAL_SCIENCE] = 0;
+			return true;
+			}
+	}
+    return true;
+}
+
+/*		DEPRECATED
+bool check_parts( Item& item, Critter& cr, Item& usedItem )
+{
+    if( item is null || usedItem is null )
+        return false;
+
+    uint pid = usedItem.GetProtoId();
+
+	if ( item.Val6 >0 ) {cr.Say( SAY_NETMSG, "Пока еще непонятно в чем проблема." ); return false;}
+	if ( item.Val4 >0 )
+		{
+		if ( pid == item.Val4 )
+			{
+			cr.Say( SAY_NETMSG, "Вы установили требуемую деталь." );
+			_SubItem( usedItem, 1 );
+			item.Val4 = 0;
+			return true;
+			}
+		cr.Say( SAY_NETMSG, "Деталь не подходит." );
+		return false;
+		}
+    return true;
+}
+
+bool check_repair( Item& item, Critter& cr)
+{
+    if( item is null )
+        return false;
+
+	if ( item.Val6 >0 ) {cr.Say( SAY_NETMSG, "Пока еще непонятно в чем проблема." ); return false;}
+	if ( item.Val4 >0 ) {cr.Say( SAY_NETMSG, "Пока еще нет нужной детали." ); return false;}
+	if ( cr.Skill[ SK_REPAIR ] < item.Val5 ) {cr.Say( SAY_NETMSG, "Недостаточно навыка для того чтобы исправить проблему." ); return false;}
+	else
+		{
+		cr.Say( SAY_NETMSG, "Вы определили неисправность и устранили ее." );
+		item.Val5 = 0;
+		}
+    return true;
+}
+
+bool check_science( Item& item, Critter& cr)
+{
+    if( item is null )
+        return false;
+
+	uint16 science = item.Val6;
+	uint16 parts = item.Val4;
+	if ( science > 0 )
+	{
+		if ( cr.Skill[ SK_SCIENCE ] < science ) {cr.Say( SAY_NETMSG, "Недостаточно навыка для того чтобы определить проблему." ); return false;}
+		else
+			{
+			if ( parts >0 ) {cr.Say( SAY_NETMSG, "Вы определили и пометили неисправность, требуется деталь:" ); cr.SayMsg( SAY_NETMSG, TEXTMSG_ITEM, parts*100 );}
+			else if ( item.Val5 >0 ) cr.Say( SAY_NETMSG, "Вы определили и пометили неисправность, остается применить практические навыки." );
+			else cr.Say( SAY_NETMSG, "Вы определили неисправность и устранили ее." );
+			item.Val6 = 0;
+			return true;
+			}
+	}
+    return true;
+}*/
+
+int intsetval( uint id, uint val, int value )
+{
+	if( val < CUMO_VAL_GENERATOR || val > CUMO_VAL_BREAK_COMP ) 
+		return -1;
+
+	uint index = used_map_obj.GetIndexByItemId(id);
+	if(index == uint(-1)) 
+		return -2;
+
+	used_map_obj.SetValue(index, val, value);
+	return 0;
+}
+
+string@ intGetValueName( uint val )
+{
+	return valDesc[val];
+}
+
+void iobjadd(Critter& cr, int id, int script, int){
+    if(!cumo_add(uint(id), script)){
+        cr.Say(SAY_NETMSG, "wrong id");
+    }else{
+        cr.Say(SAY_NETMSG, "object add");
+    }
+}
+
+void intsetval(Critter& cr, int id, int val, int value)
+{
+	int result = intsetval( id, val, value );
+	switch( result )
+	{
+		case -1:
+			cr.Say(SAY_NETMSG, "wrong VAL num");
+			break;
+		case -2:
+			cr.Say(SAY_NETMSG, "wrong item id");
+			break;
+		default:
+			cr.Say(SAY_NETMSG, "Уставновил\n" + intGetValueName(val) + " для " + id + " в " + value );
+			break;
+	}
+}
+
+bool intgetval( uint id, int val, int&out value )
+{
+	uint index = used_map_obj.GetIndexByItemId(id);
+	if(index == uint(-1))
+		return false;
+
+	used_map_obj.GetValue(index, val, value);
+	return true;
+}
+
+void intgetval(Critter& cr, int id, int, int)
+{
+	uint index = used_map_obj.GetIndexByItemId(id);
+	if(index == uint(-1)) 
+	{
+		cr.Say(SAY_NETMSG, "wrong item id"); 
+		return;
+	}
+
+	int val = 0;
+	if( !intgetval( id, 0, val ) )
+	{
+		cr.Say(SAY_NETMSG, "wrong item id"); 
+		return;
+	}
+	cr.Say(SAY_NETMSG, intGetValueName(0)+" : "+val);
+	
+	for(uint8 i = 1; i < 10; i++)
+	{
+		used_map_obj.GetValue(index, i, val);
+		cr.Say(SAY_NETMSG, valDesc[i]+" : "+val);
+	}
+}
+
+void intturnonobjs(Critter& cr, int generatorValue, int objType, int onoff){
+	//uint index = used_map_obj.GetIndexByItemId(id);
+	//if(index == uint(-1)) {cr.Say(SAY_NETMSG, "wrong item id"); return;}
+
+	uint16[] objTypePids = {PID_OBJECT_WATERPUMP, PID_OBJECT_WATTS, PID_OBJECT_AIRLOCK, PID_OBJECT_DOC, PID_OBJECT_LIGHT,
+			    PID_OBJECT_WINDMILL, PID_OBJECT_SWITCHER, PID_OBJECT_SAWMILL, PID_OBJECT_FOUNDRY, PID_OBJECT_WELL};
+
+	uint objCount = 0;
+
+	for(uint i = 0, j = used_map_obj.cumos.length; i < j; i++){
+		if(used_map_obj.cumos[i].Val[CUMO_VAL_GENERATOR] == generatorValue && used_map_obj.cumos[i].PID == objTypePids[objType]){
+			used_map_obj.ShutDown(i, CLAMP(onoff, 0, 1));
+			if(onoff > 0){
+				used_map_obj.cumos[i].Val[CUMO_VAL_SWITCHER] = 1;
+			}
+			objCount++;
+		}
+	}
+
+	cr.Say(SAY_NETMSG, ""+(onoff > 0 ? "Включил " : "Выключил ")+objCount+" обьектов");
+}
+
+void interasedouble(Critter& cr, int, int, int){
+
+
+	uint cumLen = used_map_obj.cumos.length();
+
+	CUMO[] tempCUMos = used_map_obj.cumos;
+
+	uint[] delIndex;
+
+	uint counter = 0;
+	uint delObj = 0;
+
+	while(counter < tempCUMos.length()){
+		delIndex.resize(0);
+
+		for(uint i = 0, j = tempCUMos.length(); i < j; i++){
+			if(tempCUMos[counter].ItemId == tempCUMos[i].ItemId){
+				delIndex.insertLast(i);
+			}
+
+		}
+
+		delIndex.removeLast();
+		delIndex.reverse();
+
+		delObj += delIndex.length();
+
+		for(uint i = 0; i < delIndex.length(); i++){
+			tempCUMos.removeAt(delIndex[i]);
+		}
+
+		counter++;
+	};
+
+
+
+	used_map_obj.cumos = tempCUMos;
+
+	cr.Say(SAY_NETMSG, "обьектов удаленно : "+delObj+"\nосталось : "+tempCUMos.length()+"\nциклов : "+counter);
+
+}

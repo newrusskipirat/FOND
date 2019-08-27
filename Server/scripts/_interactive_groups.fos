@@ -1,0 +1,10 @@
+//groups used in interactive_obj.fos
+//pm
+//05/07/2013
+
+uint[] windMillParts = {};
+
+uint[] alcoPart = {PID_BOOZE, PID_BEER};
+uint[] alcoCount = {10, 10};
+uint[] alcoScience = {20, 20};
+uint[] alcoRepair = {50, 50};

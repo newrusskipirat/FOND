@@ -1,0 +1,10 @@
+#==========================================================
+#ND Vertibird crush
+#==========================================================
+
+Name = Vertibird crush						
+LocationPid = 1301							
+Flags = Static Hidden	
+Visible = 50								
+Size = 1 1 									
+Create:Vertibird crush = 2 48

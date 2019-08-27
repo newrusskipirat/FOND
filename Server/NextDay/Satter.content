@@ -1,0 +1,110 @@
+#==========================================================
+#ND Satter
+#==========================================================
+
+Name = Satter center					
+LocationPid = 32							
+Flags = Static				
+Visible = 50								
+Size = 2 2 									
+Create:Satter center = 18 35			
+
+new Satter 1_1			
+LocationPid = 20
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 1_1 = 16 34
+
+new Satter 1_2			
+LocationPid = 21
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 1_2 = 17 34
+
+new Satter 1_3			
+LocationPid = 22
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 1_3 = 18 34
+
+new Satter 1_4			
+LocationPid = 23
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 1_4 = 19 34
+
+new Satter 2_1			
+LocationPid = 24
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 2_1 = 16 35
+
+new Satter 2_4			
+LocationPid = 25
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 2_4 = 19 35
+
+new Satter 3_1			
+LocationPid = 26
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 3_1 = 16 36
+
+new Satter 3_4			
+LocationPid = 27
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 3_4 = 19 36
+
+new Satter 4_1			
+LocationPid = 28
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 4_1 = 16 37
+
+new Satter 4_2			
+LocationPid = 29
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 4_2 = 17 37
+
+new Satter 4_3			
+LocationPid = 30
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 4_3 = 18 37
+
+new Satter 4_4			
+LocationPid = 31
+Flags = Static SpawnItems
+Visible = 50
+Size = 1 1
+Create:Satter 4_4 = 19 37
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

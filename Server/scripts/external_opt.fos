@@ -1,0 +1,33 @@
+#include "_macros.fos"
+#include "_colors.fos"
+#include "external_defines.fos"
+
+import bool UseSkillOnLocker( Critter& cr, Item& locker, int skill ) from "lockers";
+
+//EXPORTED!
+void opt_CloseDoorsAround( Critter& cr ) { opt_CloseDoorsAround( cr, cr.HexX, cr.HexY ); }
+void opt_CloseDoorsAround( Critter& cr, Item& item ) { opt_CloseDoorsAround( cr, item.HexX, item.HexY ); }
+void opt_CloseDoorsAround( Critter& cr, uint16 x, uint16 y ) {
+	Map@ map = cr.GetMap();
+	if( !valid(map) ) WarnReturn( cr, "На глобале нельзя." ); 
+	
+	for( uint8 i = 0; i < 6; i++ ) {
+		uint16 x1 = x, y1 = y;
+		map.MoveHexByDir( x1, y1, i, 1 );
+		Item@[] place;
+		for( int j=0, jEnd = map.GetItems(x1,y1,place); j < jEnd; j++ )
+			opt_TryOpenClose( cr, place[j] );	
+	}
+}
+
+void opt_TryOpenClose( Critter& cr, Item& target ) {
+	if( target.GetType() == ITEM_TYPE_DOOR && isOpen(target) )
+		UseSkillOnLocker( cr, target, SKILL_PICK_ON_GROUND );
+}
+
+void opt_CritterAct( Critter& cr, uint action, uint16 x, uint16 y ) {
+	cr.SetDir( GetDirection( cr.HexX, cr.HexY, x, y ) );
+	cr.Animate( 0, action, null, true, true );
+	cr.StatBase[ ST_CURRENT_AP ] = 0; //-= (uint) ap_cost;
+	cr.Wait(500);
+}

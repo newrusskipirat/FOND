@@ -1,0 +1,2435 @@
+// Автор: TabaK
+
+#include "_macros.fos"
+#include "_colors.fos"
+#define EVENT_ID    ( 9 )
+import bool AddWalkPlane( Critter& npc, uint priority, uint16 hexX, uint16 hexY, uint8 dir, bool run, uint cut ) from "npc_planes";
+import void FlushScreen( Critter& cr, uint fromColor, uint toColor, uint timeMs ) from "effects";
+import void RestartFactions( Critter& cr, int p0, int p1, int p2 ) from "factions";
+import void Log_factions( Critter& player, int crId, int mode, int level, string@ param3, int[] @ param4 ) from "gm";
+import void ChangeCritterSpeed( Critter& cr ) from "speed";                                                                // pm added
+import void SetDrug( Critter& cr, uint16 drugPid ) from "drugs";
+uint papik;
+uint brass;
+
+//# define ARREST_POSITION 		389, 405, asked.Dir
+//# define EXPEL_POSITION 		359, 434, asked.Dir
+
+uint8 GetDir( Critter@ cr, Critter@ crit )
+{
+    return GetDirection( cr.HexX, cr.HexY, crit.HexX, crit.HexY );
+}
+
+bool IsNotHuman( Critter& cr )
+{
+    if( cr.StatBase[ ST_BODY_TYPE ] < BT_BRAHMIN || cr.IsPlayer() )
+        return false;
+    else
+        return true;
+}
+
+void _ItemInit( Item& item, bool FirstTime )
+{
+    if( item.Val1 == 0 )
+        item.Val1 = Random( 1, 8191 );
+    item.SetLexems( "$number" + item.Val1 );
+    item.SetEvent( ITEM_EVENT_USE, "_tie" );
+}
+
+void _InitRope( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "_tie" );
+}
+
+
+void _InitUsedHandcuffs( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_SKILL, "_unlock" );
+    item.SetEvent( ITEM_EVENT_MOVE, "_hellno1" );
+    item.SetEvent( ITEM_EVENT_DROP, "_hellno3" );
+}
+
+void _InitHandcuffsKey( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "_release" );
+}
+
+bool _tie( Item& item, Critter& crit, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+
+    bool onSelf = ( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) );
+    bool isRope = ( item.GetProtoId() == PID_ROPE );
+    if( IsNotHuman( crit ) && !isRope )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12952 );
+        return true;
+    }
+
+    if( ( valid( onCritter ) ) && ( IsNotHuman( onCritter ) ) && !isRope )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12951 );
+        return true;
+    }
+
+	if( ( valid( onCritter ) ) && isRope && onCritter.IsDead() )
+    {
+		if( onCritter.GetTimeEvents( CTE_THROW, null, null, null ) > 0 )
+		{
+			onCritter.EraseTimeEvents( CTE_THROW );
+			crit.Say( SAY_NETMSG, "Вы отпустили тело" );
+			ChangeCritterSpeed(crit);
+			return true;
+		}	
+		onCritter.AddTimeEvent( "cte_DragAndDrop", 1*__TimeMultiplier, CTE_THROW, crit.Id );
+		crit.ModeBase[MODE_NO_RUN] = 1;
+		crit.Say( SAY_NETMSG, "Вы тащите тело" );
+        return true;
+    }
+
+    if( onSelf && crit.Stat[ ST_HANDCUFFS ] == 0 && ( !IsNotHuman( crit ) ) )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, !isRope ? 12943 : 12990 );
+        TieUp( item, crit, crit );
+        return true;
+    }
+
+    if( ( valid( onCritter ) ) && ( ( ( onCritter.Stat[ ST_HANDCUFFS ] >> 29 ) & 0x1 ) != 0 ) && ( !IsNotHuman( onCritter ) ) )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, !isRope ? 12940 : 12993 );
+        return true;
+    }
+    if( ( valid( onCritter ) ) && ( onCritter.Stat[ ST_HANDCUFFS ] == 0 ) )
+    {
+        if( onCritter.Stat[ ST_CURRENT_HP ] < 0 || onCritter.IsKnockout() )
+        {
+            TieUp( item, crit, onCritter );
+            return true;
+        }
+        if( onCritter.Timeout[ TO_BATTLE ] != 0 || onCritter.IsNpc() )
+        {
+            if( onCritter.Stat[ ST_BODY_TYPE ] == BT_BRAHMIN )
+            {
+                TieUp( item, crit, onCritter );
+                return true;
+            }
+            else
+            {
+                if( onCritter.IsNpc() )
+                    onCritter.AddEnemyInStack( crit.Id );
+                crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, !isRope ? 12949 : 12989 );
+                return true;
+            }
+        }
+        else
+        {
+            ToAsk( item, crit, onCritter );
+            return true;
+        }
+    }
+    return false;
+}
+
+void _hellno1( Item& item, Critter& crit, uint8 fromSlot )
+{
+    if( item.CritSlot != SLOT_HAND1 )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12945 );
+        crit.MoveItem( item.Id, 1, item.Val1 == 0 ? SLOT_HAND1 : SLOT_HAND2 );
+        item.Update();
+    }
+}
+
+
+void _hellno2( Item& item, Critter& crit, uint8 fromSlot )
+{
+    if( item.CritSlot != SLOT_HAND2 )
+    {
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12945 );
+        crit.MoveItem( item.Id, 1, SLOT_HAND2 );
+        item.Update();
+    }
+}
+
+void _hellno3( Item& item, Critter& crit )
+{
+    crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12945 );
+    // Item @ handCheck = crit.GetItem(item.GetProtoId(), SLOT_HAND1);
+    // bool check = (@handCheck == null);
+    // crit.Say(SAY_NORM, "drop "+check+" slot "+item.CritSlot);
+    MoveItem( item, 1, crit );
+    crit.MoveItem( item.Id, 1, item.Val1 == 0 ? SLOT_HAND1 : SLOT_HAND2 );
+    item.Update();
+}
+
+void _hellno4( Item& item, Critter& crit )
+{
+    crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12945 );
+    MoveItem( item, 1, crit );
+    crit.MoveItem( item.Id, 1, SLOT_HAND2 );
+    item.Update();
+}
+
+bool _kickme( Critter& cr, Critter& attacker )
+{
+    uint  cuffs = cr.Stat[ ST_HANDCUFFS ];
+    uint8 escape = ( cuffs >> 29 ) & 0x1;
+    if( cr.Stat[ ST_HANDCUFFS ] != 0 && escape == 0 )
+    {
+        cr.ClearEnemyStack();
+        return true;
+    }
+    else
+        return false;
+}
+
+bool _release( Item& item, Critter& crit, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    bool onSelf = ( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) );
+    int  cuffs_state;
+    int  keynum;
+    int  nohome;
+
+    if( valid( onCritter ) && onCritter.Stat[ ST_HANDCUFFS ] != 0 )
+    {
+        cuffs_state = onCritter.Stat[ ST_HANDCUFFS ];
+        keynum = ( cuffs_state >> 16 ) & 0x1FFF;
+        nohome = ( cuffs_state >> 30 ) & 0x1;
+        Item@[] items;
+
+        if( item.Val1 == keynum )
+        {
+            string name;
+            if( onCritter.IsPlayer() )
+                name = GetPlayerName( onCritter.Id );
+            else
+                name = "жертву";
+            crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12948, "$name" + name );
+            onCritter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12946 );
+            onCritter.StatBase[ ST_HANDCUFFS ] = 0;
+            onCritter.GetItems( SLOT_HAND1, items );
+            onCritter.GetItems( SLOT_HAND2, items );
+            DeleteItems( items );
+            Item@ cuffs = crit.AddItem( PID_HANDCUFFS, 1 );
+            cuffs.Val1 = keynum;
+            cuffs.SetLexems( "$number" + cuffs.Val1 );
+            _SubItem( item, 1 );
+            if( onCritter.IsNpc() )
+            {
+                onCritter.EraseTimeEvents( EVENT_ID );
+                onCritter.StatBase[ MODE_NO_HOME ] = nohome;
+                onCritter.StatBase[ MODE_NO_FAVORITE_ITEM ] = 0;
+            }
+        }
+        return true;
+    }
+
+    if( onSelf && crit.Stat[ ST_HANDCUFFS ] != 0 )
+    {
+        cuffs_state = crit.Stat[ ST_HANDCUFFS ];
+        keynum = ( cuffs_state >> 16 ) & 0x1FFF;
+        nohome = ( cuffs_state >> 30 ) & 0x1;
+        if( item.Val1 == keynum )
+        {
+            crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12947 );
+            crit.StatBase[ ST_HANDCUFFS ] = 0;
+            crit.DeleteItem( PID_HANDCUFFS_USED, 2 );
+            Item@ cuffs = crit.AddItem( PID_HANDCUFFS, 1 );
+            cuffs.Val1 = keynum;
+            cuffs.SetLexems( "$number" + cuffs.Val1 );
+            _SubItem( item, 1 );
+            return true;
+        }
+    }
+    return false;
+}
+
+void TieUp( Item& item, Critter& crit, Critter@ onCritter )
+{
+	onCritter.StatBase[ST_FOLLOW_CRIT] = crit.Id;
+
+    uint8 follow = 1;
+    uint8 escape = 0;
+    if( crit.Id != onCritter.Id ) onCritter.StatBase[ ST_HANDCUFFS ] = crit.Id | ( item.Val1 << 16 ) | ( escape << 29 ) | ( onCritter.Mode[ MODE_NO_HOME ] << 30 ) | ( follow << 31 );
+    else onCritter.StatBase[ ST_HANDCUFFS ] = onCritter.Stat[ ST_HANDCUFFS ] | ( item.Val1 << 16 ) | ( escape << 29 ) | ( onCritter.Mode[ MODE_NO_HOME ] << 30 ) | ( follow << 31 );
+    bool handCuffs = ( item.GetProtoId() == PID_HANDCUFFS );
+
+    Item@ key;
+    if( handCuffs )
+    {
+        @key = crit.AddItem( PID_CUFFS_KEY, 1 );
+        key.Val1 = item.Val1;
+        key.SetLexems( "$keynum" + key.Val1 );
+    }
+
+    _SubItem( item, 1 );
+
+	Item@[] items;
+	Item@[] items0;
+
+	uint itemscount = onCritter.GetItems( SLOT_HAND1, items );
+	uint itemscount0 = onCritter.GetItems( SLOT_HAND2, items0 );
+ 	
+	if( itemscount > 0 )
+	{
+		Item@ hand = items[0];
+		if(valid(hand)) {
+			int pid = hand.GetProtoId();
+            if( pid != PID_HANDCUFFS && pid != PID_ROPE_USED && pid != PID_COLLAR )
+                onCritter.MoveItem( hand.Id, itemscount, SLOT_INV );
+		}
+	}
+	if( itemscount0 > 0 )
+	{
+		Item@ hand = items0[0];
+		if(valid(hand)) {
+			int pid = hand.GetProtoId();
+            if( pid != PID_HANDCUFFS && pid != PID_ROPE_USED && pid != PID_COLLAR )
+                onCritter.MoveItem( hand.Id, itemscount, SLOT_INV );
+		}
+	}
+
+
+    Item@ usedcuffs1 = onCritter.AddItem( handCuffs ? PID_HANDCUFFS_USED : PID_ROPE_USED, 1 );
+    //Item@ usedcuffs2 = onCritter.AddItem( handCuffs ? PID_HANDCUFFS_USED : PID_ROPE_USED, 1 );
+
+    onCritter.MoveItem( usedcuffs1.Id, 1, SLOT_HAND1 );
+    //onCritter.MoveItem( usedcuffs2.Id, 1, SLOT_HAND2 );
+    usedcuffs1.Val1 = 1;
+    //usedcuffs2.Val1 = 0;
+    usedcuffs1.Update();
+    //usedcuffs2.Update();
+    if( crit.Id != onCritter.Id )
+    {
+        string name;
+        if( onCritter.IsPlayer() )
+            name = GetPlayerName( onCritter.Id );
+        else
+            name = "жертву";
+        crit.SayMsg( SAY_NETMSG, TEXTMSG_GAME, handCuffs ? 12941 : 12991, "$victim" + name );
+        onCritter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, handCuffs ? 12942 : 12992 );
+    }
+
+    usedcuffs1.SetEvent( ITEM_EVENT_SKILL, "_unlock" );
+    //usedcuffs2.SetEvent( ITEM_EVENT_SKILL, "_unlock" );
+    usedcuffs1.SetEvent( ITEM_EVENT_MOVE, "_hellno1" );
+    //usedcuffs2.SetEvent( ITEM_EVENT_MOVE, "_hellno1" );
+    usedcuffs1.SetEvent( ITEM_EVENT_DROP, "_hellno3" );
+    //usedcuffs2.SetEvent( ITEM_EVENT_DROP, "_hellno3" );
+
+    if( handCuffs )
+    {
+        key.SetEvent( ITEM_EVENT_USE, "_release" );
+    }
+
+    onCritter.SetEvent( CRITTER_EVENT_DEAD, "_drop" );
+
+    if( onCritter.IsNpc() )
+    {
+        Map@ homemap = onCritter.GetMap();
+        onCritter.AddTimeEvent( "come_to_daddy", 30, EVENT_ID );
+        onCritter.SetEvent( CRITTER_EVENT_ATTACKED, "_kickme" );
+        onCritter.SetEvent( CRITTER_EVENT_RESPAWN, "_respawn" );
+        onCritter.StatBase[ MODE_NO_FAVORITE_ITEM ] = 1;
+        onCritter.ModeBase[ MODE_GECK ] = 1;
+        onCritter.ErasePlane( -1, true );
+        onCritter.ClearEnemyStack();
+        onCritter.StatBase[ MODE_NO_HOME ] = 1;
+    }
+}
+
+
+void _drop( Critter& cr, Critter@ killer )
+{
+    if( cr.Stat[ ST_HANDCUFFS ] != 0 )
+    {
+        cr.StatBase[ ST_HANDCUFFS ] = 0;
+        cr.DeleteItem( PID_HANDCUFFS_USED, 2 );
+        cr.AddItem( PID_BROKEN_CUFFS, 1 );
+    }
+}
+
+#include "_ltp.fos"
+
+bool ltp_ropecuffs_inited = false;
+void ltp_ropecuffs_init()
+{
+    LTPREG( LTP_ROPECUFFS, process_unlock )
+    ltp_ropecuffs_inited = true;
+}
+
+bool unlock( Critter& cr, Critter& targetCr, uint16 pid ) // export in main.fos -> critter_use_item
+{
+    bool isKnife = ( pid == PID_COMBAT_KNIFE         ||
+                     pid == PID_KNIFE                ||
+                     pid == PID_LIL_JESUS_WEAPON     ||
+                     pid == PID_SWITCHBLADE          ||
+                     pid == PID_WAKIZASHI_BLADE      );
+
+    if( !isKnife )
+        return false;
+
+	if( targetCr.Stat[ ST_HANDCUFFS ] == 0 )
+		return false;
+	
+    targetCr.DeleteItem( PID_ROPE_USED, 2 );
+    cr.AddItem( PID_ROPE, 1 );
+    targetCr.StatBase[ ST_HANDCUFFS ] = 0;
+    targetCr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12988 );
+    return true;
+}
+
+uint process_unlock( Critter@ cr, int& param0, int& param1, int& param2 )
+{
+	if( cr.Stat[ ST_HANDCUFFS ] == 0 ) return 0;
+    
+	LTPROCESSD( LTP_ROPECUFFS )
+
+    if( param0 == 0 )
+        cr.TimeoutBase[ TO_SK_LOCKPICK ] = LOCKPICK_TIMEOUT( cr );
+    cr.DeleteItem( param0 == 0 ? PID_HANDCUFFS_USED : PID_ROPE_USED, 2 );
+    cr.AddItem( param0 == 0 ? PID_BROKEN_CUFFS : PID_ROPE, 1 );
+    cr.StatBase[ ST_HANDCUFFS ] = 0;
+    if( cr.IsPlayer() )
+		cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, param0 == 0 ? 12947 : 12988 );
+
+    return 0;
+}
+
+bool _unlock( Item& item, Critter& critter, int skill )
+{
+    if( !ltp_ropecuffs_inited )
+        ltp_ropecuffs_init();
+
+    if( item.GetProtoId() == PID_ROPE_USED )
+    {
+        int time = 0;
+        if( skill == SK_REPAIR )
+        {
+            Item@ lighter = critter.GetItem( PID_LIGHTER, -1 );
+            if( @lighter is null )
+            {
+                critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12985 );
+                return true;
+            }
+            time = Random( critter.Stat[ ST_LUCK ], 15 ) * 1000;
+        }
+        else if( skill == SK_TRAPS )
+        {
+            bool  succes = false;
+            uint knifeIndex = 0;
+            uint16[] knifePids = { PID_WAKIZASHI_BLADE, PID_LIL_JESUS_WEAPON, PID_COMBAT_KNIFE, PID_SWITCHBLADE, PID_KNIFE };
+            for( uint size = knifePids.length(); knifeIndex < size; knifeIndex++ )
+            {
+                Item@ knife = critter.GetItem( knifePids[ knifeIndex ], -1 );
+                if( @knife != null )
+                {
+                    succes = true;
+                    break;
+                }
+            }
+            if( !succes )
+            {
+                critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12986 );
+                return true;
+            }
+
+            switch( knifePids[ knifeIndex ] )
+            {
+            case PID_KNIFE:
+                time = 10000;
+                break;
+            case PID_SWITCHBLADE:
+                time = 9000;
+                break;
+            case PID_COMBAT_KNIFE:
+                time = 7000;
+                break;
+            case PID_LIL_JESUS_WEAPON:
+                time = 6000;
+                break;
+            case PID_WAKIZASHI_BLADE:
+                time = 5000;
+                break;
+            default:
+                time = -1;
+                break;
+            }
+
+            if( time == -1 )
+            {
+                critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12987 );
+                return true;
+            }
+
+            time -= ( critter.Skill[ SK_MELEE_WEAPONS ] * 20 ) + ( critter.Stat[ ST_AGILITY ] * 300 );
+            if( time <= 0 )
+                time = 1000;
+
+
+        }
+
+        if( time <= 0 )
+            return false;
+
+        StartProcess( critter, LTP_ROPECUFFS, 1, 0, 0, time );
+        return true;
+    }
+
+    if( skill == SK_LOCKPICK )
+    {
+        if( critter.Timeout[ TO_SK_LOCKPICK ] > 0 )
+        {
+            critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 3401 );
+            return true;
+        }
+		
+        if( ( critter.Skill[ SK_LOCKPICK ] ) > 300 - Random( 0, 250 ) )
+        {
+            StartProcess( critter, LTP_ROPECUFFS, 0, 0, 0, 1000 );
+            return true;
+        }
+		
+        critter.TimeoutBase[ TO_SK_LOCKPICK ] = LOCKPICK_TIMEOUT( critter );
+        critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12944 );
+        return true;
+    }
+    if( skill == SK_SCIENCE )
+    {
+        uint number = ( critter.Stat[ ST_HANDCUFFS ] >> 16 ) & 0x1FFF;
+        critter.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12950, "$number" + number );
+        return true;
+    }
+    return false;
+}
+
+uint come_to_daddy( Critter& cr, int identifier, uint& rate )
+{
+    int8     y = 0;
+    cr.ClearEnemyStack();
+    uint     cuffs_state = cr.Stat[ ST_HANDCUFFS ];
+    uint16   master = ( cuffs_state ) & 0xFFFF;
+    uint16   keynum = ( cuffs_state >> 16 ) & 0x1FFF;
+    uint8    escape = ( cuffs_state >> 29 ) & 0x1;
+    uint8    nohome = ( cuffs_state >> 30 ) & 0x1;
+    uint8    follow = ( cuffs_state >> 31 ) & 0x1;
+    uint8    leavemealone = Random( 0, 300 );
+    Critter@ daddy = GetCritter( master );
+    Map@     daddymap = null;
+    if( valid( daddy ) )
+        @daddymap = daddy.GetMap();
+    else if( !valid( daddy ) && escape == 0 )
+        SelfRelease( cr );
+    Map@ crmap = cr.GetMap();
+    if( ( escape == 0 ) && ( leavemealone != 10 ) )
+    {
+        cr.ErasePlane( -1, true );
+        if( follow == 1 )
+        {
+            if( ( !valid( daddymap ) ) && ( valid( crmap ) ) )
+            {
+                cr.TransitToGlobalGroup( daddy.Id );
+            }
+            else if( ( valid( daddymap ) ) && ( valid( crmap ) ) && ( daddymap.Id == crmap.Id ) )
+            {
+				//Не будем агрить всех вокруг.
+				/*
+                Critter@[] friends;
+                cr.GetCritters( true, FIND_LIFE, friends );
+                while( y <= int( friends.length() ) - 1 )
+                {
+                    if( valid( friends[ y ] ) && cr.Stat[ ST_BODY_TYPE ] != BT_BRAHMIN && ( friends[ y ].Stat[ ST_TEAM_ID ] == cr.Stat[ ST_TEAM_ID ] || friends[ y ].Stat[ ST_TEAM_ID ] == 5 ) )
+                        friends[ y ].AddEnemyInStack( daddy.Id );
+                    y++;
+                }
+				*/
+                AddWalkPlane( cr, 0, daddy.HexX, daddy.HexY, GetDir( cr, daddy ), false, 1 );
+            }
+            else if( ( valid( daddymap ) ) && ( valid( crmap ) ) && ( crmap.Id != daddymap.Id ) )
+            {
+                uint8 findPos = 1;
+                while( findPos <= 10 )
+                {
+                    if( daddymap.IsHexPassed( daddy.HexX + findPos, daddy.HexY + findPos ) )
+                    {
+                        cr.TransitToMap( daddymap.Id, daddy.HexX + findPos, daddy.HexY + findPos, GetDir( cr, daddy ) );
+                        findPos = 10;
+                    }
+                    findPos++;
+                }
+            }
+        }
+    }
+    else if( escape == 0 && leavemealone == 10 && false /*cr.Stat[ ST_BODY_TYPE ] != BT_BRAHMIN*/ ) //НПЦ не могут освобождаться!
+    {
+        SelfRelease( cr );
+    }
+    else if( escape == 1 )
+    {
+        uint   homemap = 0;
+        uint8  homedir = 0;
+        uint16 homex = 0;
+        uint16 homey = 0;
+        uint16 EntX = 0;
+        uint16 EntY = 0;
+        uint16 ExitDist = 0;
+        cr.GetHomePos( homemap, homex, homey, homedir );
+
+        Map@ homemap0 = GetMap( homemap );
+
+        if( valid( crmap ) )
+        {
+            if( !crmap.GetEntireCoords( 0, 0, EntX, EntY ) )
+                EntX = cr.HexX;
+            EntY = cr.HexY;
+            ExitDist = GetDistantion( cr.HexX, cr.HexY, EntX, EntY );
+        }
+        else if( homemap0 !is null )
+            cr.TransitToMap( homemap, homex, homey, homedir );
+
+        if( valid( daddymap ) && valid( crmap ) && ( daddymap.Id == crmap.Id ) )
+        {
+            if( daddy.IsDead() )
+            {
+                if( cr.Timeout[ TO_BATTLE ] == 0 && ExitDist < 4 )
+                {
+                    if( homemap0 !is null )
+                        cr.TransitToMap( homemap, homex, homey, homedir );
+                    cr.StatBase[ ST_HANDCUFFS ] = 0;
+                    return 0;
+                }
+                else
+                {
+                    AddWalkPlane( cr, 0, EntX, EntY, 0, true, 1 );
+                }
+            }
+        }
+        else if( ( valid( daddymap ) ) && ( valid( crmap ) ) && ( crmap.Id != daddymap.Id ) || ( !valid( daddymap ) ) && ( valid( crmap ) ) )
+        {
+
+            if( cr.Timeout[ TO_BATTLE ] == 0 && ExitDist < 4 )
+            {
+                if( homemap0 !is null )
+                    cr.TransitToMap( homemap, homex, homey, homedir );
+                cr.StatBase[ ST_HANDCUFFS ] = 0;
+                return 0;
+            }
+            else
+            {
+                AddWalkPlane( cr, 0, EntX, EntY, 0, true, 1 );
+            }
+        }
+    }
+
+    return 30;
+}
+
+void ToAsk( Item& item, Critter& crit, Critter@ onCritter )
+{
+    string player;
+    if( crit.IsPlayer() )
+        player = GetPlayerName( crit.Id );
+    else
+        player = "Кто-то";
+    if( ( crit.Stat[ ST_STRENGTH ] + crit.Stat[ ST_LUCK ] + crit.Stat[ ST_AGILITY ] + Random( 0, 10 ) ) > ( onCritter.Stat[ ST_STRENGTH ] + onCritter.Stat[ ST_LUCK ] + onCritter.Stat[ ST_AGILITY ] + Random( 1, 15 ) ) )
+    {
+        TieUp( item, crit, onCritter );
+    }
+    else
+    {
+        papik = crit.Id;
+        brass = item.Id;
+        onCritter.ShowScreen( SCREEN_DIALOGBOX, 1, "AnswerMe" );
+        onCritter.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 12955, "$player" + player );
+        onCritter.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 12956 );
+    }
+
+}
+
+
+void AnswerMe( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+        cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12942 );
+        TieUp( GetItem( brass ), GetCritter( papik ), cr );
+    }
+
+}
+
+
+void SelfRelease( Critter& cr )
+{
+	if( cr.StatBase[ ST_HANDCUFFS ] == 0 ) return;
+	
+    uint     cuffs_state = cr.StatBase[ ST_HANDCUFFS ];
+    uint16   master = ( cuffs_state ) & 0xFFFF;
+    uint16   keynum = 0;
+    uint8    escape = 1;
+    uint8    nohome = ( cuffs_state >> 30 ) & 0x1;
+    uint8    follow = ( cuffs_state >> 31 ) & 0x1;
+    Critter@ bastard = GetCritter( master );
+    Item@[] items;
+    cr.GetItems( SLOT_HAND1, items );
+    cr.GetItems( SLOT_HAND2, items );
+    DeleteItems( items );
+    cr.AddItem( PID_BROKEN_CUFFS, 1 );
+    if( valid( bastard ) )
+        bastard.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12957 );
+    cr.AddEnemyInStack( master );
+    cr.StatBase[ ST_HANDCUFFS ] = master | ( keynum << 16 ) | ( escape << 29 ) | ( nohome << 30 ) | ( follow << 31 );
+}
+
+void _respawn( Critter& cr )
+{
+    uint   homemap = 0;
+    uint8  homedir = 0;
+    uint16 homex = 0;
+    uint16 homey = 0;
+    Item@  broken = cr.GetItemById( PID_BROKEN_CUFFS );
+    Map@   map = cr.GetMap();
+    MoveItem( broken, 1, map, cr.HexX, cr.HexY );
+    cr.GetHomePos( homemap, homex, homey, homedir );
+    cr.ToLife();
+    cr.TransitToMap( homemap, homex, homey, homedir );
+}
+
+// create Harpoon hook
+void HookAttack( Critter& cr, Critter@ target, uint8 force, uint8 pull )
+{
+    if( @target !is null && !target.IsDead() )
+    {
+        Map@  map = cr.GetMap();
+        uint8 dist = GetDistantion( cr.HexX, cr.HexY, target.HexX, target.HexY );
+        uint  id = cr.Id;
+        Item@ hook = map.GetItem( target.HexX, target.HexY, PID_GRAPPLE_HOOK );
+        if( @hook is null )
+        {
+            @hook = map.AddItem( target.HexX, target.HexY, PID_GRAPPLE_HOOK, 1 );
+            hook.Val0 = dist;
+            hook.Val1 = cr.Id;
+            hook.Val5 = pull;
+            SETFLAG( hook.Flags, ITEM_TRAP );
+            hook.SetScript( "_HookWalkInit" );
+        }
+        else if( uint( hook.Val1 ) != id )
+        {
+            hook.Val0 = dist;
+            hook.Val1 = id;
+            hook.Val5 = pull;
+            hook.SetScript( "_HookWalkInit" );
+        }
+        else if( force + cr.Stat[ ST_CURRENT_HP ] / 20 - target.Stat[ ST_CURRENT_HP ] / 20 + cr.Stat[ ST_STRENGTH ] - target.Stat[ ST_STRENGTH ] > Random( 0, 15 ) )
+        {
+            cr.Say( SAY_EMOTE_ON_HEAD, "" + id );
+            uint16 targetHx = cr.HexX, 
+					 targetHy = cr.HexY;
+            map.GetHexCoordWall( target.HexX, target.HexY, targetHx, targetHy, 0.0f, 4 );
+            target.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( Random( 0, 1 ) == 1 ), 2, targetHx, targetHy );
+            MoveItem( hook, 1, map, targetHx, targetHy );
+        }
+    }
+}
+
+void _HookWalkInit( Item& item, bool firstTime )
+{
+    if( item.GetProtoId() == PID_GRAPPLE_HOOK )
+        item.SetEvent( ITEM_EVENT_WALK, "_HookWalk" );
+}
+
+void _HookWalk( Item& hook, Critter& cr, bool entered, uint8 dir )
+{
+    if( !entered )
+    {
+        Critter@ hooker = GetCritter( hook.Val1 );
+        if( @hooker is null ) 
+		{
+			_SubItem( hook, 1 );
+			return;
+		}
+		
+        uint8 dist = GetDistantion( cr.HexX, cr.HexY, hooker.HexX, hooker.HexY ),
+				distMax = hook.Val0;
+				
+        Map@ map = cr.GetMap();
+        Item@ hook1 = map.GetItem( hooker.HexX, hooker.HexY, PID_GRAPPLE_HOOK );
+
+        if( @hook1 is null )
+            _SubItem( hook, 1 );
+        else if( cr.GetMapId() != hooker.GetMapId() || hooker.IsDead() || uint( hook1.Val1 ) != cr.Id )
+            _SubItem( hook, 1 );
+        else
+        {
+            if( dist > distMax )
+            {
+                uint16 hookHx = hooker.HexX,
+						 hookHy = hooker.HexY;
+                map.GetHexCoordWall( cr.HexX, cr.HexY, hookHx, hookHy, 0.0f, 2 );
+                cr.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( Random( 0, 1 ) == 1 ), 3, hookHx, hookHy );
+                cr.Say( SAY_NETMSG, "Вас отбрасывает назад" );
+                MoveItem( hook, 1, map, cr.HexX, cr.HexY );
+                cr.Say( SAY_EMOTE_ON_HEAD, "" + cr.Id );
+            }
+            else if( hook.Val5 != 0 ) hook.Val0 = dist;
+			MoveItem( hook, 1, map, cr.HexX, cr.HexY );
+        }
+    }
+}
+
+uint cte_DragAndDrop( Critter& cr, int identifier, uint& rate )
+{
+    Critter@ hooker = GetCritter( rate );
+	if( @hooker is null ) return 0;
+	if( ( !cr.IsDead() && !cr.IsKnockout() ) || hooker.IsRuning ) 
+	{ 
+		hooker.Say( SAY_NETMSG, "Вы отпустили тело" ); 
+		ChangeCritterSpeed(hooker); 
+		return 0; 
+	}
+
+	Map@ map = cr.GetMap(),
+		  hmap = hooker.GetMap();
+
+	uint16 hookHx = hooker.HexX,
+			 hookHy = hooker.HexY;
+
+	uint8 dist = GetDistantion( cr.HexX, cr.HexY, hooker.HexX, hooker.HexY ),
+			revDir = hooker.Dir + 3;
+	if( revDir > 5 ) revDir = revDir - 6;
+	
+	hmap.MoveHexByDir( hookHx, hookHy, revDir, 1 );	
+	if( !hmap.IsHexPassed( hookHx, hookHy ) || ( dist <=2 ) ) return 1*__TimeMultiplier;
+	if( @hmap !is @map ) 
+	{ 
+		cr.TransitToMap( hmap.Id, hookHx, hookHy, hooker.Dir ); 
+		ChangeCritterSpeed( hooker ); 
+		return 0; 
+	}
+	else if( dist < 5 || cr.GetAccess() >= ACCESS_MODER ) 
+	{ 
+		cr.TransitToHex( hookHx, hookHy, hooker.Dir ); 
+		return 1 * __TimeMultiplier; 
+	}
+	else 
+	{ 
+		hooker.Say( SAY_NETMSG, "Вы отпустили тело" ); 
+		ChangeCritterSpeed( hooker ); 
+		return 0;
+	}
+}
+
+void DragAndDrop( Critter& cr, Critter@ target )
+{
+    if( valid( target ) )
+    {
+		if( target.GetTimeEvents( CTE_THROW, null, null, null ) > 0 )
+		{
+		target.EraseTimeEvents( CTE_THROW );
+		cr.Say( SAY_NETMSG, "Вы отпустили тело" );
+		ChangeCritterSpeed(cr);
+		return;
+		}
+	
+	target.AddTimeEvent( "cte_DragAndDrop", 1*__TimeMultiplier, CTE_THROW, cr.Id );
+	cr.ModeBase[MODE_NO_RUN] = 1;
+	cr.Say( SAY_NETMSG, "Вы тащите тело" );
+	}
+}
+
+// create Melee hook
+void HookMeleeAttack( Critter& cr, Critter@ target )
+{
+    if( @target !is null && !target.IsDead() )
+    {
+        Map@ map = cr.GetMap();
+        uint crId = cr.Id;
+		
+		if (target.Stat[ ST_CURRENT_HP ]<=0 || target.IsKnockout())
+		{
+			if( target.GetTimeEvents( CTE_THROW, null, null, null ) > 0 )
+			{
+				target.EraseTimeEvents( CTE_THROW );
+				cr.Say( SAY_NETMSG, "Вы отпустили тело" );
+				ChangeCritterSpeed(cr);
+				return;
+			}
+		
+			target.AddTimeEvent( "cte_DragAndDrop", 1*__TimeMultiplier, CTE_THROW, crId );
+			cr.ModeBase[MODE_NO_RUN] = 1;
+			cr.Say( SAY_NETMSG, "Вы тащите тело" );
+			return;
+		}
+		
+        Item@ hook = map.GetItem( target.HexX, target.HexY, PID_MELEE_HOOK );
+        if( @hook is null )
+        {
+            @ hook = map.AddItem( target.HexX, target.HexY, PID_MELEE_HOOK, 1 );
+            hook.Val1 = crId;
+            hook.Val2 = 0;
+            hook.Val3 = 0;
+            SETFLAG( hook.Flags, ITEM_TRAP );
+            hook.SetScript( "_HookMeleeInit" );
+        }
+        else if( uint( hook.Val1 ) != crId )
+        {
+            hook.Val1 = crId;
+            hook.Val2 = 0;
+            hook.Val3 = 0;
+            hook.SetScript( "_HookMeleeInit" );
+        }
+
+        Item@ hook2 = map.GetItem( cr.HexX, cr.HexY, PID_MELEE_HOOK );
+        if( @hook2 is null )
+        {
+            @ hook2 = map.AddItem( cr.HexX, cr.HexY, PID_MELEE_HOOK, 1 );
+            hook2.Val1 = target.Id;
+            hook2.Val2 = 1;
+            SETFLAG( hook2.Flags, ITEM_TRAP );
+            hook2.SetScript( "_HookMeleeInit" );
+        }
+        else if( uint( hook2.Val1 ) != target.Id )
+        {
+            hook2.Val1 = target.Id;
+            hook2.Val2 = 1;
+            hook2.SetScript( "_HookMeleeInit" );
+        }
+    }
+}
+
+void _HookMeleeInit( Item& item, bool firstTime )
+{
+    if( item.GetProtoId() == PID_MELEE_HOOK )
+        item.SetEvent( ITEM_EVENT_WALK, "_HookMelee" );
+}
+
+void _HookMelee( Item& hook, Critter& cr, bool entered, uint8 dir )
+{
+    if( !entered )
+    {
+        Critter@ hooker = GetCritter( hook.Val1 );
+		
+		if( @hooker is null )
+		{
+			_SubItem( hook, 1 ); 
+			return;		
+		}
+		
+        Map@ map = cr.GetMap();
+        Item@ hook1 = map.GetItem( hooker.HexX, hooker.HexY, PID_MELEE_HOOK );
+
+        if( @hook1 is null || cr.GetMapId() != hooker.GetMapId() || hooker.IsDead() || uint( hook1.Val1 ) != cr.Id )
+        {
+			_SubItem( hook, 1 ); 
+			return;
+		}
+
+		if( hook.Val2 != 0 )
+		{
+			if( hooker.Stat[ ST_CURRENT_HP ]>0 || cr.IsRuning )
+			{
+				_SubItem( hook, 1 );
+				_SubItem( hook1, 1 );
+				return;
+			}
+			else 
+			{
+				
+				MoveItem( hook, hook.GetCount(), map, cr.HexX, cr.HexY );
+				if (cr.Timeout[ TO_SK_LOCKPICK ] > 0) 
+					return;
+					
+				cr.TimeoutBase[ TO_SK_LOCKPICK ] = __FullSecond + REAL_SECOND(1);
+				uint8 revDir = dir + 3;
+				if( revDir > 5 ) revDir = revDir - 6;
+				
+				uint16 hookHx = hook.HexX,
+						 hookHy = hook.HexY;
+				map.MoveHexByDir( hookHx, hookHy, revDir, 1 );
+				hooker.TransitToHex( hookHx, hookHy, dir);
+				MoveItem( hook1, hook1.GetCount(), map, hooker.HexX, hooker.HexY );
+				return;
+			}
+		}
+
+		uint16 chance = 40 + ( cr.Stat[ ST_CURRENT_HP ] - hooker.Stat[ ST_CURRENT_HP ] ) * 0.5 +	( cr.Skill[ SK_UNARMED ] - hooker.Skill[ SK_UNARMED ] ) * 0.5 + 5 * ( cr.Stat[ ST_STRENGTH ] - hooker.Stat[ ST_STRENGTH ] ) + hook.Val3;
+		chance = CLAMP( chance, 1, 95 );
+
+        if( chance >= Random( 1, 100 ))
+        {
+            _SubItem( hook, 1 );
+            _SubItem( hook1, 1 );
+            cr.Say( SAY_NETMSG, "Вы вырвались из захвата" );
+            cr.Say( SAY_EMOTE_ON_HEAD, "вырывается" );
+        }
+        else
+        {
+            hook.Val3 += 10;
+			
+            uint8 revDir = dir + 3;            
+            if( revDir > 5 )
+                revDir = revDir - 6;
+				
+            uint16 hookHx = cr.HexX,
+					hookHy = cr.HexY;
+		
+            map.MoveHexByDir( hookHx, hookHy, revDir, 1 );
+            cr.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( ( Random( 0, 1 ) == 1 ? true : false ) ), 3, hookHx, hookHy );
+            cr.Say( SAY_NETMSG, "Вы не смогли вырваться из захвата" );
+            hooker.Say( SAY_EMOTE_ON_HEAD, "держит" );
+        }
+    }
+}
+
+
+// create Hold hook
+void HookHoldAttack( Critter@ target, uint8 hardness )
+{
+    if( @target !is null && !target.IsDead() )
+    {
+        Map@ map = target.GetMap();
+        uint targetId = target.Id;
+        Item@ hook = map.GetItem( target.HexX, target.HexY, PID_HOLD_HOOK );
+        if( @hook is null )
+        {
+            @ hook = map.AddItem( target.HexX, target.HexY, PID_HOLD_HOOK, 1 );
+            hook.Val1 = targetId;
+            hook.Val5 = hardness;
+            SETFLAG( hook.Flags, ITEM_TRAP );
+            hook.SetScript( "_HookHoldInit" );
+        }
+        else if( uint( hook.Val1 ) != targetId )
+        {
+            hook.Val1 = targetId;
+            hook.Val5 = hardness;
+            hook.SetScript( "_HookHoldInit" );
+        }
+    }
+}
+
+void _HookHoldInit( Item& item, bool firstTime )
+{
+    if( item.GetProtoId() == PID_HOLD_HOOK )
+        item.SetEvent( ITEM_EVENT_WALK, "_HookHold" );
+}
+
+void _HookHold( Item& hook, Critter& cr, bool entered, uint8 dir )
+{
+    if( !entered )
+    {
+        if( @hook !is null && uint( hook.Val1 ) == cr.Id )
+        {
+            if( 20 > Random( 1, 20 ) && ( cr.Stat[ ST_STRENGTH ] + cr.Stat[ ST_AGILITY ] + cr.Stat[ ST_ENDURANCE ] - 10 * hook.Val5 < Random( 5, 35 ) ) )
+            {
+                cr.Say( SAY_EMOTE_ON_HEAD, "не может вырваться" );
+                cr.Say( SAY_NETMSG, "Вы не смогли вырваться" );
+                uint16 hookHx = cr.HexX,
+						 hookHy = cr.HexY;
+						 
+                uint8 revDir = dir + 3;
+                if( revDir > 5 ) revDir = revDir - 6;
+				
+				Map@ map = cr.GetMap();
+                map.MoveHexByDir( hookHx, hookHy, revDir, 1 );
+                cr.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( Random( 0, 1 ) == 1 ), 3, hookHx, hookHy );
+                if( hook.Val5 > 0 ) hook.Val5 -= 1;
+            }
+            else
+            {
+                _SubItem( hook, 1 );
+                cr.Say( SAY_EMOTE_ON_HEAD, "вырывается" );
+                cr.Say( SAY_NETMSG, "Вы освободились" );
+            }
+        }
+        else _SubItem( hook, 1 );
+    }
+}
+
+void _InitSexItem( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_SexUse" );
+}
+
+bool e_SexUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) )
+        return false;
+    if( valid( onCritter ) && cr.IsPlayer() && onCritter.IsPlayer() && ( !IsNotHuman( cr ) ) && ( !IsNotHuman( onCritter ) ) )
+    {
+		_SubItem( item, 1 );
+        ToAskSex( item, cr, onCritter );
+        return true;
+    }
+    else
+        cr.Say( SAY_NETMSG, "Это неуместно." );
+    return true;
+}
+
+void ToAskSex( Item& item, Critter& crit, Critter@ onCritter )
+{
+    string player;
+    if( crit.IsPlayer() )
+        player = GetPlayerName( crit.Id );
+    else
+        player = "Кто-то";
+
+    papik = crit.Id;
+    onCritter.ShowScreen( SCREEN_DIALOGBOX, 1, "AnswerSexMe" );
+    onCritter.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 12959, "$player" + player );
+    onCritter.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 12709 );
+}
+
+void AnswerSexMe( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+        cr.Say( SAY_NETMSG, "Вы согласились." );
+        HaveSex( GetCritter( papik ), cr );
+    }
+}
+
+void HaveSex( Critter& cr, Critter@ onCritter )
+{
+int roll=Random(0,2);
+    if (cr.Perk[PE_KAMA_SUTRA_MASTER]!=0)
+	{
+		if(roll==0)
+		{SetDrug(cr, PID_KITTY_SEX_DRUG_AGILITY);
+		SetDrug(onCritter, PID_KITTY_SEX_DRUG_AGILITY);}
+		else if (roll==1)
+		{SetDrug(cr, PID_KITTY_SEX_DRUG_INTELLIGENCE);
+		SetDrug(onCritter,PID_KITTY_SEX_DRUG_INTELLIGENCE);}
+		else if (roll==2)
+		{SetDrug(cr, PID_KITTY_SEX_DRUG_STRENGTH);
+		SetDrug(onCritter, PID_KITTY_SEX_DRUG_STRENGTH);}
+	}
+	cr.Say( SAY_EMOTE_ON_HEAD, "совокупляются" );
+    onCritter.Say( SAY_EMOTE_ON_HEAD, "совокупляются" );
+    FlushScreen( cr, COLOR_BLACK, COLOR_BLACK, 20000 );
+    FlushScreen( onCritter, COLOR_BLACK, COLOR_BLACK, 20000 );
+}
+
+
+void _InitSheriffItem( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_SheriffBadgeUse" );
+}
+
+void _InitMayorDocs( Item& item, bool firstTime )
+{
+	item.SetEvent( ITEM_EVENT_USE, "e_MayorDocUse" );
+}
+
+void _InitPoliceBadgeItem( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_PoliceBadgeUse" );
+}
+
+bool e_SheriffBadgeUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    if( !isSheriff( cr ) )
+    {
+        cr.Say( SAY_NETMSG, "У вас нет полномочий" );
+        return true;
+    }
+    else if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) )
+    {
+        cr.ShowScreen( SCREEN_DIALOGBOX, 2, "answer_SheriffBadge_self" );
+        cr.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 107930 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 107931 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( 1 ), TEXTMSG_GAME, 107933 );
+        //cr.SayMsg( SAY_DIALOGBOX_BUTTON( 2 ), TEXTMSG_GAME, 107932 );
+        //cr.SayMsg( SAY_DIALOGBOX_BUTTON( 3 ), TEXTMSG_GAME, 107934 );
+        return true;
+    }
+    else if( cr.IsPlayer() && @onCritter !is null && onCritter.IsPlayer() && ( !IsNotHuman( onCritter ) ) )
+    {
+        cr.StatBase[ ST_VAR0 ] = onCritter.Id;
+        cr.ShowScreen( SCREEN_DIALOGBOX, 3, "answer_SheriffBadge" );
+        cr.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 107930 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 107935 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( 1 ), TEXTMSG_GAME, 107936 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( 2 ), TEXTMSG_GAME, 107937 );
+        return true;
+    }
+    else
+        cr.Say( SAY_NETMSG, "это неуместно" );
+    return true;
+}
+
+enum MayorActionSelf
+{
+	ListCop,
+	ListAdmin,
+	CheckSheryff,
+	//SetAccess,
+	SetCityMode,
+	Count,
+}
+
+enum MayorAction
+{
+	SetSheryff,
+	SetAdmin,
+	Count,
+}
+
+bool e_MayorDocUse( Item& item, Critter& critter, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    if( !isMayor( critter ) )
+    {
+        critter.Say( SAY_NETMSG, "У вас нет полномочий" );
+        return true;
+    }
+    else if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) )
+    {
+        critter.ShowScreen( SCREEN_DIALOGBOX, MayorActionSelf::Count, "answer_MayorDoc_self" );
+        critter.Say( SAY_DIALOGBOX_TEXT, "Выберите действие:" );
+        critter.Say( SAY_DIALOGBOX_BUTTON( MayorActionSelf::ListCop ), "Список копов" );
+        critter.Say( SAY_DIALOGBOX_BUTTON( MayorActionSelf::ListAdmin ), "Лист администрации" );
+        critter.Say( SAY_DIALOGBOX_BUTTON( MayorActionSelf::CheckSheryff ), "Узнать шерифа" );
+        //critter.Say( SAY_DIALOGBOX_BUTTON( MayorActionSelf::SetAccess ), "Установит доступность" );
+        //critter.Say( SAY_DIALOGBOX_BUTTON( MayorActionSelf::SetCityMode ), "Установить шлюз города" );
+		
+        return true;
+    }
+    else if( critter.IsPlayer() && @onCritter !is null && onCritter.IsPlayer() && ( !IsNotHuman( onCritter ) ) )
+    {
+        critter.StatBase[ ST_VAR0 ] = onCritter.Id;
+        critter.ShowScreen( SCREEN_DIALOGBOX, MayorAction::Count, "answer_MayorDoc" );
+        critter.Say( SAY_DIALOGBOX_TEXT, "Выберите действие:" );
+        critter.Say( SAY_DIALOGBOX_BUTTON( MayorAction::SetSheryff ), "Назначить шерифом" );
+        critter.Say( SAY_DIALOGBOX_BUTTON( MayorAction::SetAdmin ), "Назначить администрацией" );
+        return true;
+    }
+    else
+        critter.Say( SAY_NETMSG, "это неуместно" );
+    return true;
+}
+
+void answer_MayorDoc_self( Critter& cr, uint arg_answerI, string& answerS )
+{
+	int answerI = arg_answerI;
+
+	switch( answerI )
+	{
+		case MayorActionSelf::ListCop :
+		{
+			FileObject @modoc = objectManager.ProtoObject[ "ContentInfo:" + LOCATION_Modoc ];
+			cr.Say( SAY_NETMSG, "Список полиции:\n" + modoc.GlobalData[ "CopList" ] );		
+		} break;
+		
+        case MayorActionSelf::ListAdmin :
+		{
+			FileObject @modoc = objectManager.ProtoObject[ "ContentInfo:" + LOCATION_Modoc ];
+			cr.Say( SAY_NETMSG, "Список администрации:\n" + modoc.GlobalData[ "AdminList" ] );
+		} break;
+		
+		case MayorActionSelf::CheckSheryff :
+		{
+			FileObject @modoc = objectManager.ProtoObject[ "ContentInfo:" + LOCATION_Modoc ];
+			cr.Say( SAY_NETMSG, "Текущий шериф:\n" + modoc.GlobalData[ "Sheriff" ] );
+		} break;
+		
+        /*case MayorActionSelf::SetAccess :
+		{
+			
+		} break;*/
+		
+        case MayorActionSelf::SetCityMode :
+		{
+			GameVar@ border_mode = GetGlobalVar( GVAR_inf_modoc_border_mode );
+			cr.ShowScreen( SCREEN_DIALOGBOX, 6, "gm@answer_GM_PANNEL_SELF_TOWNMODES_GATES" );
+			cr.Say( SAY_DIALOGBOX_TEXT, "шлюз, текущий - " + border_mode.GetValue() );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 0 ), "0 обычный" );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 1 ), "1 спец проп" );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 2 ), "2 нет гостей" );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 3 ), "3 карантин1" );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 4 ), "4 карантин2" );
+			cr.Say( SAY_DIALOGBOX_BUTTON( 5 ), "5 открыть город" );
+		} break;
+	
+		default: break;
+	}
+}
+
+void answer_MayorDoc( Critter& cr, uint arg_answerI, string& answerS )
+{
+	Critter@ target = GetCritter( cr.Stat[ ST_VAR0 ] );
+	if( @target is null ) return;
+	
+	int answerI = arg_answerI;
+	switch( answerI )
+	{
+		case MayorAction::SetSheryff :
+		{
+			if( target.Quest[ QST_FACTION ] == 0 )
+			{
+				target.AddItem( 1455, 1 );
+				target.QuestBase[ QST_FACTION ] = 7;
+			}
+		} break;
+		
+        case MayorAction::SetAdmin :
+		{
+			target.QuestBase[ QST_FACTION ] = 1;		
+		} break;
+	
+		default: break;
+	}
+}
+
+bool isMayor( Critter@ cr )
+{
+	return( cr.Quest[QST_FACTION] == 8 );
+}
+
+bool isClerk( Critter@ cr )
+{
+	return cr.Quest[QST_FACTION] == 1;
+}
+
+bool isSheriff( Critter@ cr )
+{
+	return( cr.Quest[QST_FACTION] == 7 );
+}
+
+bool isCop( Critter@ cr )
+{
+	return cr.Quest[QST_FACTION] == 2;
+}
+
+int CitizenLevel( Critter@ cr )
+{
+	return( cr.Quest[QST_MODOC_CITIZENSHIP] );
+}
+ 
+bool isCitizenLevel( Critter@ cr, int rank )
+{
+	return( CitizenLevel(cr) == rank );
+}
+
+string CheckAll( uint CheckType ) //exported!
+{
+	string[] desc = { "Весь онлайн", "Реестр Модока", "Администрация", "Полиция", "Преступники"},
+			 crType = { "чужак   ", "пропуск ", "гость   ", "граждан ", "элита   ", "TYPE #5", "TYPE #6", "TYPE #7", "TYPE #8", "TYPE #9", "преступ " };
+	CheckType = CLAMP( CheckType, 0, desc.length() );
+	GameVar @TotalPlayers = GetGlobalVar( GVAR_total_players );
+	string result = desc[CheckType]+":\n";
+	int citizenship, n = 0;
+	Critter@ cr;
+	for( int i = 0; i <= TotalPlayers.GetValue(); i++ )
+	{
+		@cr = @GetCritter( i );
+		if( !valid( cr ) ) continue; //не в игре
+		citizenship = CLAMP( CitizenLevel(cr), 0, 10 );
+		switch(CheckType) 
+		{
+			case(0): //Весь онлайн, вообще, полная инфа:
+				if( isMayor(cr) ) 	result += "мэр ";
+				else if( isClerk(cr) ) 	result += "адм ";
+				if( isSheriff(cr) ) result += "шеф ";
+				else if( isCop(cr) ) 	result += "коп ";
+				else result += crType[citizenship];
+			break;
+			case(1): //Только жителей города:
+				switch( citizenship )
+				{
+					case(0):
+					case(1):
+					case(2):
+					case(10):
+						continue;
+						
+					case(3):  result += "Житель "; break;
+					case(4):  result += "Элита  "; break;
+					default:  result += "[ERROR:"+citizenship+"] "; break;
+				}
+			break;
+			case(2): //Только администрацию города:
+				if(!isClerk(cr)) continue;
+				if( isMayor(cr) ) 	result += "мэр ";
+				else if( isClerk(cr) ) 	result += "адм ";
+				result += crType[citizenship];
+			break;
+			case(3): //Только копов города:
+				if(!isCop(cr)) continue;
+				if( isSheriff(cr) ) result += "шеф ";
+				else if( isCop(cr) ) 	result += "коп ";
+				result += crType[citizenship];
+			break;			
+			case(4): //Только известных преступников города:
+				if( citizenship != 10 ) continue;
+			break;					
+			default: return "[ERROR CheckType:"+CheckType+"]";
+		}
+		n++;
+		result += GetPlayerName(cr.Id) + " [" + n + "]\n";
+	}
+	return result;
+}
+	
+void answer_SheriffBadge_self( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+		FileObject @modoc = objectManager.ProtoObject[ "ContentInfo:" + LOCATION_Modoc ];
+		cr.Say( SAY_NETMSG, "Список администрации:\n" + modoc.GlobalData[ "AdminList" ] );
+        //cr.Say( SAY_NETMSG, "Пока не сделано." );
+    }
+    else if( answerI == 1 )
+	{
+		FileObject @modoc = objectManager.ProtoObject[ "ContentInfo:" + LOCATION_Modoc ];
+		cr.Say( SAY_NETMSG, "Список полиции:\n" + modoc.GlobalData[ "CopList" ] );
+        //cr.Say( SAY_NETMSG, "Пока не сделано." );
+    }
+    /*if( answerI == 2 )
+    {
+       // cr.Say( SAY_NETMSG, "Пока не сделано." );
+    }
+    if( answerI == 3 )
+    {
+        //cr.Say( SAY_NETMSG, "Пока не сделано." );
+    }*/
+}
+ 
+void answer_SheriffBadge( Critter& cr, uint answerI, string& answerS )
+{
+    Critter@ asked = GetCritter( cr.Stat[ ST_VAR0 ] );
+    if( !valid( asked ) )
+        return;
+		
+    if( answerI == 0 )
+    {
+        if( asked.Quest[QST_FACTION] == 0 )
+            ToAskJoinPolice( cr, asked );
+        else if( asked.Quest[QST_FACTION] == 2 )
+            cr.Say( SAY_NETMSG, "Цель уже состоит в полиции." );
+        else
+            cr.Say( SAY_NETMSG, "Цель уже состоит в какой-то другой фракции." );
+    }
+    else if( answerI == 1 )
+    {
+        if( asked.Quest[QST_FACTION] == 2 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            asked.QuestBase[QST_FACTION] = 0;
+            cr.Say( SAY_NETMSG, "Вы исключили цель из рядов полиции." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            cr.KarmaBase[ KARMA_VC_GUARDSMAN ] = 0;
+            RestartFactions( cr, 0, 0, 0 );
+            Log_factions( cr, asked.Id, 2, 0, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не состоит в полиции." );
+    }
+    else if( answerI == 2 )
+    {
+        if( asked.Quest[QST_FACTION] == 1 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            asked.QuestBase[QST_FACTION] = 0;
+            cr.Say( SAY_NETMSG, "Вы исключили цель из администрации города." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            cr.KarmaBase[ KARMA_VC_GUARDSMAN ] = 0;
+            RestartFactions( cr, 0, 0, 0 );
+            Log_factions( cr, asked.Id, 2, 0, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не состоит в администрации." );
+    }
+}
+
+/*
+######Меню полиц значка#######
+{107910}{}{Выберите действие, офицер}
+{107911}{}{Узнать доступ}
+{107912}{}{Врем. пропуск}
+{107913}{}{Пост. пропуск}
+{107914}{}{Спец пропуск} #не используется
+{107915}{}{Гражданство}
+{107916}{}{Сп. Гражданство} #не используется
+{107917}{}{Убрать допуск}
+{107918}{}{Пометить изгоя}
+{107919}{}{Убрать метку} 
+{107920}{}{Арест} #не используется
+{107921}{}{Выгнать}
+*/
+
+enum PoliceBadgeList
+{
+	GetAccess,
+	TimeAccess,
+	PermamentAccess,
+	
+	//SpecAccess,
+	Citizenship,
+	//SpecCitizenship,
+	UnsetAccess,
+	ExileMark,
+	UnsetMark = ExileMark,
+	//Arrest,
+	//Expel,
+	
+	Count
+}
+
+bool e_PoliceBadgeUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) )
+    {
+        cr.Say( SAY_EMOTE_ON_HEAD, "Показывает значек полиции Модока" );
+        return false;
+    }
+    else if( cr.IsPlayer() && onCritter.IsPlayer() && ( cr.Quest[QST_FACTION] == 2 || cr.Quest[QST_FACTION] == 7 ) && ( !IsNotHuman( cr ) ) && ( !IsNotHuman( onCritter ) ) )
+    {
+        cr.StatBase[ ST_VAR0 ] = onCritter.Id;
+        cr.ShowScreen( SCREEN_DIALOGBOX, PoliceBadgeList::Count, "answer_PoliceBadge" );
+        cr.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 107910 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::GetAccess ), TEXTMSG_GAME, 107911 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::TimeAccess ), TEXTMSG_GAME, 107912 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::PermamentAccess ), TEXTMSG_GAME, 107913 );
+		cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::Citizenship ), TEXTMSG_GAME, 107915 );
+        //cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::SpecAccess ), TEXTMSG_GAME, 107914 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::UnsetAccess ), TEXTMSG_GAME, 107917 );
+        if( cr.Quest[QST_MODOC_CITIZENSHIP] != 10 )
+            cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::ExileMark ), TEXTMSG_GAME, 107918 );
+        if( cr.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+            cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::UnsetMark ), TEXTMSG_GAME, 107919 );
+        //cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::Arrest ), TEXTMSG_GAME, 107920 );
+        //cr.SayMsg( SAY_DIALOGBOX_BUTTON( PoliceBadgeList::Expel ), TEXTMSG_GAME, 107921 );
+        return true;
+    }
+    else
+        cr.Say( SAY_NETMSG, "это неуместно" );
+    return true;
+}
+
+void answer_PoliceBadge( Critter& cr, uint answer, string& answerS )
+{
+    Critter@ asked = GetCritter( cr.Stat[ ST_VAR0 ] );
+	if( !valid( asked ) )
+        return;
+		
+    int answerI = answer;
+	
+	if( answerI == PoliceBadgeList::GetAccess )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] == 0 )
+            cr.Say( SAY_NETMSG, "Чужак." );
+        else if( asked.Quest[QST_FACTION] == 1 )
+            cr.Say( SAY_NETMSG, "Администрация города Модока." );
+        else if( asked.Quest[QST_FACTION] == 2 )
+            cr.Say( SAY_NETMSG, "Полицейский." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 1 )
+            cr.Say( SAY_NETMSG, "Временный гость." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 2 )
+            cr.Say( SAY_NETMSG, "Гость." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 3 )
+            cr.Say( SAY_NETMSG, "Гражданин Модока." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 4 )
+            cr.Say( SAY_NETMSG, "Привелигированный гражданин Модока." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+            cr.Say( SAY_NETMSG, "Метка изгоя, преступник." );
+        else
+            cr.Say( SAY_NETMSG, "ERROR, сообщите ГМу или администрации" );
+        if( asked.Merc[ MERC_MASTER_ID ] == 0 )
+            cr.Say( SAY_NETMSG, "Еще никто не менял доступменял доступ." );
+        else
+            cr.Say( SAY_NETMSG, "Последним менял доступ житель с номером " + asked.Merc[ MERC_MASTER_ID ] + " в городском реестре" );
+    }
+    else if( answerI == PoliceBadgeList::TimeAccess )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] == 0 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 1 );
+            cr.Say( SAY_NETMSG, "Вы выдали временный гостевой пропуск." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает пропуск" );			
+			
+            Item@ pass=asked.AddItem(912,1);
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+			
+            Log_factions( cr, asked.Id, 1, 1, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    else if( answerI == PoliceBadgeList::PermamentAccess )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 2 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 2 );
+            cr.Say( SAY_NETMSG, "Вы выдали постоянный гостевой пропуск." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает пропуск" );
+			
+			asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+			
+			Item@ pass=asked.AddItem(911,1);
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+			
+            Log_factions( cr, asked.Id, 1, 2, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    /*else if( answerI == 3 )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 3 )
+        {
+            if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 2 )
+                asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 2 );
+            // Item@ pass=asked.AddItem(PID_DAY_PASS,1);
+            // pass.Val1 = asked.Id;
+            cr.Say( SAY_NETMSG, "Вы выдали временный пропуск в верхний город." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает специальный пропуск" );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 2, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }*/
+    else if( answerI == PoliceBadgeList::Citizenship )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] < 3 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 3 );
+            cr.Say( SAY_NETMSG, "Вы выдали документы гражданина Модока." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает документы" );
+            Item@ pass = asked.AddItem( PID_MODOC_DOCUMENTS, 1 );
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+            Log_factions( cr, asked.Id, 1, 3, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    else if( answerI == PoliceBadgeList::UnsetAccess )
+    {
+        if( ( asked.Quest[QST_MODOC_CITIZENSHIP] > 0 ) && ( asked.Quest[QST_FACTION] != 1 ) && ( asked.Quest[QST_FACTION] != 2 ) )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            cr.Say( SAY_NETMSG, "Вы сняли допуск в город." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 0, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Вы не можете снять допуск." );
+    }
+	
+    else if( answerI == PoliceBadgeList::ExileMark )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] < 5 && ( asked.Quest[QST_FACTION] != 1 )  && ( asked.Quest[QST_FACTION] != 2 ) )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 10 );
+            cr.Say( SAY_EMOTE_ON_HEAD, "ставит метку" );
+            cr.Say( SAY_NETMSG, "Вы поставили метку изгоя преступнику." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 10, null, null );
+        }
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            cr.Say( SAY_NETMSG, "Вы убрали метку изгоя." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 10, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Вы не можете поставить или убрать метку." );
+    }
+	/*
+    else if( answerI == PoliceBadgeList::Arrest )
+    {
+        if( asked.Stat[ ST_CURRENT_HP ] < 0 || asked.IsKnockout() )
+        {
+            cr.Say( SAY_NETMSG, "Вы транспортировали цель в камеру." );
+            Map@ map = GetMapByPid( MAP_MODOC_24, 0 );
+            if( not valid( map ) )
+            {
+                cr.Say( SAY_NETMSG, "Modoc entrance not found" );
+                return;
+            }
+            asked.TransitToMap( map.Id, ARREST_POSITION );
+            asked.Say( SAY_NETMSG, "Вас выкинули из города." );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не обездвижена." );
+    }
+    else if( answerI == PoliceBadgeList::Expel )
+    {
+        if( asked.Stat[ ST_CURRENT_HP ] < 0 || asked.IsKnockout() )
+        {
+            cr.Say( SAY_NETMSG, "Вы транспортировали цель в камеру." );
+            Map@ map = GetMapByPid( MAP_MODOC_24, 0 );
+            if( not valid( map ) )
+            {
+                cr.Say( SAY_NETMSG, "Modoc entrance not found" );
+                return;
+            }
+            asked.TransitToMap( map.Id, EXPEL_POSITION );
+            asked.Say( SAY_NETMSG, "Вас выкинули из города." );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не обездвижена." );
+    }
+	*/
+    return;
+}
+
+
+// Использование регистрационных документов
+void _InitRegistrationDocs( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_PassportUse" );
+}
+/*
+{107940}{}{Выберите действие, гражданин}
+{107941}{}{Узнать доступ}
+{107942}{}{Врем.пропуск}
+{107943}{}{Пост. пропуск}
+{107944}{}{Спец пропуск} #не используется
+{107945}{}{Гражданство}
+{107946}{}{Сп. Гражданство}
+{107947}{}{Убрать допуск}
+{107948}{}{Пометить изгоя}
+{107949}{}{Убрать метку}
+{107950}{}{Арест} #не используется
+{107951}{}{Выгнать}
+{107952}{}{+ В администр.}
+{107953}{}{- Из администр.}
+*/
+
+enum ListingAnswerPassport
+{
+	GetAccess,
+	TimeAccess,
+	PermamentAccess,
+	
+	CountNoAdmin,
+	
+	Reposition = CountNoAdmin - 1,
+	
+	//SpecAccess,
+	Citizenship,
+	//SpecCitizenship,
+	UnsetAccess,
+	ExileMark,
+	UnsetMark = ExileMark,
+	//Arrest,
+	//Expel,
+	// AddAdmin,
+	// DeleteAdmin,
+	
+	Count
+}
+
+bool e_PassportUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+	if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) ) 
+    {
+        cr.Say( SAY_EMOTE_ON_HEAD, "Показывает паспорт гражданина Модока" );
+        return true;
+    }
+    else if( ( cr.Quest[QST_MODOC_CITIZENSHIP] <= 2 ) || ( cr.Quest[QST_MODOC_CITIZENSHIP] == 10 ) )
+    {
+        cr.Say( SAY_NETMSG, "У вас нет полномочий" );
+        return true;
+    }
+    else if( cr.IsPlayer() && onCritter.IsPlayer() && ( !IsNotHuman( cr ) ) && ( !IsNotHuman( onCritter ) ) )
+    {
+        cr.StatBase[ ST_VAR0 ] = onCritter.Id;
+        if( cr.Quest[QST_FACTION] == 1 || cr.Quest[QST_FACTION] == 2 || cr.Quest[QST_FACTION] == 7 || cr.Quest[QST_FACTION] == 8 || cr.Quest[QST_MODOC_CITIZENSHIP] == 4 )
+			cr.ShowScreen( SCREEN_DIALOGBOX, ListingAnswerPassport::Count, "answer_Passport" );
+        else
+            cr.ShowScreen( SCREEN_DIALOGBOX, ListingAnswerPassport::CountNoAdmin, "answer_Passport" );
+        cr.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 107940 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::GetAccess ), TEXTMSG_GAME, 107941 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::TimeAccess ), TEXTMSG_GAME, 107942 );
+        cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::PermamentAccess ), TEXTMSG_GAME, 107943 );
+        if( cr.Quest[QST_FACTION] == 1 || cr.Quest[QST_FACTION] == 2 || cr.Quest[QST_FACTION] == 7 || cr.Quest[QST_FACTION] == 8 || cr.Quest[QST_MODOC_CITIZENSHIP] == 4 )
+        {
+            //cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::SpecAccess ), TEXTMSG_GAME, 107944 );
+            cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::Citizenship ), TEXTMSG_GAME, 107945 );
+            //cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::SpecCitizenship ), TEXTMSG_GAME, 107946 );
+            cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::UnsetAccess ), TEXTMSG_GAME, 107947 );
+            if( cr.Quest[QST_MODOC_CITIZENSHIP] != 10 )
+                cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::ExileMark ), TEXTMSG_GAME, 107948 );
+            else
+                cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::UnsetMark ), TEXTMSG_GAME, 107949 );
+            //cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::Arrest ), TEXTMSG_GAME, 107950 );
+            //cr.SayMsg( SAY_DIALOGBOX_BUTTON( ListingAnswerPassport::Expel ), TEXTMSG_GAME, 107951 );
+        }
+        return true;
+    }
+    else
+        cr.Say( SAY_NETMSG, "это неуместно" );
+    return true;
+}
+
+uint ClosestNpcByDialog( Critter& player, int dialog )
+{
+    Map@ map = player.GetMap();
+    if( valid( map ) )
+    {
+        Critter @[] npc;
+        uint dist = 10;
+        uint id = 0;
+        if( map.GetCritters( 0, FIND_ALL | FIND_ONLY_NPC, npc ) == 0 )
+        {
+            player.Say( SAY_NETMSG, "нет нужного человека" );
+        }
+        else
+        {
+            for( uint i = 0; i < npc.length(); i++ )
+            {
+                if( npc[ i ].Stat[ ST_DIALOG_ID ] == dialog )
+                {
+                    if( GetDistantion( player.HexX, player.HexY, npc[ i ].HexX, npc[ i ].HexY ) < dist )
+                    {
+                        dist = GetDistantion( player.HexX, player.HexY, npc[ i ].HexX, npc[ i ].HexY );
+                        id = npc[ i ].Id;
+                    }
+                }
+            }
+            return id;
+        }
+    }
+    return 0;
+}
+
+uint ClosestNpcByPrototype( Critter& player, int proto_first, int proto_last )
+{
+    Map@ map = player.GetMap();
+    if( valid( map ) )
+    {
+        Critter @[] npc;
+        uint dist = 10;
+        uint id = 0;
+        if( map.GetCritters( 0, FIND_ALL | FIND_ONLY_NPC, npc ) == 0 )
+        {
+            player.Say( SAY_NETMSG, "нет нужного человека" );
+        }
+        else
+        {
+            for( uint i = 0; i < npc.length(); i++ )
+            {
+                if( npc[ i ].GetProtoId() >= proto_first && npc[ i ].GetProtoId() <= proto_last )
+                {
+                    if( GetDistantion( player.HexX, player.HexY, npc[ i ].HexX, npc[ i ].HexY ) < dist )
+                    {
+                        dist = GetDistantion( player.HexX, player.HexY, npc[ i ].HexX, npc[ i ].HexY );
+                        id = npc[ i ].Id;
+                    }
+                }
+            }
+            return id;
+        }
+    }
+    return 0;
+}
+
+void answer_Passport( Critter& cr, uint answer, string& answerS )
+{
+    Critter@ asked = GetCritter( cr.Stat[ ST_VAR0 ] );
+    if( !valid( asked ) )
+        return;
+
+	int answerI = answer;
+    Critter@ guard = GetCritter( ClosestNpcByPrototype( cr, 1930, 1941 ) );
+
+    if( answerI == ListingAnswerPassport::GetAccess )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] == 0 )
+            cr.Say( SAY_NETMSG, "Чужак." );
+        else if( asked.Quest[QST_FACTION] == 1 )
+            cr.Say( SAY_NETMSG, "Администрация города Модока." );
+        else if( asked.Quest[QST_FACTION] == 2 )
+            cr.Say( SAY_NETMSG, "Полицейский." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 1 )
+            cr.Say( SAY_NETMSG, "Временный гость." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 2 )
+            cr.Say( SAY_NETMSG, "Гость." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 3 )
+            cr.Say( SAY_NETMSG, "Гражданин Модока." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 4 )
+            cr.Say( SAY_NETMSG, "Привелигированный гражданин Модока." );
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+            cr.Say( SAY_NETMSG, "Метка изгоя, преступник." );
+        else
+            cr.Say( SAY_NETMSG, "ERROR, сообщите ГМу или администрации" );
+        if( asked.Merc[ MERC_MASTER_ID ] == 0 )
+            cr.Say( SAY_NETMSG, "Еще никто не менял доступменял доступ." );
+        else
+            cr.Say( SAY_NETMSG, "Последним менял доступ житель с номером " + asked.MercBase[ MERC_MASTER_ID ] + " в городском реестре" );
+    }
+    else if( answerI == ListingAnswerPassport::TimeAccess )
+    {
+        if( !valid( guard ) && cr.Quest[QST_FACTION] != 1 )
+        {
+            cr.Say( SAY_NETMSG, "Поблизости нет гвардейцев гарнизона." );
+            return;
+        }
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 0 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 1 );
+            cr.Say( SAY_NETMSG, "Вы выдали временный гостевой пропуск." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "подает знак гвардейцу" );
+            guard.Say( SAY_NORM, "да - да, временный пропуск, понятно" );
+            Item@ pass=asked.AddItem(912,1);
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+
+            Log_factions( cr, asked.Id, 1, 1, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    else if( answerI == ListingAnswerPassport::PermamentAccess )
+    {
+        if( !valid( guard ) && cr.Quest[QST_FACTION] != 1 )
+        {
+            cr.Say( SAY_NETMSG, "Поблизости нет гвардейцев гарнизона." );
+            return;
+        }
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 1 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 2 );
+            cr.Say( SAY_NETMSG, "Вы выдали гостевой пропуск." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "подает знак гвардейцу" );
+            guard.Say( SAY_NORM, "хм, постоянный пропуск, хорошо, проходи" );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+			
+			Item@ pass=asked.AddItem(911,1);
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+			
+            Log_factions( cr, asked.Id, 1, 2, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    /*else if( answerI == ListingAnswerPassport::SpecAccess )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 3 )
+        {
+            if( asked.Quest[QST_MODOC_CITIZENSHIP] <= 2 )
+                asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 2 );
+            // Item@ pass=asked.AddItem(PID_DAY_PASS,1);
+            // pass.Val1 = asked.Id;
+            cr.Say( SAY_NETMSG, "Вы выдали специальный пропуск в верхний город." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 2, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }*/
+    else if( answerI == ListingAnswerPassport::Citizenship )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] < 3 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 3 );
+            cr.Say( SAY_NETMSG, "Вы выдали документы гражданина Модока." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает документы" );
+            Item@ pass = asked.AddItem( PID_MODOC_DOCUMENTS, 1 );
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@PassportLex" );
+            cr.Say( SAY_SAY_TITLE, "Имя в документы" );
+            cr.StatBase[ ST_VAR3 ] = pass.Id;
+            Log_factions( cr, asked.Id, 1, 3, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }
+    /*else if( answerI == ListingAnswerPassport::SpecCitizenship )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] < 4 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 4 );
+            cr.Say( SAY_NETMSG, "Вы оформили документы привелигированного гражданина Модока." );
+            cr.Say( SAY_EMOTE_ON_HEAD, "выдает документы" );
+            Item@ pass = asked.AddItem( PID_MODOC_DOCUMENTS, 1 );
+            pass.Val1 = asked.Id;
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 4, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "У цели уже более высокий допуск в город." );
+    }*/
+    else if( answerI == ListingAnswerPassport::UnsetAccess )
+    {
+        if( ( asked.Quest[QST_MODOC_CITIZENSHIP] > 0 ) && ( cr.Quest[QST_FACTION] == 1 || cr.Quest[QST_FACTION] == 2 || cr.Quest[QST_FACTION] == 7 || cr.Quest[QST_FACTION] == 8 || cr.Quest[QST_MODOC_CITIZENSHIP] == 4 ) )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            cr.Say( SAY_NETMSG, "Вы сняли допуск в город." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 0, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Вы не можете снять допуск." );
+    }
+    else if( answerI == ListingAnswerPassport::ExileMark )
+    {
+        if( asked.Quest[QST_MODOC_CITIZENSHIP] < 5 && ( cr.Quest[QST_FACTION] == 1 || cr.Quest[QST_FACTION] == 2 || cr.Quest[QST_FACTION] == 7 || cr.Quest[QST_FACTION] == 8 || cr.Quest[QST_MODOC_CITIZENSHIP] == 4 ) )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 10 );
+            cr.Say( SAY_EMOTE_ON_HEAD, "ставит метку" );
+            cr.Say( SAY_NETMSG, "Вы поставили метку изгоя преступнику." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 10, null, null );
+        }
+        else if( asked.Quest[QST_MODOC_CITIZENSHIP] == 10 )
+        {
+            asked.QuestBase[QST_MODOC_CITIZENSHIP] = ( 0 );
+            cr.Say( SAY_NETMSG, "Вы убрали метку изгоя." );
+            asked.MercBase[ MERC_MASTER_ID ] = cr.Id;
+            Log_factions( cr, asked.Id, 1, 0, null, null );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Вы не можете поставить или убрать метку." );
+    }
+	/*
+    else if( answerI == ListingAnswerPassport::Arrest )
+    {
+        if( asked.Stat[ ST_CURRENT_HP ] < 0 || asked.IsKnockout() )
+        {
+            cr.Say( SAY_NETMSG, "Вы транспортировали цель в камеру." );
+            Location @ loc = GetLocationByPid( LOCATION_Modoc_Center, 0 );          // modoc entrance
+            if( not valid( loc ) )
+            {
+                cr.Say( SAY_NETMSG, "Location not found" );
+                return;
+            }
+            Map @ map = loc.GetMapByIndex( 0 );
+            asked.TransitToMap( map.Id, ARREST_POSITION );
+            asked.Say( SAY_NETMSG, "Вас выкинули из города." );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не обездвижена." );
+    }
+    else if( answerI == ListingAnswerPassport::Expel )
+    {
+        if( asked.Stat[ ST_CURRENT_HP ] < 0 || asked.IsKnockout() )
+        {
+            cr.Say( SAY_NETMSG, "Вы выкинули цель из города." );
+            Location @ loc = GetLocationByPid( LOCATION_Modoc_Center, 0 );          // modoc entrance
+            if( not valid( loc ) )
+            {
+                cr.Say( SAY_NETMSG, "Location not found" );
+                return;
+            }
+            Map @ map = loc.GetMapByIndex( 0 );
+            asked.TransitToMap( map.Id, EXPEL_POSITION );
+            asked.Say( SAY_NETMSG, "Вас выкинули из города." );
+			
+        }
+        else
+            cr.Say( SAY_NETMSG, "Цель не обездвижена." );
+    }
+	*/
+}
+
+void ToAskJoinPolice( Critter& crit, Critter@ onCritter )
+{
+    string player;
+    if( crit.IsPlayer() )
+        player = GetPlayerName( crit.Id );
+    else
+        player = "Кто-то";
+    onCritter.ShowScreen( SCREEN_DIALOGBOX, 1, "AnswerJoinPolice" );
+    onCritter.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 12938, "$player" + player );
+    onCritter.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 12709 );
+}
+
+void AnswerJoinPolice( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+        cr.Say( SAY_NETMSG, "Вы вступили в ряды полиции Модока, гордитесь." );
+        cr.Say( SAY_EMOTE_ON_HEAD, "Принимает значек" );
+        cr.KarmaBase[ KARMA_VC_GUARDSMAN ] = 1;
+        Item@    badge = cr.AddItem( PID_GUARD_BADGE, 1 );
+        badge.Val1 = cr.Id;
+		cr.QuestBase[QST_FACTION] = 2;
+        cr.QuestBase[QST_MODOC_CITIZENSHIP] = ( 4 );
+        RestartFactions( cr, 0, 0, 0 );
+        cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@BadgeLex" );
+        cr.Say( SAY_SAY_TITLE, "Имя на значек" );
+        cr.StatBase[ ST_VAR3 ] = badge.Id;
+        Log_factions( cr, cr.Id, 2, 2, null, null );
+    }
+}
+
+void BadgeLex( Critter& player, uint answerI, string& answerS )
+{
+    if( answerS.length() != 0 )
+    {
+        Item @ item = GetItem( player.Stat[ ST_VAR3 ] );
+        item.SetLexems( "" + answerS );
+        player.Say( SAY_NETMSG, "На значке выбито имя: " + answerS );
+        item.Update();
+    }
+}
+
+void PassportLex( Critter& player, uint answerI, string& answerS )
+{
+    if( answerS.length() != 0 )
+    {
+        Item@ item = GetItem( player.Stat[ ST_VAR3 ] );
+        if( @item !is null )
+		{
+			PassportLex( item, answerS );
+			player.Say( SAY_NETMSG, "Документ заполнен на имя: " + answerS );
+		}
+    }
+}
+
+void PassportLex( Item& item, string@ name )
+{
+	item.SetLexems( "" + name );
+	item.SetLexems( "$ModocRegistrationName" + name );
+	item.Update();
+}
+
+void GivePass( Critter& cr )
+{
+    Critter@ Police = GetCritter( papik );
+    Item@ item = GetItem( Police.StatBase[ ST_VAR0 ] );
+    if( Police.Karma[ KARMA_VC_GUARDSMAN ] == 1 )
+        cr.PerkBase[ PE_EXPERT_EXCREMENT ] = 2;
+    else if( Police.Karma[ KARMA_VC_GUARDSMAN ] >= 2 )
+    {
+        if( item.Val1 == 0 )
+        {
+            cr.PerkBase[ PE_EXPERT_EXCREMENT ] = 3;
+            Police.Say( SAY_NETMSG, "Вы выдали постоянный пропуск." );
+        }
+        else
+        {
+            cr.PerkBase[ PE_EXPERT_EXCREMENT ] = 2;
+            Police.Say( SAY_NETMSG, "Вы выдали временный пропуск." );
+        }
+    }
+    Police.StatBase[ ST_AI_ID ] += 1;
+    cr.StatBase[ ST_AI_ID ] = papik;
+    Police.Say( SAY_NETMSG, "Вы выдали пропуск." );
+    Police.Say( SAY_EMOTE_ON_HEAD, "выдает пропуск" );
+    cr.TimeoutBase[ TO_SK_LOCKPICK ] = __FullSecond + REAL_HOUR( 2 );
+}
+
+void _InitExileItem( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_ExileUse" );
+}
+
+bool e_ExileUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    if( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) )
+        return false;
+
+    if( !valid( onItem ) && !valid( onScenery ) )
+    {
+        if( cr.IsPlayer() && onCritter.IsPlayer() && cr.Karma[ KARMA_SEPARATED ] >= 2 && ( !IsNotHuman( cr ) ) && ( !IsNotHuman( onCritter ) ) )
+        {
+            ToAskJoinExile( item, cr, onCritter );
+            return true;
+        }
+    }
+    if( valid( onItem ) && !valid( onCritter ) && !valid( onScenery ) )
+    {
+        Map@ map = cr.GetMap();
+        if( valid( map ) && ( map.GetProtoId() == 102 || map.GetProtoId() == 100 ) && cr.Karma[ KARMA_SEPARATED ] >= 2 && FLAG( onItem.LockerCondition, LOCKER_ELECTRO ) && ( onItem.GetType() == ITEM_TYPE_DOOR || onItem.GetType() == ITEM_TYPE_CONTAINER ) )
+        {
+            cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@ElectroDoorUseScreen" );
+            cr.StatBase[ ST_VAR0 ] = onItem.Id;
+            return true;
+        }
+    }
+    else
+        cr.Say( SAY_NETMSG, "это неуместно" );
+    return true;
+}
+
+import void setcodedoor( Critter& cr, int p0, int p1, int p3 ) from "debug";
+
+void ElectroDoorUseScreen( Critter& player, uint answerI, string& answerS )
+{
+    Item @ item = GetItem( player.StatBase[ ST_VAR0 ] );
+    if( answerS.length() > 0 )
+    {
+        int number = 0;
+        StrToInt( answerS, number );
+        item.Val1 = number;
+        if( number > 9999 || number < 1000 )
+            return;
+        setcodedoor( player, player.StatBase[ ST_VAR0 ], 4, number );
+    }
+}
+
+
+void ToAskJoinExile( Item& item, Critter& crit, Critter@ onCritter )
+{
+    string player;
+    if( crit.IsPlayer() )
+        player = GetPlayerName( crit.Id );
+    else
+        player = "Кто-то";
+
+    papik = crit.Id;
+    onCritter.ShowScreen( SCREEN_DIALOGBOX, 1, "AnswerJoinExile" );
+    onCritter.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 12939, "$player" + player );
+    onCritter.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 12709 );
+}
+
+void AnswerJoinExile( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+        cr.KarmaBase[ KARMA_SEPARATED ] = 1;
+        cr.Say( SAY_EMOTE_ON_HEAD, "принимает знак" );
+        cr.Say( SAY_NETMSG, "Вы примкнули к изгоям, отныне дорога в Модок для вас закрыта." );
+        cr.QuestBase[QST_FACTION] = 5;
+        RestartFactions( cr, 0, 0, 0 );
+    }
+}
+
+void _InitEnslaveItem( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_EnslaveUse" );
+}
+
+bool e_EnslaveUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    bool onSelf = ( !valid( onCritter ) && !valid( onItem ) && !valid( onScenery ) );
+    if( onSelf && ( !IsNotHuman( cr ) ) )
+    {
+        brass = item.Id;
+        papik = cr.Id;
+        Enslave( cr, cr );
+        return true;
+    }
+    if( cr.IsPlayer() && onCritter.IsPlayer() && ( !IsNotHuman( cr ) ) && ( !IsNotHuman( onCritter ) ) )
+    {
+        if( cr.Karma[ KARMA_SLAVER ] == 0 )
+        {
+            cr.Say( SAY_NETMSG, "Вы не умеете обращаться с ошейником" );
+            return true;
+        }
+        else if( onCritter.Stat[ ST_CURRENT_HP ] < 0 || onCritter.IsKnockout() )
+        {
+            brass = item.Id;
+            papik = onCritter.Id;
+            Enslave( cr, onCritter );
+        }
+        else
+            ToAskEnslave( item, cr, onCritter );
+        return true;
+    }
+    else
+        cr.Say( SAY_NETMSG, "Это неуместно" );
+    return true;
+}
+
+void ToAskEnslave( Item& item, Critter& crit, Critter@ onCritter )
+{
+    string player;
+    if( crit.IsPlayer() )
+        player = GetPlayerName( crit.Id );
+    else
+        player = "Кто-то";
+
+    papik = crit.Id;
+    brass = item.Id;
+    onCritter.ShowScreen( SCREEN_DIALOGBOX, 1, "AnswerEnslave" );
+    onCritter.SayMsg( SAY_DIALOGBOX_TEXT, TEXTMSG_GAME, 12958, "$player" + player );
+    onCritter.SayMsg( SAY_DIALOGBOX_BUTTON( 0 ), TEXTMSG_GAME, 12956 );
+}
+
+void AnswerEnslave( Critter& cr, uint answerI, string& answerS )
+{
+    if( answerI == 0 )
+    {
+        Enslave( GetCritter( papik ), cr );
+    }
+}
+
+void Enslave( Critter& cr, Critter@ onCritter )
+{
+    Item @ Precollar = GetItem( brass );
+
+    Item@[] items;
+    Item@[] items0;
+
+    uint itemscount = onCritter.GetItems( SLOT_HAND1, items );
+    uint itemscount0 = onCritter.GetItems( SLOT_HAND2, items0 );
+    if( itemscount > 0 )
+    {
+        onCritter.MoveItem( items[ 0 ].Id, itemscount, SLOT_INV );
+    }
+    if( itemscount0 > 0 )
+    {
+        onCritter.MoveItem( items0[ 0 ].Id, itemscount0, SLOT_INV );
+    }
+    Item@ collar = onCritter.AddItem( PID_COLLAR, 1 ),
+			collarswitch = cr.AddItem( PID_COLLARSWITCH, 1 );
+			
+    onCritter.MoveItem( collar.Id, 1, SLOT_HAND2 );
+    cr.Say( SAY_EMOTE_ON_HEAD, "Одевает ошейник на раба" );
+    cr.Say( SAY_NETMSG, "Вы одели ошейник на раба." );
+    onCritter.Say( SAY_NETMSG, "На вас одели ошейник." );
+    collarswitch.Val1 = collar.Id;
+    collarswitch.Val2 = onCritter.Id;
+    _SubItem( Precollar, 1 );
+}
+
+void _InitUsedCollar( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_MOVE, "_hellno2" );
+    item.SetEvent( ITEM_EVENT_DROP, "_hellno4" );
+    item.SetEvent( ITEM_EVENT_SKILL, "e_used_collar_delete" );
+}
+
+bool e_used_collar_delete( Item& item, Critter& cr, int skill )
+{
+    if( ( skill == SKILL_PICK_ON_GROUND ) && ( item.Accessory == ACCESSORY_HEX ) )
+        _SubItem( item, 1 );
+    return true;
+}
+
+void _InitCollarSwitch( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "e_shock" );
+    item.SetEvent( ITEM_EVENT_SKILL, "e_collarunlock" );
+}
+
+bool e_shock( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    Critter@ Slave = GetCritter( item.Val2 );
+    Item @ collar = GetItem( item.Val1 );
+    if( valid( Slave ) )
+    {
+        if( !valid( collar ) )
+        {
+            Item @ collar_new = Slave.AddItem( PID_COLLAR, 1 );
+            item.Val1 = collar_new.Id;
+            cr.Say( SAY_NETMSG, "Раб пытался снять ошейник." );
+        }
+        cr.Say( SAY_NETMSG, "Вы наказали раба." );
+        Slave.Say( SAY_NETMSG, "Шею обожгло огнем, все тело сотрясают судороги." );
+        Slave.Say( SAY_EMOTE_ON_HEAD, "Корчится в агонии" );
+        Slave.StatBase[ ST_CURRENT_HP ] -= ( Slave.Stat[ ST_CURRENT_HP ] / 100 ) + 1;
+        Slave.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( true ), 100, Slave.HexX, Slave.HexY );
+        return true;
+    }
+    return false;
+}
+
+bool e_collarunlock( Item& item, Critter& cr, int skill )
+{
+    Critter@ Slave = GetCritter( item.Val2 );
+    Item @ collar = GetItem( item.Val1 );
+    if( skill == SK_SCIENCE )
+    {
+        cr.ShowScreen( SCREEN_SAY, 0, "handcuffs@CollarNameScreen" );
+        cr.StatBase[ ST_VAR0 ] = item.Id;
+        return true;
+    }
+    else if( skill == SK_FIRST_AID )
+    {
+        if( valid( Slave ) )
+        {
+            if( !valid( collar ) )
+            {
+                @ collar = Slave.AddItem( PID_COLLAR, 1 );
+                item.Val1 = collar.Id;
+                cr.Say( SAY_NETMSG, "Раб пытался снять ошейник." );
+            }
+            cr.Say( SAY_NETMSG, "Вы наказали раба." );
+            Slave.Say( SAY_NETMSG, "Шею обожгло огнем, все тело сотрясают судороги." );
+            Slave.Say( SAY_EMOTE_ON_HEAD, "Корчится в агонии" );
+            Slave.StatBase[ ST_CURRENT_HP ] -= Random( 1, 4 );
+            Slave.ToKnockout( KNOCKOUT_ANIM2_DEFAULT( true ), 10, Slave.HexX, Slave.HexY );
+            return true;
+        }
+        else
+            cr.Say( SAY_NETMSG, "Ответный сигнал слишком слабый." );
+        return true;
+    }
+    else if( skill == SK_DOCTOR )
+    {
+        if( valid( Slave ) )
+        {
+            if( !valid( collar ) )
+            {
+                Item @ collar_new = Slave.AddItem( PID_COLLAR, 1 );
+                item.Val1 = collar_new.Id;
+                cr.Say( SAY_NETMSG, "Раб пытался снять ошейник." );
+            }
+            cr.Say( SAY_NETMSG, "Ошейник раба отзывается." );
+            Slave.Say( SAY_NETMSG, "Ошейник колется." );
+            return true;
+        }
+        else
+            cr.Say( SAY_NETMSG, "Ответный сигнал слишком слабый." );
+        return true;
+    }
+    else if( skill == SK_REPAIR )
+    {
+        if( valid( Slave ) )
+        {
+            _SubItem( item, 1 );
+            if( valid( collar ) )
+                _SubItem( collar, 1 );
+            cr.Say( SAY_NETMSG, "Вы казнили раба" );
+            Slave.Say( SAY_NETMSG, "Боль как от сотни расскаленных игл пронзила вас." );
+            Slave.ToDead( ANIM2_DEAD_PULSE, cr );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Ответный сигнал слишком слабый." );
+        return true;
+    }
+    if( skill == SK_TRAPS )
+    {
+        if( valid( Slave ) )
+        {
+            _SubItem( item, 1 );
+            if( valid( collar ) )
+                _SubItem( collar, 1 );
+            cr.Say( SAY_NETMSG, "Вы освободили раба" );
+			cr.AddItem(PID_INACTIVECOLLAR, 1);
+            Slave.Say( SAY_NETMSG, "Ошейник расстегнулся" );
+        }
+        else
+            cr.Say( SAY_NETMSG, "Ответный сигнал слишком слабый." );
+        return true;
+    }
+    return false;
+}
+
+void CollarNameScreen( Critter& player, uint answerI, string& answerS )
+{
+    if( answerS.length() != 0 )
+    {
+        Item @ item = GetItem( player.StatBase[ ST_VAR0 ] );
+        item.SetLexems( "" + answerS );
+        item.Update();
+    }
+}
