@@ -1,0 +1,26 @@
+# Trash
+logs/
+save/
+scripts/ASCompiler/
+profiler/
+dumps/
+FOnlineServer.cfg
+pocket_GMs.txt
+*.log
+
+
+# Compiled data
+scripts\*.fosb
+*.fosb
+scripts\*.fosp
+*.fosp
+logs\DeadLog.txt
+logs\GmLog.txt
+/maps/*.fomapb
+/scripts/*.fosb
+/scripts/*.fosp
+/scripts/ASCompiler/*.bat
+
+
+/scripts - копия/
+*.exe.lnk
