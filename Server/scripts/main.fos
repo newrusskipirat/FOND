@@ -2463,6 +2463,8 @@ void critter_idle( Critter& cr )
 			int healing = cr.Stat[ ST_HEALING_RATE ];
 			if( cr.IsPlayer() && cr.StatBase[ ST_HUNGER ] < 50 )
 					healing = CLAMP( healing - cr.Stat[ ST_HEALING_RATE ] * ( 100 - cr.StatBase[ ST_HUNGER ] ) / 100, 0, healing );
+			if( FLAG( cr.StatBase[ ST_CRSTATUS ], CR_STATUS_BULLET_OVER ) ) healing -= 3;   //штрафы за наличие пули или тяжрана
+			if( FLAG( cr.StatBase[ ST_CRSTATUS ], CR_STATUS_HEAVY_DMG ) )   healing -= 5;
             cr.StatBase[ ST_CURRENT_HP ] += healing;
             if( cr.StatBase[ ST_CURRENT_HP ] > cr.Stat[ ST_MAX_LIFE ] )
                 cr.StatBase[ ST_CURRENT_HP ] = cr.Stat[ ST_MAX_LIFE ];

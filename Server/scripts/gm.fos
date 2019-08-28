@@ -2609,7 +2609,7 @@ void answer_GM_PANNEL_CRITTER_PLAYER( Critter& player, uint answerI, string& ans
     }
 	if( answerI == 4 )
     {
-        player.ShowScreen( SCREEN_DIALOGBOX, 15, "answer_GM_PANNEL_CRITTER_PLAYER_GIFT" );
+        player.ShowScreen( SCREEN_DIALOGBOX, 16, "answer_GM_PANNEL_CRITTER_PLAYER_GIFT" );
         player.Say( SAY_DIALOGBOX_TEXT, "Модерация" );
         player.Say( SAY_DIALOGBOX_BUTTON( 0 ), "назад" );
         player.Say( SAY_DIALOGBOX_BUTTON( 1 ), "Карма&Зависимости" );
@@ -2618,7 +2618,8 @@ void answer_GM_PANNEL_CRITTER_PLAYER( Critter& player, uint answerI, string& ans
 			player.Say( SAY_DIALOGBOX_BUTTON( i ), GM_SetParamNames[i-3] + " [" + cr.StatBase[GM_SetParams[i-3]] +  "]" );
 		player.Say( SAY_DIALOGBOX_BUTTON( 12 ), ( FLAG(cr.StatBase[ ST_CRSTATUS ], CR_STATUS_BULLET_OVER) ? "Выкл." : "Вкл." )+" Пулевое" );
 		player.Say( SAY_DIALOGBOX_BUTTON( 13 ), ( FLAG(cr.StatBase[ ST_CRSTATUS ], CR_STATUS_HEAVY_DMG) ? "Выкл." : "Вкл." )+" Тяж.Рана" );
-		player.Say( SAY_DIALOGBOX_BUTTON( 14 ), "[обновить]" );
+		player.Say( SAY_DIALOGBOX_BUTTON( 14 ), "Full heal" );
+		player.Say( SAY_DIALOGBOX_BUTTON( 15 ), "[обновить]" );
 	}
 }
 
@@ -2711,9 +2712,13 @@ void answer_GM_PANNEL_CRITTER_PLAYER_GIFT( Critter& player, uint answerI, string
 		ChangeStatus( cr, CR_STATUS_BULLET_OVER, 0, !FLAG(cr.StatBase[ ST_CRSTATUS ], CR_STATUS_BULLET_OVER) );
 	if( answerI == 13 )
 		ChangeStatus( cr, CR_STATUS_HEAVY_DMG, 0, !FLAG(cr.StatBase[ ST_CRSTATUS ], CR_STATUS_HEAVY_DMG) );
-	if( answerI == 14 )
+	if( answerI == 14 ) //Отхил всех повреждений и восстановление крови
+    {
+		FullHeal( cr );
+    }
+	if( answerI == 15 )
 	{
-        player.ShowScreen( SCREEN_DIALOGBOX, 15, "answer_GM_PANNEL_CRITTER_PLAYER_GIFT" );
+        player.ShowScreen( SCREEN_DIALOGBOX, 16, "answer_GM_PANNEL_CRITTER_PLAYER_GIFT" );
         player.Say( SAY_DIALOGBOX_TEXT, "Модерация" );
         player.Say( SAY_DIALOGBOX_BUTTON( 0 ), "назад" );
         player.Say( SAY_DIALOGBOX_BUTTON( 1 ), "Карма&Зависимости" );
@@ -2725,6 +2730,33 @@ void answer_GM_PANNEL_CRITTER_PLAYER_GIFT( Critter& player, uint answerI, string
 		player.Say( SAY_DIALOGBOX_BUTTON( 14 ), "[обновить]" );
 	}
 	answer_GM_PANNEL_CRITTER_PLAYER(player,4,"");
+}
+
+void FullHeal( Critter& cr ) //exported
+{
+	cr.StatBase[ ST_CURRENT_HP ] = cr.Stat[ ST_MAX_LIFE ];
+	
+	cr.ParamBase[ST_BLOOD_TOXIC] = 0;	
+	cr.ParamBase[ST_BLEED] = 0;
+	
+	cr.StatBase[ST_HUNGER] = 100;
+	cr.StatBase[ST_THRIST] = 100;
+	cr.StatBase[ST_DYSPNEA] = 100;
+	
+	cr.StatBase[ST_POISONING_LEVEL] = 0;
+	cr.StatBase[ST_RADIATION_LEVEL] = 0;
+	
+	cr.DamageBase[ DAMAGE_EYE ] = 0;
+	cr.DamageBase[ DAMAGE_RIGHT_ARM ] = 0;
+	cr.DamageBase[ DAMAGE_LEFT_ARM ] = 0;
+	cr.DamageBase[ DAMAGE_RIGHT_LEG ] = 0;
+	cr.DamageBase[ DAMAGE_LEFT_LEG ] = 0;
+	
+	ChangeStatus( cr, CR_STATUS_HEAVY_DMG, 0, false );
+	ChangeStatus( cr, CR_STATUS_BULLET_OVER, 0, false );
+	ChangeStatus( cr, CR_STATUS_BLOOD_TOXIC, 0, false );
+	AffectRadiation( cr, 0 ); //Перепроверка статуса после изменения стата.
+	AffectPoison( cr, 0); //Подтираем плашку 
 }
 
 void answer_GM_PANNEL_CRITTER_PLAYER_GIFT_PERK( Critter& player, uint answerI, string& answerS )
