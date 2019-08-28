@@ -4376,6 +4376,7 @@ void answer_GM_PANNEL_ITEM( Critter& player, uint answerI, string& answerS )
 	}
 }
 
+
 void answer_GM_PANNEL_ITEM_Flags0( Critter& player, uint answerI, string& answerS )
 {
     Item@ item = GetItem( player.Stat[ ST_VAR0 ] );
@@ -4470,7 +4471,7 @@ GMCommand( GM_PANNEL_HEX )
 {
     if( player.GetAccess() >= ACCESS_MODER )
     {
-        player.ShowScreen( SCREEN_DIALOGBOX, 4, "answer_GM_PANNEL_HEX" );
+        player.ShowScreen( SCREEN_DIALOGBOX, 5, "answer_GM_PANNEL_HEX" );
         player.Say( SAY_DIALOGBOX_TEXT, "Действия с пустым гексом x " + param0 + " y " + param1 );
         player.MercBase[ MERC_LOSE_DIST ] = param0;
         player.MercBase[ MERC_MASTER_DIST ] = param1;
@@ -4478,6 +4479,7 @@ GMCommand( GM_PANNEL_HEX )
         player.Say( SAY_DIALOGBOX_BUTTON( 1 ), "создать нпц" );
         player.Say( SAY_DIALOGBOX_BUTTON( 2 ), "Переместиться" );
         player.Say( SAY_DIALOGBOX_BUTTON( 3 ), "TeleportByID" );
+		player.Say( SAY_DIALOGBOX_BUTTON( 4 ), "Спавн предмета");
     }
 }
 
@@ -4492,6 +4494,31 @@ void ask_GM_PANNEL_HEX_GET_CRITTER_ID( Critter& player, uint answerI, string& an
 			if( @critter !is null )
 				critter.TransitToMap( player.GetMap().Id, player.Merc[ MERC_LOSE_DIST ], player.Merc[ MERC_MASTER_DIST ], 0 );
 		}
+	}
+}
+
+void ask_GM_ADD_ITEM_HEX( Critter& player, uint answerI, string& answerS )
+{
+	int	pid = 0,
+		hexX = player.ParamBase[ MERC_LOSE_DIST ],
+		hexY = player.ParamBase[ MERC_MASTER_DIST ];
+
+	Map@ map = player.GetMap(); if(!valid(map)) return;
+	Item@ item;
+	
+	if( StrToInt( answerS, pid ) && pid > 0 )
+	{
+		@item = map.AddItem( hexX, hexY, pid, 1 );
+		if( !valid(item) )
+		{
+			player.Say( SAY_NETMSG, "Не удалось." );
+			return;
+		}
+	}
+	else
+	{
+		player.Say( SAY_NETMSG, "Айди предмета некорректен." );
+		return;
 	}
 }
 
@@ -4542,7 +4569,14 @@ void answer_GM_PANNEL_HEX( Critter& player, uint answerI, string& answerS )
 			
 			player.ShowScreen( SCREEN_SAY, 0, "ask_GM_PANNEL_HEX_GET_CRITTER_ID" );
 			player.Say( SAY_SAY_TITLE, "Введите айди криттера" );
-		} break;	
+		} break;
+		
+		case 4:
+		{
+			player.ShowScreen( SCREEN_SAY, 0, "gm@ask_GM_ADD_ITEM_HEX" );
+			player.Say( SAY_SAY_TITLE, "PID предмета:" );
+			break;
+		}
 		
 		default: break;
 	}
