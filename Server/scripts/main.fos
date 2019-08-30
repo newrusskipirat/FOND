@@ -989,7 +989,7 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 		item.Val0++;
 		if (item.Val0 >19)
 		{ _SubItem (item, 1);
-		cr.Say( SAY_NETMSG, "Ёто была последн€€");
+		cr.Say( SAY_NETMSG, "Ёто была последн€€");}
 		return true;
 	}
     if( pid == PID_cigarette && cr.CountItem( PID_LIGHTER ) > 0 )
