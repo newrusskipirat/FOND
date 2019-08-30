@@ -1076,6 +1076,7 @@
 #define PID_COINPRESS_TOKEN				 	  ( 4062 )
 #define PID_SAWMILL_TOKEN				 	  ( 4063 )
 #define PID_LATHE_TOKEN					 	  ( 4064 )
+#define PID_cigarette                         ( 22050 )   					// Сигарета
 
 
 /******************************************************************

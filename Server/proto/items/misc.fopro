@@ -3201,7 +3201,7 @@ PicMap=art\items\cigarettes.png
 PicInv=art\inven\cigarettes.frm
 Flags=402653214
 DisableEgg=1
-Stackable=1
+Stackable=0
 Weight=100
 SoundId=48
 Cost=3
@@ -7654,7 +7654,19 @@ Cost=2500
 Material=1
 
 
-
+[Proto] # PID_cigarette {Сигарета}
+ProtoId=22050
+Type=5
+PicMap=art\items\smalbox2.frm
+PicInv=art\inven\Zigarette.png
+Flags=402653214
+DisableEgg=1
+Stackable=1
+Weight=10
+Volume=1
+SoundId=48
+Cost=15
+Material=1
 
 
 

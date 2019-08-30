@@ -983,14 +983,21 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
     }
 
     // Cigarettes smoking
-    if( pid == PID_CIGARETTES && cr.CountItem( PID_LIGHTER ) > 0 )
+	if (pid == PID_CIGARETTES )
+	{	
+		cr.Say( SAY_NETMSG , "Вы достали сигарету из пачки");
+		item.Val0++;
+		if (item.Val0 >19)
+		{ _SubItem (item, 1);
+		cr.Say( SAY_NETMSG, "Это была последняя");
+		return true;
+	}
+    if( pid == PID_cigarette && cr.CountItem( PID_LIGHTER ) > 0 )
     {
         cr.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_TEXT, STR_CIGARETTES_SMOKE );
-		item.Val0++;
-		if(item.Val0 > 10) {
-			item.Val0 = 0;
-			_SubItem( item, 1 );
-			}
+		_SubItem( item, 1 );
+		cr.StatBase[ ST_EXPERIENCE ] += Random( 100, 500 );
+		AffectPoison( cr, Random( 5, 10 ) );
         return true;
     }
 
