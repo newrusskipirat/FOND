@@ -2057,26 +2057,25 @@ void ApplyDamage( AttackStruct& attack, Critter& target, uint rounds, bool isCri
 				ChangeStatus( target, CR_STATUS_HEAVY_DMG, 0, true );
 				}
 			if(totalDmg > 5)
-				{
+			{
 				if (Random( 0, 9 ) == 0 && target.GetTimeEvents( CTE_SLOWRELOAD, null, null, null ) > 0) target.EraseTimeEvents( CTE_SLOWRELOAD ); // остановка перезарядки при повреждении
 				if (Random( 0, 1 ) == 0 && target.GetTimeEvents( CTE_HEAL, null, null, null ) > 0) target.EraseTimeEvents( CTE_HEAL ); // остановка долговременного лечения при повреждении
-				if (Random( 0, 1 ) == 0 && dmgType == DAMAGE_NORMAL ) // pm added
+				if ( dmgType == DAMAGE_NORMAL && totalDmg >= target.Param[ ST_NORMAL_RESIST ] / 2 ) // Шанс выпадания кровотечения
+				{
+					uint[] bleed_weapon = 
 					{
-					bool bleed = false;
-					switch(attack.WeaponPid)
-					{
-							case PID_KNIFE                  :
-							case PID_COMBAT_KNIFE           :
-							case PID_LIL_JESUS_WEAPON	:
-							case PID_SHIV			:
-							case PID_SWITCHBLADE		:
-							case PID_WAKIZASHI_BLADE	:
-							case PID_RIPPER			: bleed = true;
-							default				: break;
-					}
-					if (bleed) ChangeStatus( target, CR_STATUS_BLEED, totalDmg , true ); //кровотечение
-					}
+					PID_10MM_SMG, PID_HUNTING_RIFLE, PID_MINIGUN, PID_ROCKET_LAUNCHER, PID_DESERT_EAGLE, PID_14MM_PISTOL, PID_ASSAULT_RIFLE, PID_FRAG_GRENADE, PID_9MM_MAUSER, PID_SNIPER_RIFLE, PID_223_PISTOL, PID_COMBAT_SHOTGUN,
+					PID_HK_CAWS, PID_SHARP_SPEAR, PID_TOMMY_GUN, PID_SCOPED_HUNTING_RIFLE, PID_HK_P90C, PID_ZIP_GUN, PID_44_MAGNUM_REVOLVER, PID_GREASE_GUN, PID_BOZAR, PID_FN_FAL, PID_HK_G11, PID_INDEPENDENT, PID_PANCOR_JACKHAMMER,
+					PID_LIGHT_SUPPORT_WEAPON, PID_M60, PID_AVENGER_MINIGUN, PID_HK_G11E, PID_M72_GAUSS_RIFLE, PID_PK12_GAUSS_PISTOL, PID_VINDICATOR_MINIGUN, PID_44_MAGNUM_SPEEDLOADER, PID_FN_FAL_NIGHT_SCOPE, PID_DESERT_EAGLE_EXT_MAG,
+					PID_FN_FAL_HPFA, PID_DUAL_MINIGUN, PID_HEAVY_DUAL_MINIGUN, PID_MAUSER_SMG, PID_CLAW_EXT, PID_SCISSORS, PID_ONEHAND_ROCKET_LAUNCHER, PID_GRENADELAUNCHER, PID_REMINGTON, PID_ANACONDA, PID_SPEAK_P, PID_GATLING_LOW,
+					PID_DRUM_GUN_LOW, PID_REVOLVER_LOW, PID_PISTOL_LOW, PID_REV_RIFLE_LOW, PID_GECKO_LOW, PID_BIGGUN_LOW, PID_BOOMERANG_LOW, PID_SMOKE_GUN_LOW, PID_14mm_BIGGUN2_LOW, PID_3GUN_LOW, PID_DOUBLE_RIFLE, PID_SPIKED_KNUCKLES, PID_KNIFE,
+					PID_KNIFE_P, PID_COMBAT_KNIFE, PID_LIL_JESUS_WEAPON, PID_SWITCHBLADE, PID_WAKIZASHI_BLADE, PID_RIPPER, PID_THROWING_KNIFE, PID_MKNIFE_P, PID_REV_BALL1, PID_REV_BALL2, PID_REVFIST1, PID_REVKNIFE1, PID_REVKNIFE2, PID_REVCLUB1,
+					PID_SNIPER_GUN_LOW, PID_LOW_SNIPER2, PID_SAWGUN_LOW, PID_SHOTGUN, PID_SAWED_OFF_SHOTGUN, PID_SHOTPISTOL_LOW, PID_QUADRO_SHOTGUN
+					};
+					if( bleed_weapon.find( attack.WeaponPid ) != -1 )
+					ChangeStatus( target, CR_STATUS_BLEED, totalDmg / 1.5 , true ); //кровотечение, равное 2/3 от входящего урона.
 				}
+			}
 		}
         if( attacker.GetProtoId() == 128 && targetIsPlayer ) // Modoc guards
             {

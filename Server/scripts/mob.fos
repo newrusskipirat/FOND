@@ -247,22 +247,25 @@ uint16 NewPidToDefault(uint16 pid)
 bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
 {
 	bool skinned = false;
-    uint16 Add1;
-		uint16 Add2;
-		uint16 Add3;
-		uint8  Sum1;
-		uint8  Sum2;
-		uint8  Sum3;
-		uint16 PAdd1;
-		uint16 PAdd2;
-		uint16 PAdd3;
-		uint8  PSum1;
-		uint8  PSum2;
-		uint8  PSum3;
-		string Str1;
-		string Str2;
-		string Str3;
-		int result = Random(0,cr.Skill[SK_OUTDOORSMAN]);
+    uint16 Add1 = 0;
+	uint16 Add2 = 0;
+	uint16 Add3 = 0;
+	uint8  Sum1 = 0;
+	uint8  Sum2 = 0;
+	uint8  Sum3 = 0;
+	uint16 PAdd1 = 0;
+	uint16 PAdd2 = 0;
+	uint16 PAdd3 = 0;
+	uint8  PSum1 = 0;
+	uint8  PSum2 = 0;
+	uint8  PSum3 = 0;
+	uint8 Exp1 = 0;
+	uint8 Exp2 = 0;
+	uint8 Exp3 = 0;
+	string Str1 = "»з этого ничего не вышло.";
+	string Str2 = "»з этого ничего не вышло.";
+	string Str3 = "»з этого ничего не вышло.";
+	int result = (cr.Skill[SK_OUTDOORSMAN]*(Random(80,120)/100));
 
 		
     if( onCritter.IsDead() && onCritter.IsNpc() )

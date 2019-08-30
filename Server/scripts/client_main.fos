@@ -5146,7 +5146,7 @@ void Harvesting( int pid, int hand, int param2, string@ param3, int[] @ param4 )
 	int[][] Sources = { 
 		//Камни:
 		{ PID_SLEDGEHAMMER }, { PID_ROCK, PID_ROCK, PID_ROCK, PID_MINERAL, PID_FLINT, PID_FLINT, PID_METAL_ORE }, 
-			{ 2074, 2075, 2078, 2093, 2278, 2279, 2280, 2281, 2430, 2431, 3273, 3803, 3805 },
+			{ 2074, 2075, 2078, 2080, 2093, 2278, 2279, 2280, 2281, 2430, 2431, 3273, 3803, 3805 },
 		{ 0 }, { PID_ROCK, PID_FLINT }, 
 			{ 2074, 2075, 2078, 2093, 2278, 2279, 2280, 2281, 2430, 2431, 3273, 3803, 3805 },
 		//Вёдра, коробки и непустые бочки:

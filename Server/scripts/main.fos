@@ -102,6 +102,9 @@ import bool CanCook( Scenery@ fire ) from "cooking";
 
 import bool IsDoorAutomatic( Item& door, bool& isPower ) from "interactive_obj";
 
+import void AffectPoison( Critter& cr, int value ) from "poison";
+import void AffectRadiation( Critter& cr, int value ) from "radiation";
+
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////
 // Called before world generation.
@@ -987,6 +990,7 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 	{	
 		cr.Say( SAY_NETMSG , "Вы достали сигарету из пачки");
 		item.Val0++;
+		cr.AddItem ( PID_cigarette , 1);
 		if (item.Val0 >19)
 		{ _SubItem (item, 1);
 		cr.Say( SAY_NETMSG, "Это была последняя");}
@@ -1145,7 +1149,23 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
 
     bool isAidKitScience = ( @targetItem != null && ( targetItem.GetProtoId() == PID_FIRST_AID_KIT || targetItem.GetProtoId() == PID_DOCTORS_BAG ) && skill == SK_SCIENCE );
 
-	if( ( skill == SK_REPAIR ) && valid(targetScen) && !valid(targetItem) ) {
+	if( ( skill == SK_REPAIR ) && !valid(targetScen) && valid(targetItem) ) {
+		if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) { cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; }
+
+		Map@ map = cr.GetMap();
+		if( !valid(map) ) return false;
+		Item@ holder = map.GetItem( cr.HexX, cr.HexY, PID_POPUP );
+		if( !valid(holder) ) {
+			Item@ hand = cr.GetItem( 0, SLOT_HAND1 );
+			cr.RunClientScript( "client_main@Harvesting", targetScen.ProtoId, valid(hand) ? hand.GetProtoId() : 0, 0, null, null );
+		}
+		else {
+			cr.Say( SAY_NETMSG, "Тут всё уже переворошили до вас.");
+		}
+		return true;
+	}
+	
+	if( ( skill == SK_REPAIR ) &&  valid(targetItem) &&  (targetItem.GetProtoId() == PID_MUSHROOMS) ){
 		if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) { cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; }
 
 		Map@ map = cr.GetMap();

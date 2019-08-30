@@ -7653,7 +7653,7 @@ Volume=1
 Cost=2500
 Material=1
 
-
+# ОЧКО
 [Proto] # PID_cigarette {Сигарета}
 ProtoId=22050
 Type=5
@@ -7669,11 +7669,73 @@ Cost=15
 Material=1
 
 
+[Proto] # {Груда булыжников}
+ProtoId=8003
+Type=5
+PicMap=art\scenery\rock04.frm
+PicInv=art\scenery\rock04.frm
+Corner=1
+Flags=24
+DisableEgg=1
+SoundId=48
+Material=1
 
+[Proto] # {Груда булыжников}
+ProtoId=8004
+Type=5
+PicMap=art\scenery\rock04.frm
+PicInv=art\scenery\rock04.frm
+Corner=1
+Flags=24
+DisableEgg=1
+SoundId=48
+Material=1
 
+[Proto] # {Огромный завал}
+ProtoId=7909
+Type=5
+PicMap=art\scenery\cavein.frm
+PicInv=art\scenery\cavein.frm
+Corner=1
+Flags=24
+DisableEgg=1
+SoundId=48
+Material=1
 
+[Proto] # {Валун}
+ProtoId=7910
+Type=5
+PicMap=art\scenery\rock04.frm
+PicInv=art\scenery\rock04.frm
+Corner=1
+Flags=24
+DisableEgg=1
+Weight=50000
+Volume=20
+SoundId=48
+Material=1
 
+[Proto]
+ProtoId=16798
+Type=5
+PicMap=art\scenery\Stones\stone1a.fofrm
+PicInv=art\inven\reserved.frm
+Corner=1
+Flags=24
+DisableEgg=1
+SoundId=48
+Material=1
 
+[Proto]
+ProtoId=16799
+Type=5
+PicMap=art\scenery\Stones\stone1b.fofrm
+PicInv=art\inven\reserved.frm
+Corner=1
+Flags=24
+DisableEgg=1
+SoundId=48
+Material=1
 
 
 
