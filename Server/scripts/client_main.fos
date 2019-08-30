@@ -5144,7 +5144,7 @@ void Harvesting( int pid, int hand, int param2, string@ param3, int[] @ param4 )
 	int resourcePID = 1;
 	string SceneryName = strlwr( GetMsgStr( TEXTMSG_ITEM, pid * 100 ) ), ResourceName = "что-то";
 	int[][] Sources = { 
-		//Камни:
+		//Камни:    Инструмент, лут, пиды
 		{ PID_SLEDGEHAMMER }, { PID_ROCK, PID_ROCK, PID_ROCK, PID_MINERAL, PID_FLINT, PID_FLINT, PID_METAL_ORE }, 
 			{ 2074, 2075, 2078, 2080, 2093, 2278, 2279, 2280, 2281, 2430, 2431, 3273, 3803, 3805 },
 		{ 0 }, { PID_ROCK, PID_FLINT }, 
@@ -5176,10 +5176,10 @@ void Harvesting( int pid, int hand, int param2, string@ param3, int[] @ param4 )
 		{ 0 }, { PID_BROC_FLOWER, PID_XANDER_ROOT },
 			{ 2102, 2103, 2104, 2105, 2127, 2573, 2574 },
 		//Капуста и фрукты:
-		{ 0 }, { PID_SEED_CABBAGE, PID_MUTATED_FRUIT, 0, 0, 0, 0 },
+		{ 0 }, { PID_CABBAGE, PID_MUTATED_FRUIT, 0, 0, 0, 0 },
 			{ 2366, 2367 },
 		//Кукуруза:
-		{ 0 }, { PID_SEED_CORN, PID_MUTATED_FRUIT, 0, 0, 0, 0 },
+		{ 0 }, { PID_CORN,PID_MUTATED_FRUIT, 0, 0, 0, 0 },
 			{ 2963, 2964, 2965, 2966, 2967, 2968 },
 		//Радцвет:
 		{ 0 }, { PID_SEED_RADCVET, /*PID_SEED_MARIJUANA, */PID_BROC_FLOWER, PID_XANDER_ROOT, PID_FLOWER },
@@ -5189,6 +5189,11 @@ void Harvesting( int pid, int hand, int param2, string@ param3, int[] @ param4 )
 			{ 2224, 2225, 2226, 4604 },
 		{ PID_MULTI_TOOL },   {  PID_CRAFT_M_JUNK, PID_CRAFT_M_BARS, 0, PID_BANKA_MEH, 0 },	
 			{ 2224, 2225, 2226, 4604 },
+		//Имитация фермерства
+		{ 0 }, {PID_BROC_FLOWER, PID_MUTATED_FRUIT}, {16800}, //БРОК
+		{ 0 }, {PID_MUTATED_FRUIT, PID_XANDER_ROOT}, {16801}, //ЗАНДЕР
+		{ 0 }, {PID_MUTATED_FRUIT, PID_CABBAGE}, {16802},//Капуста
+		{ 0 }, {PID_MUTATED_FRUIT, PID_CORN}, {16803} , //Кукуруза
 	};
 	for( uint i = 0, iEnd = Sources.length() - 2; i < iEnd; i += 3 ) {
 		if(Sources[i+2].find(pid) != -1 ) {

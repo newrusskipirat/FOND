@@ -937,6 +937,8 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 			case PID_BOTTLE_FULL: critter.Say( SAY_EMOTE_ON_HEAD, "Пьёт воду из баклашки" ); break;
 			case PID_COOKED_MEAT: critter.Say( SAY_EMOTE_ON_HEAD, "Ест жаренное мясо" ); break;
 			case PID_MUSH_LOW: critter.Say( SAY_EMOTE_ON_HEAD, "Упорол грибочков" ); break;
+			case PID_CABBAGE:  critter.Say( SAY_EMOTE_ON_HEAD, "Ест капусту" ); break;
+			case PID_CORN:  critter.Say( SAY_EMOTE_ON_HEAD, "Ест кукурузу" ); break;
 			case PID_MUTATED_FRUIT: critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10314 ); break;
 			case PID_IGUANA_ON_A_STICK: critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10315 ); break;
 			case PID_MEAT_ON_A_STICK: critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10317 ); break;
@@ -1149,7 +1151,7 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
 
     bool isAidKitScience = ( @targetItem != null && ( targetItem.GetProtoId() == PID_FIRST_AID_KIT || targetItem.GetProtoId() == PID_DOCTORS_BAG ) && skill == SK_SCIENCE );
 
-	if( ( skill == SK_REPAIR ) && !valid(targetScen) && valid(targetItem) ) {
+	if( ( skill == SK_REPAIR ) && valid(targetScen) && !valid(targetItem) ) {
 		if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) { cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; }
 
 		Map@ map = cr.GetMap();
@@ -1165,7 +1167,7 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
 		return true;
 	}
 	
-	if( ( skill == SK_REPAIR ) &&  valid(targetItem) &&  (targetItem.GetProtoId() == PID_MUSHROOMS) ){
+	if( ( skill == SK_REPAIR ) &&  valid(targetItem) &&  ((targetItem.GetProtoId() == PID_BROC_FARM) || (targetItem.GetProtoId() == PID_XANDER_FARM) || (targetItem.GetProtoId() == PID_CABBAGE_FARM) || (targetItem.GetProtoId() == PID_CORN_FARM))){
 		if( cr.Timeout[ TO_SK_REPAIR ] > 0 ) { cr.Say( SAY_NETMSG, "Вы слишком устали, дайте отдых рукам." ); return true; }
 
 		Map@ map = cr.GetMap();
@@ -1173,7 +1175,7 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
 		Item@ holder = map.GetItem( cr.HexX, cr.HexY, PID_POPUP );
 		if( !valid(holder) ) {
 			Item@ hand = cr.GetItem( 0, SLOT_HAND1 );
-			cr.RunClientScript( "client_main@Harvesting", targetScen.ProtoId, valid(hand) ? hand.GetProtoId() : 0, 0, null, null );
+			cr.RunClientScript( "client_main@Harvesting", targetItem.GetProtoId(), valid(hand) ? hand.GetProtoId() : 0, 0, null, null );
 		}
 		else {
 			cr.Say( SAY_NETMSG, "Тут всё уже переворошили до вас.");
