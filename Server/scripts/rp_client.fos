@@ -1,0 +1,34 @@
+﻿#include "_client_defines.fos"
+#include "_macros.fos"
+#include "_msgstr.fos"
+ 
+void __HearWhisper( int x, int y, int, string@ text, int[] @ )
+{
+	string@[] @ valuesStr = splitEx( text, "@" );
+    if( valuesStr.length() != 2 )
+		return;
+		
+    MapMessage( ".." + valuesStr[1] + "..", x, y, __DamageHitDelay, 0x0000FFFF, true, 0, 0 );
+    Message( valuesStr[0] + ": |0x0000FFFF .." + valuesStr[1] + ".." );
+}
+ 
+ void __HearShot( int param0, int param1, int type, string@ param3, int[] @ param4 )
+{
+    string typestr = GetMsgStr( TEXTMSG_COMBAT, 110 + type );
+    MapMessage( typestr, param0 + Random( -2, 2 ), param1 + Random( -2, 2 ), __DamageHitDelay, 0xFFC80000, true, Random( -5, 5 ), -20 );
+    Message( GetMsgStr( TEXTMSG_COMBAT, 130 + type ), FOMB_COMBAT_RESULT );
+}
+
+void __HearSound( int x, int y, int info, string@ text, int[] @ param4 )
+{
+    MapMessage( text, x, y, __DamageHitDelay, 0xFF646464, true, 0, 0 );
+	//string desc = "Вы услышали " + GetDistance(info) + " звук со стороны " + GetSide(info) + ".";
+    //Message( desc );
+}
+
+void __seeTyping( int x, int y, int info, string@ text, int[]@ )//export
+{
+    MapMessage( text, x, y, __DamageHitDelay, 0xFF646464, true, 0, 0 );
+	//string desc = "Вы услышали " + GetDistance(info) + " звук со стороны " + GetSide(info) + ".";
+    //Message( desc );
+}

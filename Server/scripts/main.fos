@@ -105,6 +105,7 @@ import bool IsDoorAutomatic( Item& door, bool& isPower ) from "interactive_obj";
 import void AffectPoison( Critter& cr, int value ) from "poison";
 import void AffectRadiation( Critter& cr, int value ) from "radiation";
 
+import void hearshot( Critter& cr, ProtoItem& weapon, uint8 weaponMode ) from "rp_combat"; //Выстрелы на карте
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////
 // Called before world generation.

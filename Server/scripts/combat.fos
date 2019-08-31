@@ -21,6 +21,7 @@ import void HookAttack( Critter& cr, Critter@ target, uint8 force, uint8 pull ) 
 import void HookMeleeAttack( Critter& cr, Critter@ target )  from "handcuffs";                                             // ErlKing
 import void HookHoldAttack( Critter@ target, uint8 hardness )  from "handcuffs";                                           // ErlKing
 import void Log_Killings( Critter& player, int target, int param1, int param2, string@ param3, int[] @ param4 ) from "gm"; // ErlKing
+import void hearshot( Critter& cr, ProtoItem& weapon, uint8 weaponMode ) from "rp_combat"; //Выстрелы на карте
 
 import void ChangeCritterSpeed( Critter& cr ) from "speed";                                                                // pm added
 import bool FlareGunUse( Critter& cr, Item& item ) from "item";                                                            // pm added flare gun
@@ -1561,6 +1562,12 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
     // stuff like animations, effects
 
     // Shoot
+	
+    // Shoot
+	
+	if( !isGrenade && !isHthAttack )
+		hearshot( cr, weapon, weaponMode );
+		
     if( _WeaponEffect( weapon, use ) != 0 )
     {
         if( useHex || not valid( realTarget ) )                                          // binyan - Hex attack - added
