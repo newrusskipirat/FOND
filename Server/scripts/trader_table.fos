@@ -66,12 +66,12 @@
 
 // Деньги
 uint[] cat_caps = { PLENTY, PID_BOTTLE_CAPS };
-uint[] cat_real_caps = { PLENTY, PID_METAL_ORE, PID_REAL_BOTTLE_CAPS };
+uint[] cat_real_caps = { PLENTY, PID_REAL_BOTTLE_CAPS };
 
 // Компоненты для крафта
-uint[] cat_craft_organic = { MANY, PID_FIREWOOD, PID_MUSH_LOW, PID_BROC_FLOWER, PID_XANDER_ROOT, PID_FLOWER }; // органика, цветы-корешки в данном случае
+uint[] cat_craft_organic = { ADEQUATE, PID_MUSH_LOW, PID_BROC_FLOWER, PID_XANDER_ROOT, PID_FLOWER }; // органика, цветы-корешки в данном случае
 uint[] cat_craft_mineral = { FEW, PID_METAL_ORE, PID_MINERAL };
-uint[] cat_craft_chemical = { ADEQUATE, PID_MUSH_LOW, PID_CHEMICALS, PID_GUNPOWDER };                          // Привет, SWG! Химические компоненты. С вводом их нахождения на сторонних локациях, количество в продаже нужно сократить, переложив добычу на игроков.
+uint[] cat_craft_chemical = { FEW, PID_MUSH_LOW, PID_CHEMICALS, PID_GUNPOWDER };                          // Привет, SWG! Химические компоненты. С вводом их нахождения на сторонних локациях, количество в продаже нужно сократить, переложив добычу на игроков.
 
 // Элементы питания
 uint[] cat_hitech_battery_few = { FEW, PID_SMALL_ENERGY_CELL };
@@ -94,17 +94,17 @@ uint[] cat_tools_rare = { RARE, PID_DVIGAT_MEH, PID_SUPER_TOOL_KIT, PID_DRILL, P
 
 // Медицина и наркотики
 uint[] cat_medicine_verylow = { MODERATE,  PID_BROC_FLOWER, PID_XANDER_ROOT, PID_MEDICAL_SUPPLIES }; // массив с медикаментами начального уровня
-uint[] cat_medicine_low = { MODERATE, PID_STIMPAK, PID_ANTIDOTE, PID_BROC_FLOWER, PID_XANDER_ROOT }; // массив с медикаментами начального уровня
-uint[] cat_medicine_med = { FEW, PID_MEDICAL_SUPPLIES, PID_RADAWAY, PID_DEFIB };
-uint[] cat_medicine_high = { RARE, PID_RAD_X, PID_JET_ANTIDOTE, PID_DEFIB };
+uint[] cat_medicine_low = { FEW, PID_STIMPAK, PID_ANTIDOTE, PID_BROC_FLOWER, PID_XANDER_ROOT }; // массив с медикаментами начального уровня
+uint[] cat_medicine_med = { FEW, PID_MEDICAL_SUPPLIES, PID_RADAWAY };
+uint[] cat_medicine_high = { RARE, PID_DEFIB };
 uint[] cat_drugs_low = { SINGLE, PID_MUSH_LOW, PID_JET, PID_BUFFOUT };                               // массив с наркотиками :)
 uint[] cat_drugs_med = { RARE, PID_MENTATS };
 
 // Оружие и патроны
-uint[] cat_guns_low = { FEW, PID_PISTOL_LOW, PID_SHOTGUN }; // массив с оружием
+uint[] cat_guns_low = { SINGLE, PID_PISTOL_LOW, PID_SHOTGUN }; // массив с оружием
 uint[] cat_guns_med = { SINGLE, PID_REV_RIFLE_LOW, PID_REVOLVER_LOW, PID_SNIPER_GUN_LOW, PID_FLARE_GUN };
 uint[] cat_guns_high = { RARE, PID_NEEDLER_PISTOL, PID_DESERT_EAGLE, PID_44_MAGNUM_REVOLVER, PID_HUNTING_RIFLE, PID_FLASH_GRENADE };
-uint[] cat_ammo_low = { PLENTY, PID_PB_FOR_AMMO, PID_10mm_LOW, PID_044mag_LOW, PID_14mm_LOW, PID_12g_LOW, PID_223_LOW };
+uint[] cat_ammo_low = { MODERATE, PID_PB_FOR_AMMO, PID_10mm_LOW, PID_044mag_LOW, PID_14mm_LOW, PID_12g_LOW, PID_223_LOW };
 uint[] cat_ammo_med = { FEW, PID_10MM_JHP, PID_14MM_AP, PID_223_FMJ, PID_SHOTGUN_SHELLS, PID_44_MAGNUM_JHP, PID_GRENADELAUNCHER_AMMO, PID_9MM_BALL, PID_7_62MM_AMMO, PID_45_CALIBER_AMMO, PID_FLARE_GUN_AMMO };
 // uint[] cat_ammo_rare = {SINGLE, PID_NEED_CART_POISON, PID_NEED_CART_NT, PID_GRENADELAUNCHER_AMMO}
 uint[] cat_melee_low = { FEW, PID_THROWING_KNIFE, PID_COMBAT_KNIFE, PID_BRASS_KNUCKLES, PID_SWITCHBLADE };
@@ -115,17 +115,17 @@ uint[] cat_armor_low = { SINGLE, PID_PURPLE_ROBE, PID_LEATHER_JACKET, PID_LEATHE
 uint[] cat_armor_med = { RARE, PID_METAL_ARMOR };
 
 // Еда и выпивка
-uint[] cat_food_low = { MANY, PID_MUTATED_FRUIT, PID_IGUANA_ON_A_STICK, PID_MEAT_ON_A_STICK, PID_MEAT_JERKY };
+uint[] cat_food_low = { MODERATE, PID_MUTATED_FRUIT, PID_IGUANA_ON_A_STICK, PID_MEAT_ON_A_STICK, PID_MEAT_JERKY };
 uint[] cat_booze = { MANY, PID_BEER, PID_BOOZE, PID_GAMMA_GULP_BEER, PID_ROENTGEN_RUM, PID_ROT_GUT, PID_NUKA_COLA, PID_BOTTLE_FULL };
 
 // Товары общего назначения
 uint[] cat_goods_low = { MODERATE, PID_ROPE, PID_FLARE, PID_FLINT, PID_WATER_FLASK, PID_BLUE_CONDOM, PID_RED_CONDOM, PID_GREEN_CONDOM }; // массив с мелочами
 uint[] cat_goods_few = { FEW, PID_RED_RYDER_BB_GUN, PID_BLANK_KEY };
-uint[] cat_goods_med = { SINGLE, PID_10MM_PISTOL, PID_SKIN_CHANGER, PID_RUBBER_BOOTS, PID_LIGHTER, PID_SPECTACLES, PID_LOCKPICKS, PID_OIL_CAN, PID_CATS_PAW, PID_BOX_OF_NOODLES, PID_CHEEZY_POOFS };
+uint[] cat_goods_med = { SINGLE, PID_SKIN_CHANGER, PID_RUBBER_BOOTS, PID_LIGHTER, PID_SPECTACLES, PID_LOCKPICKS, PID_OIL_CAN, PID_CATS_PAW, PID_BOX_OF_NOODLES, PID_CHEEZY_POOFS };
 uint[] cat_goods_bbammo = { AMMO, PID_BBS };
 
 // bags pm add
-uint[] cat_bags         = { SINGLE, PID_BAG, PID_BACKPACK, PID_BROWN_BAG };
+uint[] cat_bags         = { RARE, PID_BAG, PID_BACKPACK, PID_BROWN_BAG };
 
 // RP-stuff в виде редкой категории
 uint[] cat_goods_rare = { RARE, PID_MAGIC_8_BALL, PID_RANGER_PIN, PID_ROBOT_MOTIVATOR, PID_MIRROR_SHADES, PID_COSMETIC_CASE, PID_BALL, PID_BLOW_UP_DOLL, PID_MR_NIXON_DOLL, PID_BRIEFCASE, PID_HEART_PILLS, PID_OXYGEN_TANK, PID_GOLD_LOCKET, PID_VIC_RADIO, PID_DECK_OF_TRAGIC_CARDS };
@@ -161,45 +161,45 @@ uint GenerateItemsForTrader( Critter& trader, int traderId )
     {
         switch( traderId )
         {
-        case ( MODOC_TRADER_GUNS ):
+        case ( MODOC_TRADER_GUNS ):  //ГОТОВ
             // хмм, а ведь сюда же можно вставить и установку скилла торговцу, как и время обновления товара?
             // А можно и скилл сделать немного плавающим, делая выбор из категорий (нуб-начинающий-средний-специалист-мастер), значение в которых будет меняться в ту или иную сторону (торгует хорошо - скилл растёт, плохо - падает). Вроде не так сложно в теории.
             trader.SkillBase[ SK_BARTER ] = SPECIALIST;
             GenerateItemsByCategory( trader, cat_guns_low );
             GenerateItemsByCategory( trader, cat_guns_med );
-            GenerateItemsByCategory( trader, cat_guns_high );
+            //GenerateItemsByCategory( trader, cat_guns_high );
             GenerateItemsByCategory( trader, cat_ammo_low );
-            GenerateItemsByCategory( trader, cat_ammo_med );
+            //GenerateItemsByCategory( trader, cat_ammo_med );
             GenerateItemsByCategory( trader, cat_melee_low );
             GenerateItemsByCategory( trader, cat_armor_low );
             GenerateItemsByCategory( trader, cat_caps );
             break;
 
-        case ( MODOC_TRADER_DOCTOR ):
+        case ( MODOC_TRADER_DOCTOR ): //Готов
             trader.SkillBase[ SK_BARTER ] = COMMON;
             GenerateItemsByCategory( trader, cat_medicine_low );
             GenerateItemsByCategory( trader, cat_medicine_med );
-            // GenerateItemsByCategory(trader, cat_medicine_high);
+            GenerateItemsByCategory( trader, cat_medicine_high);
             GenerateItemsByCategory( trader, cat_craft_organic );
             GenerateItemsByCategory( trader, cat_drugs_med );
             GenerateItemsByCategory( trader, cat_caps );
             break;
 
-        case ( MODOC_TRADER_GOODS ):
+        case ( MODOC_TRADER_GOODS ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = COMMON;
             GenerateItemsByCategory( trader, cat_goods_low );
-            GenerateItemsByCategory( trader, cat_goods_few );
+            //GenerateItemsByCategory( trader, cat_goods_few );
             GenerateItemsByCategory( trader, cat_goods_med );
             GenerateItemsByCategory( trader, cat_goods_rare );
-            GenerateItemsByCategory( trader, cat_goods_bbammo );
+            //GenerateItemsByCategory( trader, cat_goods_bbammo );
             GenerateItemsByCategory( trader, cat_craft_chemical );
-            GenerateItemsByCategory( trader, cat_craft_mineral );
+            //GenerateItemsByCategory( trader, cat_craft_mineral );
             GenerateItemsByCategory( trader, cat_common );
             GenerateItemsByCategory( trader, cat_bags );
             GenerateItemsByCategory( trader, cat_caps );
             break;
 
-        case ( MODOC_TRADER_ROSE ):
+        case ( MODOC_TRADER_ROSE ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = ADEPT;
             GenerateItemsByCategory( trader, cat_food_low );
             GenerateItemsByCategory( trader, cat_booze );
@@ -207,30 +207,31 @@ uint GenerateItemsForTrader( Critter& trader, int traderId )
             GenerateItemsByCategory( trader, cat_caps );
             break;
 
-        case ( MODOC_TRADER_BAR ):
+        case ( MODOC_TRADER_BAR ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = COMMON;
             GenerateItemsByCategory( trader, cat_booze );
+			GenerateItemsByCategory( trader, cat_food_low );
             break;
 
-        case ( MODOC_TRADER_JUNK ):
+        case ( MODOC_TRADER_JUNK ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = MASTER;
             GenerateItemsByCategory( trader, cat_junk_med );
             GenerateItemsByCategory( trader, cat_junk_rare );
             GenerateItemsByCategory( trader, cat_bags );
             break;
 
-        case ( MODOC_TRADER_CARAVAN ):
+        case ( MODOC_TRADER_CARAVAN ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = MASTER;
-            GenerateItemsByCategory( trader, cat_armor_med );
-            // GenerateItemsByCategory(trader, cat_books_low);
-            GenerateItemsByCategory( trader, cat_hitech_battery_few );
-            GenerateItemsByCategory( trader, cat_hitech_weapon_low );
-            // GenerateItemsByCategory(trader, cat_holodisk);
-            // GenerateItemsByCategory(trader, cat_fishing_low);
-            // GenerateItemsByCategory(trader, cat_fishing_med);
+			GenerateItemsByCategory( trader, cat_goods_low );
+			GenerateItemsByCategory( trader, cat_guns_med );
+            GenerateItemsByCategory( trader, cat_goods_med );
+            GenerateItemsByCategory( trader, cat_common );
+            GenerateItemsByCategory( trader, cat_bags );
+            GenerateItemsByCategory( trader, cat_caps );
+			GenerateItemsByCategory( trader, cat_armor_low );
             break;
 
-        case ( MODOC_TRADER_TOOLS ):
+        case ( MODOC_TRADER_TOOLS ): //ГОТОВ
             trader.SkillBase[ SK_BARTER ] = SPECIALIST;
             GenerateItemsByCategory( trader, cat_tools_low );
             GenerateItemsByCategory( trader, cat_tools_med );

@@ -23,20 +23,20 @@ lang=russ engl
 5 5000 None 0 #
 0 5010 @
 6 6000 None 0 #
-7 6010 D _param p SK_SPEECH > 79 #
-8 6020 D _param p SK_SPEECH < 80 #
+7 6010 D _param p SK_SPEECH > 129 #
+8 6020 D _param p SK_SPEECH < 130 #
 0 6030 R _var p mod_bill_junk = 1 @
 7 7000 None 0 #
 0 7010 R _var p mod_bill_junk = 2 @
 8 8000 None 0 #
 0 8010 R _var p mod_bill_junk = 1 @
 9 9000 None 0 #
-9 9010 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 0 R _item p PID_BOTTLE_CAPS + 45 R _param p ST_EXPERIENCE + 60 R _item p PID_CRAFT_M_JUNK - 1 #
-9 9020 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 0 R _item p PID_BOTTLE_CAPS + 60 R _param p ST_EXPERIENCE + 60 R _item p PID_CRAFT_M_JUNK - 1 #
-9 9030 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 2 R _item p PID_BOTTLE_CAPS + 90 R _param p ST_EXPERIENCE + 180 R _item p PID_CRAFT_M_JUNK - 3 #
-9 9040 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 2 R _item p PID_BOTTLE_CAPS + 120 R _param p ST_EXPERIENCE + 180 R _item p PID_CRAFT_M_JUNK - 3 #
-9 9050 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 4 R _item p PID_BOTTLE_CAPS + 215 R _param p ST_EXPERIENCE + 300 R _item p PID_CRAFT_M_JUNK - 5 #
-9 9060 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 4 R _item p PID_BOTTLE_CAPS + 300 R _param p ST_EXPERIENCE + 300 R _item p PID_CRAFT_M_JUNK - 5 #
+9 9010 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 0 R _item p PID_CRAFT_M_JUNK - 1 R _item p PID_BOTTLE_CAPS + 15 R _param p ST_EXPERIENCE + 20 #
+9 9020 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 0 R _item p PID_CRAFT_M_JUNK - 1 R _param p ST_EXPERIENCE + 20 R _item p PID_BOTTLE_CAPS + 25 #
+9 9030 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 2 R _item p PID_CRAFT_M_JUNK - 3 R _item p PID_BOTTLE_CAPS + 45 R _param p ST_EXPERIENCE + 65 #
+9 9040 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 2 R _item p PID_CRAFT_M_JUNK - 3 R _param p ST_EXPERIENCE + 65 R _item p PID_BOTTLE_CAPS + 75 #
+9 9050 D _var p mod_bill_junk = 1 D _item p PID_CRAFT_M_JUNK > 4 R _item p PID_CRAFT_M_JUNK - 5 R _item p PID_BOTTLE_CAPS + 75 R _param p ST_EXPERIENCE + 110 #
+9 9060 D _var p mod_bill_junk = 2 D _item p PID_CRAFT_M_JUNK > 4 R _item p PID_CRAFT_M_JUNK - 5 R _param p ST_EXPERIENCE + 110 R _item p PID_BOTTLE_CAPS + 125 #
 0 9070 &
 
 [russ]
@@ -59,11 +59,11 @@ lang=russ engl
 {4030}{}{У меня есть мусор!}
 {5000}{}{Ну нет, так нет. Может в другой раз.}
 {5010}{}{Возможно.}
-{6000}{}{Буду платить по 45 монет за небольшую порцию мусора.}
+{6000}{}{Буду платить по 15 монет за небольшую порцию мусора.}
 {6010}{}{Что-то маловато. Может добавишь?}
 {6020}{}{Что-то маловато. Может добавишь?}
 {6030}{}{Ладно. Договорились.}
-{7000}{}{Ладно, понимаю. Накидываю 15 монет сверху. Буду платить 60 монет.}
+{7000}{}{Ладно, понимаю. Накидываю 10 монет сверху. Буду платить 25 монет.}
 {7010}{}{Отлично. Договорились.}
 {8000}{}{Нет. Мусор найти не трудно, да и не всё в нём ценное.}
 {8010}{}{Хорошо, хорошо. Согласен.}
