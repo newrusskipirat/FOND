@@ -4,6 +4,7 @@
 #include "_macros.fos"
 #include "_colors.fos"
 
+
 /* Печки:
     Пока горит - преобразует рандомно 1 предмет в себе и тратит 1 бревно.
     Когда печка горячая - взаимодействовать с ней можно лишь лопатой (совком).
@@ -20,6 +21,7 @@
 }
 
 import bool ShowMenu(Critter& cr) from "cooking";
+import bool isGM( Critter& player ) from "gm";
 
 bool _FurnaceSkill( Item& item, Critter& cr, int skill )
 {
@@ -1095,6 +1097,40 @@ uint e_NpcCrazy( uint[] @ values )
     }
     return REAL_SECOND( Random( 10, 40 ) );
 }
+
+void unsafe_shout_all( Critter& cr, int, int, int, string@ message, int[]@ )
+{
+	uint dist = ( /*isGM( cr ) ? 999 : */cr.Stat[ ST_STRENGTH ] * 15 );
+
+	Map@ map = cr.GetMap();
+	if(!valid(map)) return;
+	
+	Critter@[] crs;
+	uint count = map.GetCrittersHex(cr.HexX, cr.HexY, dist, FIND_ALL, crs);
+
+    Critter@[] seeing;
+	Critter@[] source = { cr };
+	uint count2 = map.GetCrittersSeeing( source, true, FIND_ALL | FIND_ONLY_PLAYERS, seeing );
+
+	bool isSkipping;
+	for( uint i = 0; i < count; i++ )
+	{
+		isSkipping = false;
+		for( uint j = 0; j < count2; j++ )
+			if( crs[i].Id == seeing[j].Id )
+			{
+				isSkipping = true;
+				break;
+			}
+		if( isSkipping )
+			continue;
+		
+		uint dist = GetDistantion( cr.HexX, cr.HexY, crs[i].HexX, crs[i].HexY );
+		if( int( dist ) <= crs[i].Stat[ ST_PERCEPTION ] * 10 )
+			crs[i].Say( SAY_NETMSG, "???: |0x00FF0000 " + strupr( message ) );
+	}
+}
+
 
 void AddMadRobot( Critter& iam, int, int, int )
 {

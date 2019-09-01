@@ -1644,7 +1644,12 @@ bool out_message( string& message, int& sayType )
             }
         }
     }
-
+	if( sayType == SAY_SHOUT )
+	{ 
+		//RunServerScriptUnsafe("general_unsafe@unsafe_log_1", 0, 0, 0, chosen.Name + " " + chosen.Id + " !!!" + message + "!!!", null); 
+		RunServerScriptUnsafe("test@unsafe_shout_all", 0, 0, 0, "!!!" + message + "!!!", null);
+		//return false;
+	}
 
 /*	if(sayType==SAY_RADIO)
         {
