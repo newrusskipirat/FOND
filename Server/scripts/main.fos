@@ -1493,9 +1493,11 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
             }
             if( targetCr.IsLife() && targetCr.Stat[ ST_CURRENT_HP ] < targetCr.Stat[ ST_MAX_LIFE ] )
             {
-                int roll = Random( 1, cr.Skill[ SK_REPAIR ] );
+				if (_CritCountItem (cr , PID_METAL_LIST_MEH) > 0)
+				{int roll = Random( 1, (cr.Skill[ SK_REPAIR ]/10) );
                 targetCr.StatBase[ ST_CURRENT_HP ] += roll;
-                cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12750 );
+                cr.SayMsg( SAY_NETMSG, TEXTMSG_GAME, 12750 );}
+				else cr.SayMsg ( SAY_NETMSG, TEXTMSG_GAME , 12763);
                 //cr.StatBase[ ST_EXPERIENCE ] += roll;
             }
 
