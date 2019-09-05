@@ -1197,13 +1197,13 @@ void unsafe_teach( Critter& cr, int skill, int p1, int p2, string@ message, int[
 	*/
 
     bool validSKill = false;
-    for( uint8 i = 0; i < 4; i++ )
+    /*for( uint8 i = 0; i < 4; i++ )
     {
         if( cr.Param[ 226 + i ] == skill )
         {
             validSKill = true;
         }
-    }
+    }*/
 
     if( validSKill ) {
 		if( cr.GetTimeEvents( CTE_TEACH, null, null, null ) > 0 ) 
@@ -1218,7 +1218,7 @@ void unsafe_teach( Critter& cr, int skill, int p1, int p2, string@ message, int[
 		}
 	}
     else
-        cr.Say( SAY_NETMSG, "Выбранный навык не является профилирующим." );
+        cr.Say( SAY_NETMSG, "Обучение навыкам только по отыгрышу." );
 }
 
 void ltp_teach_init()
