@@ -47,13 +47,37 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 	
     switch( type )
     {
+	case PID_MUMARMOR:
+	    repair -= 35;
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		tools.insertLast( PID_WELDING );
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 3 );
+        break;
+	case PID_MUJACKET:
+	    repair += 5;
+	    tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
+		break;
     case PID_SANDROBE:
     case PID_PURPLE_ROBE:
     case PID_BLACK_ROBE:
     case PID_JUMPSUIT:
     case PID_FAKE_JUMPSUIT:
         repair += 50;
-		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 2 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
         break;		
     case PID_LEATHER_JACKET:
         repair += 25;
@@ -61,45 +85,81 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );
         break;
     case PID_LEATHER_ARMOR:
-        repair += 20;
     case PID_CURED_LEATHER_ARMOR:
         repair += 20;
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 3 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
         break;
     case PID_LEATHER_ARMOR_MK_II:
         repair += 15;
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
-        break;
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 3 );
+		break;
     case PID_CURED_LEATHER_ARMOR_MK_II:
-		tools.insertLast( PID_SLEDGEHAMMER );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );		
-		parts.insertLast( PID_METAL_LIST_MEH ); parts.insertLast( 1 );
-		break;	
+		repair +=5;
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2);
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );		
+		parts.insertLast( PID_PB_PLATE ); parts.insertLast( 1 );
+		break;
     case PID_METAL_ARMOR:
+		repair +=5;
 		tools.insertLast( PID_SLEDGEHAMMER );
+		tools.insertLast( PID_WELDING );
 		parts.insertLast( PID_METAL_LIST_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_SPIKE_MEH ); parts.insertLast( 2 );
 		break;
     case PID_METAL_ARMOR_MK_II:
-        repair -= 25;
-		tools.insertLast( PID_WORKBENCH_TOKEN );
-		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 1 );
+        repair -= 10;
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		tools.insertLast( PID_WELDING );
+		tools.insertLast( PID_SLEDGEHAMMER );
+		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 4 );
         break;
     case PID_MANTIS_ARMOUR:
-        repair -= 25;
-		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 1 );
+        repair -= 5;
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_MEDNEEDLE );
+		tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
         break;
     case PID_MIRELURK_ARMOR:
-        repair -= 50;
+        repair -=30;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
-		parts.insertLast( PID_MIRELUK_SHELL ); parts.insertLast( 1 );
-        break;
+		tools.insertLast( PID_MULTI_TOOL );
+		tools.insertLast( PID_SLEDGEHAMMER );
+		tools.insertLast( PID_SHIV );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
+		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 4 );
+		parts.insertLast( PID_ROPE ); parts.insertLast( 1 );
+		break;
     case PID_COMBAT_ARMOR:
     case PID_COMBAT_ARMOR_MK_II:
     case PID_BLACK_COMBAT_ARMOR:
     case PID_BROTHERHOOD_COMBAT_ARMOR:
-        repair -= 50;
+        repair -= 40;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
-		parts.insertLast( PID_CHEMICALS ); parts.insertLast( 20 );
+        tools.insertLast( PID_SUPER_TOOL_KIT );		
+		parts.insertLast( PID_CHEMICALS ); parts.insertLast( 4 );
+		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
+		parts.insertLast( PID_PB_PLATE ); parts.insertLast( 2 );
         break;
     case PID_POWERED_ARMOR:
     case PID_HARDENED_POWER_ARMOR:
@@ -110,6 +170,42 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_WORKBENCH_TOKEN );
 		parts.insertLast( PID_HY_MAG_PART ); parts.insertLast( 20 );
         break;
+		
+// Ремонты Midnight Rambler для некоторых стволов
+    case PID_IMPROVED_FLAMETHROWER:
+	    repair -= 50;
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		tools.insertLast( PID_WELDING );
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_EMKOCT_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_LIGHTER ); parts.insertLast( 1 );
+		parts.insertLast( PID_IRON_DETALS ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 2 );
+		break;
+	case PID_DESERT_EAGLE:
+    case PID_DESERT_EAGLE_EXT_MAG:
+	    repair -= 15;
+		tools.insertLast( PID_MULTI_TOOL );
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 2 );
+		parts.insertLast( PID_SOED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+        break;
+    case PID_44_MAGNUM_REVOLVER:
+	case PID_44_MAGNUM_SPEEDLOADER:
+	case PID_ANACONDA:
+	    repair -= 15;
+		tools.insertLast( PID_MULTI_TOOL );
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_SHORT_TUBE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );
+		parts.insertLast( PID_SOED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
+		parts.insertLast( PID_REVOLVER_PART ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+		break;
 
 // оружие совсем лоу тек
     case PID_SPEARTHROWER1:
@@ -119,8 +215,11 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_BIGGUN_LOW:
     case PID_SMOKE_GUN_LOW:
     case PID_SHOTPISTOL_LOW:
-        repair += 50;
-		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );
+	    repair += 40;
+        tools.insertLast( PID_WORKBENCH_TOKEN );
+        tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
         break;
 
 // оружие лоу тек
@@ -145,8 +244,10 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_DRUM_GUN_LOW:
         repair -= 30;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
+		tools.insertLast( PID_MULTI_TOOL );
 		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );		
-		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
         break;
 
 // оружие среднее
@@ -163,16 +264,13 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
         repair -= 10;
     case PID_HUNTING_RIFLE:
     case PID_14MM_PISTOL:
-    case PID_ANACONDA:
         repair -= 15;
-    case PID_DESERT_EAGLE:
-    case PID_DESERT_EAGLE_EXT_MAG:
-    case PID_44_MAGNUM_REVOLVER:
-    case PID_44_MAGNUM_SPEEDLOADER:
-        repair -= 5;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
-		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		parts.insertLast( PID_IRON_DETALS ); parts.insertLast( 1 );
 		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
         break;		
 		
 // оружие энерго лоу
@@ -185,7 +283,9 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_PLASMA_SMG_LOW:
         repair -= 10;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
+		tools.insertLast( PID_MULTI_TOOL );
 		parts.insertLast( PID_CRAFT_E_LAMP ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
         break;
 
 // оружие энерго хай
@@ -200,24 +300,32 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_LASER_PISTOL:
         repair -= 30;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
+		tools.insertLast( PID_SUPER_TOOL_KIT );
 		parts.insertLast( PID_CRAFT_E_PART ); parts.insertLast( 2 );		
 		parts.insertLast( PID_CRAFT_E_CHIP ); parts.insertLast( 1 );
+		parts.insertLast( PID_IRON_DETALS ); parts.insertLast( 1 );
         break;
 
 // оружие высокого класса
     case PID_HK_CAWS:
     case PID_PANCOR_JACKHAMMER:
     case PID_HK_P90C:
-    case PID_IMPROVED_FLAMETHROWER:
     case PID_MINIGUN:
     case PID_AVENGER_MINIGUN:
     case PID_BOZAR:
     case PID_LIGHT_SUPPORT_WEAPON:
     case PID_M60:
     case PID_GRENADELAUNCHER:
-        repair -= 70;
+        repair -= 60;
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		tools.insertLast( PID_WELDING );
 		tools.insertLast( PID_WORKBENCH_TOKEN );
-		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 10 );
+		parts.insertLast( PID_IRON_DETALS ); parts.insertLast( 2 );
+		parts.insertLast( PID_PERED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 2 );
+		parts.insertLast( PID_SOED_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 2 );
         break;
 
     default:
