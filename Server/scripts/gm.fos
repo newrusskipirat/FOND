@@ -1074,14 +1074,15 @@ void answer_GM_PANNEL_SELF( Critter& player, uint answerI, string& answerS )
 	
 	if( answerI == 7 )
     {
-		player.ShowScreen( SCREEN_DIALOGBOX, 6, "answer_GM_PANNEL_MUSIC" );
-        player.Say( SAY_DIALOGBOX_TEXT, "Список музона" );
-        player.Say( SAY_DIALOGBOX_BUTTON( 0 ), "Музон офф" );
+		player.ShowScreen( SCREEN_DIALOGBOX, 7, "answer_GM_PANNEL_MUSIC" );
+        player.Say( SAY_DIALOGBOX_TEXT, "Список музыки" );
+        player.Say( SAY_DIALOGBOX_BUTTON( 0 ), "Выключить музыку" );
         player.Say( SAY_DIALOGBOX_BUTTON( 1 ), "Музыка 1" );
-        player.Say( SAY_DIALOGBOX_BUTTON( 2 ), "музыка 2" );
-        player.Say( SAY_DIALOGBOX_BUTTON( 3 ), "музыка 3" );
-        player.Say( SAY_DIALOGBOX_BUTTON( 4 ), "музыка 4" );
-        player.Say( SAY_DIALOGBOX_BUTTON( 5 ), "назад" );
+        player.Say( SAY_DIALOGBOX_BUTTON( 2 ), "After Dark" );
+        player.Say( SAY_DIALOGBOX_BUTTON( 3 ), "TNT ACDC" );
+        player.Say( SAY_DIALOGBOX_BUTTON( 4 ), "TMNT" );
+		player.Say( SAY_DIALOGBOX_BUTTON( 5 ), "Терминатор" );
+        player.Say( SAY_DIALOGBOX_BUTTON( 6 ), "назад" );
     }
 		if( answerI == 8 )
     {
@@ -1180,6 +1181,26 @@ void answer_GM_PANNEL_MUSIC ( Critter& player, uint answerI, string& answerS)
 	{
 		Map@ map = player.GetMap();
 		PlayMusic( map, "02 - Into The Dust.ogg", 0, 0 );
+	}
+	if (answerI == 2)
+	{
+		Map@ map = player.GetMap();
+		PlayMusic( map, "afterdark.ogg", 0, 0 );
+	}
+	if (answerI == 3)
+	{
+		Map@ map = player.GetMap();
+		PlayMusic( map, "tnt.ogg", 0, 0 );
+	}
+	if (answerI == 4)
+	{
+		Map@ map = player.GetMap();
+		PlayMusic( map, "tmnt.ogg", 0, 0 );
+	}
+	if (answerI == 5)
+	{
+		Map@ map = player.GetMap();
+		PlayMusic( map, "terminator2.ogg", 0, 0 );
 	}
 }
 
