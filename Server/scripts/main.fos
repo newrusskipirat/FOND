@@ -1366,12 +1366,18 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
                         return true;
                     }
                 }
-
+				
+				if( !canPutItemInContainer( targetItem, cont ) || cont.Id == targetItem.Id )
+				{
+					cr.Say( SAY_NETMSG, "Не удалось впихнуть предмет в контейнер." );
+					return true;
+				}		
                 cr.StatBase[ ST_CARRY_WEIGHT_EXT ] -= int( targetItem.Proto.Weight * cr.GetItemTransferCount() );
                 ChangeCritterSpeed( cr );                       // pm added
-
+			
             }
         }
+	
         break;
 		
     // cr.Say(SAY_NETMSG, "put_cont "+targetItem.Id+" acc "+targetItem.Accessory);
@@ -3803,5 +3809,22 @@ uint cte_RopeDrag( Critter& cr, int identifier, uint& rate ) {
 	}
 }
 
+bool canPutItemInContainer( Item@ item, Item@ container )
+{
+	if( !valid( item ) || !valid( container ) )
+		return false;
+	
+	uint container_pid = container.GetProtoId();
+	uint pid = item.GetProtoId();
+	uint[] regular_container_pids = {
+		PID_BAG, PID_BACKPACK, PID_DOCTORS_BAG, 
+	};
+	
+	if( regular_container_pids.find( container_pid ) != -1 )
+		{return true; Log("zaebis");}
+	if( pid == container_pid )
+		return false;
+	return true;
+}
 Project @CreateProject( string@ name, string@ path ){ return null; }
 Project @get_Project( string@ name ){ return null; }
