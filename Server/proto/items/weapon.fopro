@@ -1075,7 +1075,7 @@ Weapon_SoundId_1=48
 [Proto]
 ProtoId=118
 Type=3
-PicMap=art\items\flamethr.frm
+PicMap=art\items\LRIFLELOW.frm
 PicInv=art\inven\lrifle.frm
 Flags=134217886
 DisableEgg=1
