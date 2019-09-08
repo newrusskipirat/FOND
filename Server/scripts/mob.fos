@@ -265,7 +265,8 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 	string Str1 = "Из этого ничего не вышло.";
 	string Str2 = "Из этого ничего не вышло.";
 	string Str3 = "Из этого ничего не вышло.";
-	int result = (cr.Skill[SK_OUTDOORSMAN]*(Random(80,120)/100));
+	string StrNoPerk = "Но из-за отсутствия нужных знаний получить шкуру/хитин не удалось. (Необходим перк [Скорняк])";
+	int result = ((cr.Skill[SK_OUTDOORSMAN] * ( Random (80,120) ) )/100);
 
 		
     if( onCritter.IsDead() && onCritter.IsNpc() )
@@ -733,37 +734,40 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 	
 			if  (result > 180)
 			{
-				_CritAddItem(cr,Add3,Sum3);
+				if (Add3 >0) _CritAddItem(cr,Add3,Sum3);
 				cr.Say( SAY_NETMSG, Str3 );
 				skinned = true;
 				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
 				{
-				_CritAddItem(cr,PAdd3,PSum3);
+					if (PAdd3>0) _CritAddItem(cr,PAdd3,PSum3);
 				}
+				else cr.Say( SAY_NETMSG, StrNoPerk);
 			}
 		else 	if (result > 120)
 				{
-				_CritAddItem(cr,Add2,Sum2);
+				if (Add2 >0) _CritAddItem(cr,Add2,Sum2);
 				cr.Say( SAY_NETMSG, Str2 );
 				skinned = true;
 				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
-					{
-					_CritAddItem(cr,PAdd2,PSum2);
-					}
+				{
+					if (PAdd2>0) _CritAddItem(cr,PAdd2,PSum2);
+				}
+				else cr.Say( SAY_NETMSG, StrNoPerk);
 				}
 		else if (result > 60)
 			{
-				_CritAddItem(cr,Add1,Sum1);
+				if (Add1 >0) _CritAddItem(cr,Add1,Sum1);
 				cr.Say( SAY_NETMSG, Str1 );
 				skinned = true;
 				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
 				{
-				_CritAddItem(cr,PAdd1,PSum1);
+					if (PAdd1>0) _CritAddItem(cr,PAdd1,PSum1);
 				}
+				else cr.Say( SAY_NETMSG, StrNoPerk);
 			}
 		else 
 			{
-			cr.Say( SAY_NETMSG,"Вы задумались о своем, забыв про разделку" );
+			cr.Say( SAY_NETMSG,"Ваших навыков не хватает чтобы разделать эту тушу." );
 			}
 			
 	if( skinned )
