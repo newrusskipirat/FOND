@@ -54,16 +54,16 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_WELDING );
 		tools.insertLast( PID_SUPER_TOOL_KIT );
 		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
-		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
         break;
 	case PID_MUJACKET:
 	    repair += 5;
 	    tools.insertLast( PID_SHIV );
 		tools.insertLast( PID_SCISSORS );
 		tools.insertLast( PID_MEDNEEDLE );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
 		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
 		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
 		break;
@@ -81,8 +81,12 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
         break;		
     case PID_LEATHER_JACKET:
         repair += 25;
-		parts.insertLast( PID_CRAFT_L_RAGS ); parts.insertLast( 1 );
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
 		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 1 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 1 );
         break;
     case PID_LEATHER_ARMOR:
     case PID_CURED_LEATHER_ARMOR:
@@ -91,7 +95,7 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_SCISSORS );
 		tools.insertLast( PID_MEDNEEDLE );
 		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 2 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 3 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
 		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
         break;
     case PID_LEATHER_ARMOR_MK_II:
@@ -99,9 +103,9 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_SHIV );
 		tools.insertLast( PID_SCISSORS );
 		tools.insertLast( PID_MEDNEEDLE );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
-		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 3 );
+		parts.insertLast( PID_GOLDEN_GECKO_PELT ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
 		break;
     case PID_CURED_LEATHER_ARMOR_MK_II:
 		repair +=5;
@@ -109,8 +113,8 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_SCISSORS );
 		tools.insertLast( PID_MEDNEEDLE );
 		tools.insertLast( PID_MULTI_TOOL );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2);
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
 		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );		
 		parts.insertLast( PID_PB_PLATE ); parts.insertLast( 1 );
 		break;
@@ -119,6 +123,7 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_SLEDGEHAMMER );
 		tools.insertLast( PID_WELDING );
 		parts.insertLast( PID_METAL_LIST_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
 		parts.insertLast( PID_SPIKE_MEH ); parts.insertLast( 2 );
 		break;
     case PID_METAL_ARMOR_MK_II:
@@ -127,17 +132,29 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 		tools.insertLast( PID_WELDING );
 		tools.insertLast( PID_SLEDGEHAMMER );
 		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
-		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 3 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
-		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_HIDE ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 1 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 1 );
         break;
+	case PID_LEATHER_ARMOR_MK_III:
+	    repair +=5;
+		tools.insertLast( PID_SHIV );
+		tools.insertLast( PID_SCISSORS );
+		tools.insertLast( PID_MEDNEEDLE );
+		tools.insertLast( PID_MULTI_TOOL );
+		parts.insertLast( PID_FIRE_GECKO_PELT ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
+		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );		
+		parts.insertLast( PID_PB_PLATE ); parts.insertLast( 1 );
+		break;
     case PID_MANTIS_ARMOUR:
         repair -= 5;
 		tools.insertLast( PID_SHIV );
 		tools.insertLast( PID_MEDNEEDLE );
 		tools.insertLast( PID_MULTI_TOOL );
-		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 3 );
-		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 4 );
+		parts.insertLast( PID_MANTIS_SHELL ); parts.insertLast( 4 );
+		parts.insertLast( PID_CRAFT_L_LINT ); parts.insertLast( 2 );
 		parts.insertLast( PID_MEDTHREAD ); parts.insertLast( 2 );
         break;
     case PID_MIRELURK_ARMOR:
@@ -156,8 +173,9 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_BROTHERHOOD_COMBAT_ARMOR:
         repair -= 40;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
-        tools.insertLast( PID_SUPER_TOOL_KIT );		
-		parts.insertLast( PID_CHEMICALS ); parts.insertLast( 4 );
+        tools.insertLast( PID_SUPER_TOOL_KIT );	
+        tools.insertLast( PID_WELDING );		
+		parts.insertLast( PID_CHEMICALS ); parts.insertLast( 2 );
 		parts.insertLast( PID_IRON_PLATE ); parts.insertLast( 2 );
 		parts.insertLast( PID_PB_PLATE ); parts.insertLast( 2 );
         break;
@@ -168,18 +186,30 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_TESLA_ARMOR:
         repair -= 100;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
+		tools.insertLast( PID_SUPER_TOOL_KIT );	
+        tools.insertLast( PID_WELDING );
 		parts.insertLast( PID_HY_MAG_PART ); parts.insertLast( 20 );
         break;
 		
 // Ремонты Midnight Rambler для некоторых стволов
     case PID_IMPROVED_FLAMETHROWER:
-	    repair -= 50;
+	    repair -= 30;
 		tools.insertLast( PID_SUPER_TOOL_KIT );
 		tools.insertLast( PID_WELDING );
 		tools.insertLast( PID_WORKBENCH_TOKEN );
 		parts.insertLast( PID_EMKOCT_MEH ); parts.insertLast( 1 );
 		parts.insertLast( PID_LIGHTER ); parts.insertLast( 1 );
 		parts.insertLast( PID_IRON_DETALS ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 2 );
+		break;
+	case PID_FLAMER:
+	    repair -= 20;
+		tools.insertLast( PID_SUPER_TOOL_KIT );
+		tools.insertLast( PID_WELDING );
+		tools.insertLast( PID_WORKBENCH_TOKEN );
+		parts.insertLast( PID_EMKOCT_MEH ); parts.insertLast( 1 );
+		parts.insertLast( PID_LIGHTER ); parts.insertLast( 1 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 4 );
 		parts.insertLast( PID_CRAFT_M_STEL ); parts.insertLast( 2 );
 		break;
 	case PID_DESERT_EAGLE:
@@ -218,7 +248,7 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
 	    repair += 40;
         tools.insertLast( PID_WORKBENCH_TOKEN );
         tools.insertLast( PID_MULTI_TOOL );
-		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 2 );
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );
 		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 1 );
         break;
 
@@ -233,7 +263,6 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
     case PID_GECKO_LOW:
     case PID_REV_RIFLE_LOW:
         repair += 30;
-    case PID_FLAMER:
     case PID_ONEHAND_ROCKET_LAUNCHER:
     case PID_AUTOGUN_LOW:
     case PID_SAWGUN_LOW:
@@ -245,7 +274,7 @@ bool TryRepairItem( Critter& cr, Item& item ) // Export
         repair -= 30;
 		tools.insertLast( PID_WORKBENCH_TOKEN );
 		tools.insertLast( PID_MULTI_TOOL );
-		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 1 );		
+		parts.insertLast( PID_CRAFT_M_JUNK ); parts.insertLast( 2 );		
 		parts.insertLast( PID_CRAFT_M_BARS ); parts.insertLast( 2 );
 		parts.insertLast( PID_DETAL_MEH ); parts.insertLast( 1 );
         break;
