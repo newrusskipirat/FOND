@@ -23,6 +23,8 @@
 #define PID_BLACK_COMBAT_ARMOR                ( 547 )
 #define PID_MIRELURK_ARMOR                    ( 586 )
 #define PID_MANTIS_ARMOUR                     ( 1457 )
+#define PID_GAYARMOR                          ( 951 ) //ЅЅ-шка син€€
+#define PID_GAYOUTFIT                         ( 1468 ) //ЅЅ-шка син€€, но со статами как от кожанки. ’отели вырезать наверно.
 
 // Heavy
 #define PID_POWERED_ARMOR                     ( 3 )
