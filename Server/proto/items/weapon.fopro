@@ -240,6 +240,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=68
 Weapon_SoundId_1=68
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=10
@@ -274,9 +275,10 @@ Weapon_DmgMin_0=32
 Weapon_DmgMax_0=44
 Weapon_MaxDist_0=40
 Weapon_Round_0=1
-Weapon_ApCost_0=5
+Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=75
 
 [Proto]
 ProtoId=11
@@ -306,12 +308,13 @@ Weapon_Anim2_0=Anim2Flame
 Weapon_PicUse_0=art\intrface\uset.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=45
-Weapon_DmgMax_0=90
+Weapon_DmgMin_0=30
+Weapon_DmgMax_0=60
 Weapon_MaxDist_0=5
 Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=73
+Weapon_HearRadius=10
 
 [Proto]
 ProtoId=12
@@ -452,14 +455,15 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=30
-Weapon_DmgMax_0=52
+Weapon_DmgMin_0=20
+Weapon_DmgMax_0=42
 Weapon_Effect_0=4009
 Weapon_MaxDist_0=35
 Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=18
@@ -496,6 +500,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=19
@@ -636,9 +641,10 @@ Weapon_DmgMin_0=32
 Weapon_DmgMax_0=41
 Weapon_MaxDist_0=24
 Weapon_Round_0=1
-Weapon_ApCost_0=5
+Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=75
 
 [Proto]
 ProtoId=23
@@ -671,9 +677,9 @@ Weapon_Anim2_1=Anim2Burst
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\burst.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=8
+Weapon_DmgMin_0=13
 Weapon_DmgMin_1=8
-Weapon_DmgMax_0=16
+Weapon_DmgMax_0=21
 Weapon_DmgMax_1=16
 Weapon_MaxDist_0=45
 Weapon_MaxDist_1=38
@@ -684,6 +690,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=35
 
 [Proto]
 ProtoId=24
@@ -750,8 +757,8 @@ Weapon_Remove_0=1
 Weapon_PicUse_0=art\intrface\throw.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=20
-Weapon_DmgMax_0=35
+Weapon_DmgMin_0=30
+Weapon_DmgMax_0=45
 Weapon_Effect_0=4025
 Weapon_MaxDist_0=15
 Weapon_ApCost_0=4
@@ -898,7 +905,7 @@ Weapon_DmgMax_1=15
 Weapon_Effect_0=4006
 Weapon_MaxDist_0=16
 Weapon_MaxDist_1=1
-Weapon_ApCost_0=5
+Weapon_ApCost_0=4
 Weapon_ApCost_1=4
 Weapon_Aim_0=1
 Weapon_Aim_1=1
@@ -984,6 +991,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=45
 
 [Proto]
 ProtoId=115
@@ -1184,6 +1192,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
+Weapon_HearRadius=35
 
 [Proto]
 ProtoId=143
@@ -1221,6 +1230,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=75
 
 [Proto]
 ProtoId=159
@@ -1336,6 +1346,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=85
+Weapon_HearRadius=5
 
 [Proto]
 ProtoId=162
@@ -1373,6 +1384,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=85
+Weapon_HearRadius=5
 
 [Proto]
 ProtoId=205
@@ -1542,10 +1554,10 @@ Weapon_Anim2_1=Anim2Thrust1H
 Weapon_PicUse_0=art\intrface\swing.frm
 Weapon_PicUse_1=art\intrface\thrust.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=5
-Weapon_DmgMin_1=3
-Weapon_DmgMax_0=15
-Weapon_DmgMax_1=10
+Weapon_DmgMin_0=10
+Weapon_DmgMin_1=10
+Weapon_DmgMax_0=20
+Weapon_DmgMax_1=20
 Weapon_MaxDist_0=1
 Weapon_MaxDist_1=1
 Weapon_ApCost_0=3
@@ -1717,6 +1729,8 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=5
+
 
 [Proto]
 ProtoId=270
@@ -1838,6 +1852,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=287
@@ -1875,6 +1890,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=65
 
 [Proto]
 ProtoId=290
@@ -2041,6 +2057,7 @@ Weapon_ApCost_1=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=299
@@ -2077,6 +2094,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=300
@@ -2113,6 +2131,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=86
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=313
@@ -2148,9 +2167,10 @@ Weapon_DmgMin_0=28
 Weapon_DmgMax_0=35
 Weapon_MaxDist_0=15
 Weapon_Round_0=1
-Weapon_ApCost_0=4
+Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=319
@@ -2220,10 +2240,10 @@ Weapon_Remove_1=1
 Weapon_PicUse_0=art\intrface\thrust.frm
 Weapon_PicUse_1=art\intrface\throw.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=2
-Weapon_DmgMin_1=5
-Weapon_DmgMax_0=4
-Weapon_DmgMax_1=10
+Weapon_DmgMin_0=3
+Weapon_DmgMin_1=6
+Weapon_DmgMax_0=5
+Weapon_DmgMax_1=12
 Weapon_Effect_0=4007
 Weapon_Effect_1=4007
 Weapon_MaxDist_0=2
@@ -2278,6 +2298,7 @@ Weapon_ApCost_1=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=68
 Weapon_SoundId_1=68
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=350
@@ -2313,6 +2334,7 @@ Weapon_MaxDist_0=35
 Weapon_Round_0=15
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
+Weapon_HearRadius=60
 
 [Proto]
 ProtoId=351
@@ -2357,6 +2379,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=352
@@ -2401,6 +2424,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=353
@@ -2445,6 +2469,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=354
@@ -2490,6 +2515,8 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=50
+
 
 [Proto]
 ProtoId=355
@@ -2525,6 +2552,7 @@ Weapon_MaxDist_0=40
 Weapon_Round_0=10
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=365
@@ -2693,8 +2721,8 @@ Weapon_Anim2_0=Anim2Swing1H
 Weapon_PicUse_0=art\intrface\swing.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=3
-Weapon_DmgMax_0=6
+Weapon_DmgMin_0=6
+Weapon_DmgMax_0=15
 Weapon_MaxDist_0=1
 Weapon_ApCost_0=3
 Weapon_Aim_0=1
@@ -2746,6 +2774,7 @@ Weapon_ApCost_1=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=386
@@ -2773,8 +2802,8 @@ Weapon_Anim2_0=Anim2Swing1H
 Weapon_PicUse_0=art\intrface\swing.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=3
-Weapon_DmgMax_0=15
+Weapon_DmgMin_0=6
+Weapon_DmgMax_0=20
 Weapon_MaxDist_0=1
 Weapon_ApCost_0=3
 Weapon_Aim_0=1
@@ -2814,6 +2843,7 @@ Weapon_MaxDist_0=35
 Weapon_Round_0=5
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=388
@@ -2886,6 +2916,7 @@ Weapon_MaxDist_0=40
 Weapon_Round_0=40
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=390
@@ -2922,6 +2953,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=391
@@ -2966,6 +2998,8 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
+
 
 [Proto]
 ProtoId=392
@@ -3003,6 +3037,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=87
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=393
@@ -3041,6 +3076,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=394
@@ -3078,6 +3114,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=89
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=395
@@ -3113,6 +3150,7 @@ Weapon_MaxDist_0=30
 Weapon_Round_0=25
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=396
@@ -3151,6 +3189,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=48
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=397
@@ -3188,6 +3227,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=88
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=398
@@ -3222,9 +3262,10 @@ Weapon_DmgMin_0=22
 Weapon_DmgMax_0=31
 Weapon_MaxDist_0=20
 Weapon_Round_0=1
-Weapon_ApCost_0=4
+Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=399
@@ -3307,6 +3348,7 @@ Weapon_MaxDist_0=5
 Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=73
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=401
@@ -3345,6 +3387,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=74
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=402
@@ -3383,6 +3426,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=403
@@ -3428,6 +3472,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=404
@@ -3464,6 +3509,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
+Weapon_HearRadius=45
 
 [Proto]
 ProtoId=405
@@ -3509,6 +3555,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=406
@@ -3546,6 +3593,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=70
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=407
@@ -3619,6 +3667,7 @@ Weapon_Effect_0=4025
 Weapon_MaxDist_0=20
 Weapon_ApCost_0=4
 Weapon_SoundId_0=80
+Weapon_HearRadius=500
 
 [Proto]
 ProtoId=423
@@ -3953,6 +4002,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=517
@@ -4092,10 +4142,10 @@ Weapon_Anim2_1=Anim2Thrust1H
 Weapon_PicUse_0=art\intrface\swing.frm
 Weapon_PicUse_1=art\intrface\thrust.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=4
-Weapon_DmgMin_1=4
-Weapon_DmgMax_0=15
-Weapon_DmgMax_1=12
+Weapon_DmgMin_0=10
+Weapon_DmgMin_1=10
+Weapon_DmgMax_0=20
+Weapon_DmgMax_1=20
 Weapon_MaxDist_0=1
 Weapon_MaxDist_1=1
 Weapon_ApCost_0=3
@@ -4266,6 +4316,7 @@ Weapon_ApCost_1=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
 Weapon_SoundId_1=68
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=591
@@ -4295,13 +4346,14 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=22
-Weapon_DmgMax_0=33
+Weapon_DmgMin_0=25
+Weapon_DmgMax_0=35
 Weapon_MaxDist_0=30
 Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=594
@@ -4509,6 +4561,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=74
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=650
@@ -4582,6 +4635,7 @@ Weapon_Effect_0=4025
 Weapon_MaxDist_0=18
 Weapon_ApCost_0=4
 Weapon_SoundId_0=79
+Weapon_HearRadius=10
 
 [Proto]
 ProtoId=939
@@ -4610,8 +4664,8 @@ Weapon_Remove_0=1
 Weapon_PicUse_0=art\intrface\throw.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=1
-Weapon_DmgMax_0=5
+Weapon_DmgMin_0=2
+Weapon_DmgMax_0=8
 Weapon_Effect_0=4002
 Weapon_MaxDist_0=5
 Weapon_ApCost_0=5
@@ -4653,6 +4707,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=8
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1000
@@ -4975,6 +5030,7 @@ Weapon_MaxDist_0=32
 Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=78
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1037
@@ -5018,6 +5074,7 @@ Weapon_ApCost_0=5
 Weapon_ApCost_1=5
 Weapon_SoundId_0=78
 Weapon_SoundId_1=78
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1039
@@ -5063,6 +5120,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1040
@@ -5101,6 +5159,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=45
 
 [Proto]
 ProtoId=1041
@@ -5139,6 +5198,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=70
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1042
@@ -5250,9 +5310,9 @@ Weapon_Remove_0=1
 Weapon_PicUse_0=art\intrface\throw.frm
 Weapon_PicUse_1=art\intrface\swing.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=3
+Weapon_DmgMin_0=5
 Weapon_DmgMin_1=3
-Weapon_DmgMax_0=6
+Weapon_DmgMax_0=10
 Weapon_DmgMax_1=6
 Weapon_Effect_0=4006
 Weapon_MaxDist_0=16
@@ -5348,6 +5408,7 @@ Weapon_ApCost_0=5
 Weapon_ApCost_1=3
 Weapon_SoundId_0=36
 Weapon_SoundId_1=48
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=1401
@@ -5377,12 +5438,13 @@ Weapon_Anim2_0=Anim2Burst
 Weapon_PicUse_0=art\intrface\burst.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=15
+Weapon_DmgMin_0=16
 Weapon_DmgMax_0=26
 Weapon_MaxDist_0=25
 Weapon_Round_0=7
 Weapon_ApCost_0=7
 Weapon_SoundId_0=76
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1402
@@ -5427,6 +5489,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1403
@@ -5457,13 +5520,14 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=23
+Weapon_DmgMin_0=25
 Weapon_DmgMax_0=45
 Weapon_MaxDist_0=45
 Weapon_Round_0=1
 Weapon_ApCost_0=7
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=60
 
 [Proto]
 ProtoId=1404
@@ -5509,6 +5573,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=64
 Weapon_SoundId_1=64
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=1405
@@ -5554,6 +5619,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1406
@@ -5592,6 +5658,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1407
@@ -5628,6 +5695,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=86
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1408
@@ -5664,6 +5732,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=66
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1409
@@ -5693,8 +5762,8 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=25
-Weapon_DmgMax_0=41
+Weapon_DmgMin_0=30
+Weapon_DmgMax_0=50
 Weapon_MaxDist_0=15
 Weapon_MaxDist_1=15
 Weapon_Round_0=1
@@ -5702,6 +5771,7 @@ Weapon_ApCost_0=5
 Weapon_ApCost_1=6
 Weapon_SoundId_0=82
 Weapon_SoundId_1=82
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=1410
@@ -5737,6 +5807,7 @@ Weapon_MaxDist_0=30
 Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=82
+Weapon_HearRadius=55
 
 [Proto]
 ProtoId=1411
@@ -5808,13 +5879,14 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=23
-Weapon_DmgMax_0=26
+Weapon_DmgMin_0=26
+Weapon_DmgMax_0=29
 Weapon_MaxDist_0=25
 Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=10
 
 [Proto]
 ProtoId=1413
@@ -5937,6 +6009,8 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=82
+Weapon_HearRadius=55
+
 
 [Proto]
 ProtoId=1416
@@ -5973,6 +6047,7 @@ Weapon_MaxDist_0=35
 Weapon_Round_0=5
 Weapon_ApCost_0=8
 Weapon_SoundId_0=76
+Weapon_HearRadius=10
 
 [Proto]
 ProtoId=1417
@@ -6111,10 +6186,10 @@ Weapon_Anim2_1=Anim2Throw
 Weapon_PicUse_0=art\intrface\punch.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=3
-Weapon_DmgMin_1=2
-Weapon_DmgMax_0=7
-Weapon_DmgMax_1=8
+Weapon_DmgMin_0=5
+Weapon_DmgMin_1=4
+Weapon_DmgMax_0=9
+Weapon_DmgMax_1=10
 Weapon_MaxDist_0=1
 Weapon_MaxDist_1=2
 Weapon_ApCost_0=3
@@ -6149,8 +6224,8 @@ Weapon_Anim2_0=Anim2Swing1H
 Weapon_PicUse_0=art\intrface\swing.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=3
-Weapon_DmgMax_0=7
+Weapon_DmgMin_0=5
+Weapon_DmgMax_0=10
 Weapon_MaxDist_0=1
 Weapon_ApCost_0=4
 Weapon_Aim_0=1
@@ -6198,6 +6273,7 @@ Weapon_ApCost_0=5
 Weapon_ApCost_1=7
 Weapon_SoundId_0=72
 Weapon_SoundId_1=72
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=1423
@@ -6361,9 +6437,9 @@ Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\burst.frm
 Weapon_PicUse_2=art\intrface\blank.frm
 Weapon_DmgMin_0=10
-Weapon_DmgMin_1=16
+Weapon_DmgMin_1=10
 Weapon_DmgMax_0=25
-Weapon_DmgMax_1=22
+Weapon_DmgMax_1=25
 Weapon_Effect_0=4007
 Weapon_MaxDist_0=20
 Weapon_MaxDist_1=15
@@ -6374,6 +6450,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=56
 Weapon_SoundId_1=56
+Weapon_HearRadius=8
 
 [Proto]
 ProtoId=1428
@@ -6406,9 +6483,9 @@ Weapon_Anim2_1=Anim2Burst
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\burst.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=19
+Weapon_DmgMin_0=16
 Weapon_DmgMin_1=16
-Weapon_DmgMax_0=28
+Weapon_DmgMax_0=22
 Weapon_DmgMax_1=22
 Weapon_Effect_0=4007
 Weapon_MaxDist_0=25
@@ -6420,6 +6497,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=56
 Weapon_SoundId_1=56
+Weapon_HearRadius=8
 
 [Proto]
 ProtoId=1429
@@ -6491,14 +6569,15 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=22
-Weapon_DmgMax_0=38
+Weapon_DmgMin_0=25
+Weapon_DmgMax_0=45
 Weapon_Effect_0=4051
 Weapon_MaxDist_0=30
 Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=1521
@@ -6528,14 +6607,15 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=25
-Weapon_DmgMax_0=40
+Weapon_DmgMin_0=29
+Weapon_DmgMax_0=49
 Weapon_Effect_0=4051
 Weapon_MaxDist_0=35
 Weapon_Round_0=1
-Weapon_ApCost_0=5
+Weapon_ApCost_0=1
 Weapon_Aim_0=1
 Weapon_SoundId_0=67
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=1522
@@ -6654,6 +6734,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
+Weapon_HearRadius=40
 
 [Proto]
 ProtoId=1532
@@ -6847,6 +6928,7 @@ Weapon_Aim_0=1
 Weapon_Aim_1=1
 Weapon_SoundId_0=64
 Weapon_SoundId_1=64
+Weapon_HearRadius=30
 
 [Proto]
 ProtoId=3983
@@ -6937,6 +7019,7 @@ Weapon_ApCost_1=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=72
 Weapon_SoundId_1=82
+Weapon_HearRadius=50
 
 [Proto]
 ProtoId=3985
@@ -6946,7 +7029,7 @@ PicInv=art\inven\low_strange_rifle.png
 Flags=134217886
 DisableEgg=1
 Deteriorable=1
-Weight=7328
+Weight=5328
 Volume=5
 SoundId=48
 Cost=260
@@ -6954,7 +7037,7 @@ Material=1
 Weapon_Anim1=10
 Weapon_MaxAmmoCount=1
 Weapon_Caliber=5
-Weapon_DefaultAmmoPid=1432
+Weapon_DefaultAmmoPid=1434
 Weapon_MinStrength=6
 Weapon_Perk=3
 Weapon_ActiveUses=1
@@ -6967,13 +7050,14 @@ Weapon_Anim2_0=Anim2Single
 Weapon_PicUse_0=art\intrface\single.frm
 Weapon_PicUse_1=art\intrface\blank.frm
 Weapon_PicUse_2=art\intrface\blank.frm
-Weapon_DmgMin_0=25
-Weapon_DmgMax_0=38
+Weapon_DmgMin_0=35
+Weapon_DmgMax_0=50
 Weapon_MaxDist_0=45
 Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_Aim_0=1
 Weapon_SoundId_0=71
+Weapon_HearRadius=65
 
 [Proto]
 ProtoId=20000
