@@ -45,7 +45,7 @@ Stackable=1
 Weight=907
 Volume=1
 SoundId=48
-Cost=20
+Cost=25
 Material=5
 
 [Proto]
@@ -370,7 +370,7 @@ Stackable=1
 Weight=1700
 Volume=1
 SoundId=48
-Cost=40
+Cost=30
 Material=1
 
 [Proto]
@@ -956,10 +956,10 @@ PicInv=art\inven\cat.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=453
+Weight=121
 Volume=1
 SoundId=48
-Cost=5
+Cost=100
 Material=7
 
 [Proto]
@@ -970,7 +970,7 @@ PicInv=art\inven\chef.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=453
+Weight=121
 Volume=1
 SoundId=48
 Cost=35
@@ -998,10 +998,10 @@ PicInv=art\inven\natr.frm
 Flags=402653214
 DisableEgg=1
 Stackable=1
-Weight=907
+Weight=95
 Volume=1
 SoundId=48
-Cost=200
+Cost=500
 Material=1
 
 [Proto]
@@ -1015,7 +1015,7 @@ Stackable=1
 Weight=453
 Volume=1
 SoundId=48
-Cost=150
+Cost=900
 Material=1
 
 [Proto]
@@ -1056,7 +1056,7 @@ Stackable=1
 Weight=2267
 Volume=1
 SoundId=48
-Cost=100
+Cost=750
 Material=1
 
 [Proto]
@@ -1081,8 +1081,8 @@ PicInv=art\inven\annabone.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=4535
-Volume=1
+Weight=9521
+Volume=20
 SoundId=48
 Material=5
 
@@ -1097,6 +1097,7 @@ Stackable=1
 Weight=453
 Volume=1
 SoundId=48
+Cost=500
 Material=1
 
 [Proto]
@@ -1159,9 +1160,10 @@ PicInv=art\inven\goldwatc.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=453
+Weight=121
 Volume=1
 SoundId=48
+Cost=750
 Material=1
 
 [Proto]
@@ -1177,7 +1179,7 @@ Volume=2
 SoundId=48
 Material=1
 
-[Proto]  # Резиновые сапоги
+[Proto]  # резиновые сапоги
 ProtoId=262
 Type=5
 PicMap=art\items\rubrboot.png
@@ -1198,7 +1200,7 @@ PicInv=art\inven\slagmess.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=453
+Weight=24
 Volume=1
 SoundId=48
 Material=1
@@ -1224,9 +1226,10 @@ PicInv=art\inven\vicradio.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=2267
+Weight=361
 Volume=1
 SoundId=48
+Cost=275
 Material=1
 
 [Proto]
@@ -1237,9 +1240,10 @@ PicInv=art\inven\vicwatrf.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=907
+Weight=456
 Volume=1
 SoundId=48
+Cost=100
 Material=1
 
 [Proto]
@@ -1289,7 +1293,7 @@ PicInv=art\inven\trophy.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=4535
+Weight=2535
 Volume=1
 SoundId=48
 Cost=2000
@@ -2752,7 +2756,7 @@ PicInv=art\inven\metal_trash.frm
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=400
+Weight=350
 Volume=1
 SoundId=48
 Cost=25
@@ -5830,10 +5834,10 @@ PicInv=art\inven\techJunk01.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=1950
+Weight=1221
 Volume=1
 SoundId=48
-Cost=15
+Cost=25
 Material=1
 
 [Proto]
@@ -5844,10 +5848,10 @@ PicInv=art\inven\techJunk03.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=790
+Weight=690
 Volume=1
 SoundId=48
-Cost=35
+Cost=40
 Material=1
 
 [Proto]
@@ -5858,10 +5862,10 @@ PicInv=art\inven\techJunk04.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=1420
+Weight=521
 Volume=1
 SoundId=48
-Cost=10
+Cost=15
 Material=1
 
 [Proto]
@@ -5872,10 +5876,10 @@ PicInv=art\inven\techJunk05.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=3620
+Weight=1620
 Volume=1
 SoundId=48
-Cost=20
+Cost=25
 Material=1
 
 [Proto]
@@ -5886,10 +5890,10 @@ PicInv=art\inven\techJunk06.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=1150
+Weight=942
 Volume=1
 SoundId=48
-Cost=30
+Cost=35
 Material=1
 
 [Proto]
@@ -5914,7 +5918,7 @@ PicInv=art\inven\scrapMetal02.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=3200
+Weight=1500
 Volume=1
 SoundId=48
 Cost=15
@@ -5928,10 +5932,10 @@ PicInv=art\inven\scrapMetal03.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=890
+Weight=121
 Volume=1
 SoundId=48
-Cost=25
+Cost=15
 Material=1
 
 [Proto]
@@ -5943,7 +5947,7 @@ Flags=134217758
 DisableEgg=1
 Stackable=1
 Weight=75
-Volume=1
+Volume=0
 SoundId=48
 Cost=130
 Material=1
@@ -5970,7 +5974,7 @@ PicInv=art\inven\hide.png
 Flags=134217758
 DisableEgg=1
 Stackable=1
-Weight=450
+Weight=250
 Volume=1
 SoundId=48
 Cost=15
