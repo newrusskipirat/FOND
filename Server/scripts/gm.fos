@@ -4392,13 +4392,14 @@ void answer_GM_PANNEL_ITEM( Critter& player, uint answerI, string& answerS )
 	
 		case 1:
 		{
-			player.ShowScreen( SCREEN_DIALOGBOX, 5, "answer_GM_PANNEL_ITEM_SCRIPT" );
+			player.ShowScreen( SCREEN_DIALOGBOX, 6, "answer_GM_PANNEL_ITEM_SCRIPT" );
 			player.Say( SAY_DIALOGBOX_TEXT, "Предмет, protoID =" + item.GetProtoId() + ", ид =" + item.Id );
 			player.Say( SAY_DIALOGBOX_BUTTON( 0 ), "верстак");
 			player.Say( SAY_DIALOGBOX_BUTTON( 1 ), "плавильня");
 			player.Say( SAY_DIALOGBOX_BUTTON( 2 ), "монетный пресс");
 			player.Say( SAY_DIALOGBOX_BUTTON( 3 ), "пилорама");
 			player.Say( SAY_DIALOGBOX_BUTTON( 4 ), "токарный станок");
+			player.Say( SAY_DIALOGBOX_BUTTON( 5 ), "Хим.лаборатория");
 		} break;
 	
 		case 2:
@@ -4463,6 +4464,10 @@ void answer_GM_PANNEL_ITEM_SCRIPT( Critter& player, uint answerI, string& answer
 		if( item.GetProtoId() != 157 ) { player.Say( SAY_NETMSG, "Не тот прототип." ); return; }
 		else SetWorkbench( player, item.Id, 0, 0 );
     }
+	if( answerI == 5 ){
+		if( item.GetProtoId () != 16805) { player.Say( SAY_NETMSG, "Не тот прототип." ); return; }
+		else SetWorkbench( player, item.Id, 2, 0 );
+	}
 }
 
 void answer_GM_PANNEL_ITEM_VALS( Critter& player, uint answerI, string& answerS )

@@ -2416,7 +2416,7 @@ void SetWorkbench( Critter& cr, int item_id, int item_type, int p2 )
 {
 	Item@ item = GetItem(item_id);
 	if( !valid( item ) ) return;
-	string[] type_names = {  "_InitWorkBench",  "_InitFurnace",  "_InitCoinPress", "_InitSawmill", "_InitLathe" };
+	string[] type_names = {  "_InitWorkBench",  "_InitFurnace" , "_InitChemLab" ,  "_InitCoinPress", "_InitSawmill", "_InitLathe" };
 	if( uint( item_type ) >= type_names.length() ) {
 		cr.Say( SAY_NETMSG, "Не так." );
 		return;
@@ -2429,6 +2429,28 @@ void _InitWorkBench( Item& item, bool firstTime )
 {
     item.SetEvent( ITEM_EVENT_SKILL, "e_WorkBenchPick" );
     item.SetEvent( ITEM_EVENT_USE_ON_ME, "e_WorkBenchCloneKey" );	
+}
+
+void _InitChemLab ( Item& item, bool firstTime)
+{
+	item.SetEvent( ITEM_EVENT_SKILL, "e_ChemLabPick" );
+}
+
+bool e_ChemLabPick( Item& item, Critter& cr, int skill )
+{
+    if( ( skill == SKILL_PICK_ON_GROUND ) && ( item.Accessory == ACCESSORY_HEX ) )
+    {
+        Item@ Workplace;
+        @Workplace = cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK );
+        if( !valid( Workplace ) ) {
+			@Workplace = cr.GetMap().AddItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK, 1 );
+			Workplace.SetScript( "_WorkplaceInit" );
+		}
+		
+		if( cr.CountItem( PID_CHEMLAB_TOKEN ) == 0 ) cr.AddItem( PID_CHEMLAB_TOKEN, 1 );
+		cr.ShowScreen( SCREEN_FIXBOY, 0, "" );
+    }
+    return true;
 }
 
 bool e_WorkBenchCloneKey( Item& item, Critter& crit, Item@ usedItem )
@@ -2611,5 +2633,7 @@ void _WorkplaceWalk( Item& item, Critter& crit, bool entered, uint8 dir )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = crit.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 
+		Item@Token3 = crit.GetItem ( PID_CHEMLAB_TOKEN, -1 );
+		if( valid (Token3)) DeleteItem (Token3);
     }
 }

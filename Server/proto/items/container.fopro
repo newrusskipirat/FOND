@@ -1943,7 +1943,18 @@ Material=1
 Container.ContVolume=5000
 Container.Changeble=1
 
-
+[Proto]
+Pid=16805
+Type=8
+PicMapName=art\inven\ChemLab.png
+PicInvName=art\inven\reserved.frm
+Flags=268439580
+DisableEgg=1
+Weight=4535
+Volume=1
+SoundId=48
+Material=1
+Container.ContVolume=5000
 
 
 
