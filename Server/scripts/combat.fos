@@ -289,10 +289,11 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
     cr.SetDir( GetDirection( hx, hy, tx, ty ) );
 
     // now we change aim:
-    if( aim == HIT_LOCATION_EYES && valid( cr ) && valid( target ) && (( cr.Dir + 3 ) % 6 != target.Dir || cr.Perk[PE_SNIPER]==0 ))	aim = HIT_LOCATION_HEAD; //erlking no eye attack without sniper perk
+   /* if( aim == HIT_LOCATION_EYES && valid( cr ) && valid( target ) && (( cr.Dir + 3 ) % 6 != target.Dir || cr.Perk[PE_SNIPER]==0 ))	aim = HIT_LOCATION_HEAD; //erlking no eye attack without sniper perk
+	Log( ""+skillVal);*/
 
     // fastshot penalty
-	if( aim == HIT_LOCATION_NONE && !isHthAttack && cr.Trait[ TRAIT_FAST_SHOT ] != 0 ) skillVal*=0.5;
+	if( aim == HIT_LOCATION_NONE && !isHthAttack && cr.Trait[ TRAIT_FAST_SHOT ] != 0 ) skillVal*=0.66;
 
     // now we randomise targeting of uncalled shots:  ErlKing рандомизатор неприцельных атак
     if( ( aim == HIT_LOCATION_NONE || cr.Quest[ QST_GAMEMODE ] == GAME_ARCADE ) && valid( cr ) && valid( target ) && dmgType != DAMAGE_FIRE && dmgType != DAMAGE_EXPLODE )
@@ -591,6 +592,8 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
             toHit *= 0.5;
         else if( aim == HIT_LOCATION_LEFT_ARM || aim == HIT_LOCATION_RIGHT_ARM || aim == HIT_LOCATION_RIGHT_LEG || aim == HIT_LOCATION_LEFT_LEG )
             toHit *= 0.7;
+		else if ( aim == HIT_LOCATION_EYES)
+			toHit = 0;
 
         // block drop
         if( cr.Stat[ ST_BLOCK ] == 2 )
@@ -711,7 +714,8 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
     // cr.Action(ACTION_USE_WEAPON,(((!isHit && isCritical && !hitRandomly)?1:0)<<8)|(aim<<4)|((weapPid>=1000 && weapPid<1040)?((weapon.Weapon_Anim2==18)?1:0):(weapon.Weapon_CurrentUse)),realWeapon);
     // ниже из нового сдк, там фикс сделан по другому
     cr.Action( ACTION_USE_WEAPON, ( ( ( !isHit && isCritical && !hitRandomly ) ? 1 : 0 ) << 8 ) | ( aim << 4 ) | use, realWeapon );
-
+	
+	//if( aim == HIT_LOCATION_EYES )   {NotifyMiss( cr, results ); return;}
     // //////////////////////////////////////////////////////////////
     // animations are now played, and we're updating the hit randomly status now
     bool changedTarget = ( hitRandomly && ( @realTarget != null ) );
@@ -728,6 +732,7 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
 
     if( isHthAttack )                                                                                                                                // UNARMED AND MELEE ATTACK
     {
+		if( aim == HIT_LOCATION_EYES )   {isHit = false; NotifyMiss( cr, results ); return;}
         if( isHit )
         {
             int crDir = cr.Dir;
@@ -746,7 +751,7 @@ void CombatAttack( Critter& cr, Critter@ target, ProtoItem& weapon, uint8 weapon
     }
     else if( ( weaponSubtype == WS_GUN ) && !isBurst && !isRocket && !isFlamethrower )  // single shot, normal //split if pm
     {
-
+		if( aim == HIT_LOCATION_EYES )   {isHit = false;}
         // if(!isBurst)
         // {
         if( isHit || changedTarget )
@@ -2080,7 +2085,7 @@ void ApplyDamage( AttackStruct& attack, Critter& target, uint rounds, bool isCri
 					PID_SNIPER_GUN_LOW, PID_LOW_SNIPER2, PID_SAWGUN_LOW, PID_SHOTGUN, PID_SAWED_OFF_SHOTGUN, PID_SHOTPISTOL_LOW, PID_QUADRO_SHOTGUN
 					};
 					if( bleed_weapon.find( attack.WeaponPid ) != -1 )
-					ChangeStatus( target, CR_STATUS_BLEED, totalDmg / 1.5 , true ); //кровотечение, равное 2/3 от входящего урона.
+					ChangeStatus( target, CR_STATUS_BLEED, totalDmg  , true ); //кровотечение, равное  входящему урону.
 				}
 			}
 		}
