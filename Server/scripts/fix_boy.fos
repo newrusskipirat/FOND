@@ -2,6 +2,7 @@
 #include "_macros.fos"
 
 import void AffectRadiation( Critter& cr, int value ) from "radiation";
+import void AffectPoison( Critter& cr, int value ) from "poison";
 
 #define FIX_SUCCESS    ( FIXBOY_DEFAULT )
 #define FIX_TIMEOUT    ( FIXBOY_DEFAULT ^ FIXBOY_SET_TIMEOUT )
@@ -63,6 +64,8 @@ int fix_Cooking( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_FIREPLACE_TOKEN, 1 );
@@ -84,6 +87,8 @@ int fix_Repair( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
@@ -104,7 +109,9 @@ int fix_Science( Critter& cr, int state, CraftItem& craft )
 	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
-        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        if( valid( Token2 )) DeleteItem( Token2 );
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
@@ -126,7 +133,9 @@ int fix_Advanced( Critter& cr, int state, CraftItem& craft )
 	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
-        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        if( valid( Token2 )) DeleteItem( Token2 ); 	
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
@@ -148,7 +157,9 @@ int fix_HighTech( Critter& cr, int state, CraftItem& craft )
 	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
-        if( valid( Token2 )) DeleteItem( Token2 ); 		
+        if( valid( Token2 )) DeleteItem( Token2 );
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 ); 		
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
@@ -171,12 +182,39 @@ int fix_Science2( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
         cr.TimeoutBase[ TO_SK_REPAIR ] = HITECH_TO;
         cr.TimeoutBase[ TO_SK_SCIENCE ] = HITECH_TO;
         AffectRadiation( cr, 100 * 100 ); //Чувствительность увеличена стократно (1.00 раньше == 100 рад теперь ), но ребаланс не делаю!
+        return FIX_TIMEOUT;
+    }
+    return FIXBOY_DEFAULT;
+}
+
+//Наука, токсичный крафт
+int fix_Science3( Critter& cr, int state, CraftItem& craft )
+{
+    if( state == FIXBOY_CRAFT )
+    {
+		cr.Say( SAY_EMOTE, "что-то делает" );
+        if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
+		{
+	    Item@Token = cr.GetItem( PID_WORKBENCH_TOKEN, -1 );
+        if( valid( Token )) DeleteItem( Token );
+	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
+        if( valid( Token2 )) DeleteItem( Token2 ); 		
+		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		if ( valid( Token3)) DeleteItem( Token3 );
+        return FIX_FAIL;
+		}	
+		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
+        cr.TimeoutBase[ TO_SK_REPAIR ] = HITECH_TO;
+        cr.TimeoutBase[ TO_SK_SCIENCE ] = HITECH_TO;
+        AffectPoison( cr, 100 ); 
         return FIX_TIMEOUT;
     }
     return FIXBOY_DEFAULT;
