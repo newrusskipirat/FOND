@@ -64,7 +64,7 @@ int fix_Cooking( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
@@ -87,7 +87,7 @@ int fix_Repair( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
@@ -110,7 +110,7 @@ int fix_Science( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 );
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
@@ -134,7 +134,7 @@ int fix_Advanced( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 	
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
@@ -158,7 +158,7 @@ int fix_HighTech( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 );
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 ); 		
         return FIX_FAIL;
 		}	
@@ -182,7 +182,7 @@ int fix_Science2( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
@@ -200,6 +200,7 @@ int fix_Science3( Critter& cr, int state, CraftItem& craft )
 {
     if( state == FIXBOY_CRAFT )
     {
+	    cr.Say( SAY_NETMSG, "Во время работы с химической лабораторией вы надышались парами химикатов" );
 		cr.Say( SAY_EMOTE, "что-то делает" );
         if( !valid(cr.GetMap().GetItem( cr.HexX, cr.HexY, PID_GRAPPLE_HOOK ) ))
 		{
@@ -207,14 +208,14 @@ int fix_Science3( Critter& cr, int state, CraftItem& craft )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = cr.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 		
-		Item@Token3 = cr.GetItem( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = cr.GetItem( PID_LAB_TOKEN, -1 );
 		if ( valid( Token3)) DeleteItem( Token3 );
         return FIX_FAIL;
 		}	
 		cr.AddItem( PID_WORKBENCH_TOKEN, 1 );
         cr.TimeoutBase[ TO_SK_REPAIR ] = HITECH_TO;
         cr.TimeoutBase[ TO_SK_SCIENCE ] = HITECH_TO;
-        AffectPoison( cr, 100 ); 
+        AffectPoison( cr, 100 );
         return FIX_TIMEOUT;
     }
     return FIXBOY_DEFAULT;

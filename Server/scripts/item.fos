@@ -2447,7 +2447,7 @@ bool e_ChemLabPick( Item& item, Critter& cr, int skill )
 			Workplace.SetScript( "_WorkplaceInit" );
 		}
 		
-		if( cr.CountItem( PID_CHEMLAB_TOKEN ) == 0 ) cr.AddItem( PID_CHEMLAB_TOKEN, 1 );
+		if( cr.CountItem( PID_LAB_TOKEN ) == 0 ) cr.AddItem( PID_LAB_TOKEN, 1 );
 		cr.ShowScreen( SCREEN_FIXBOY, 0, "" );
     }
     return true;
@@ -2633,7 +2633,7 @@ void _WorkplaceWalk( Item& item, Critter& crit, bool entered, uint8 dir )
         if( valid( Token )) DeleteItem( Token );
 	    Item@Token2 = crit.GetItem( PID_FIREPLACE_TOKEN, -1 );
         if( valid( Token2 )) DeleteItem( Token2 ); 
-		Item@Token3 = crit.GetItem ( PID_CHEMLAB_TOKEN, -1 );
+		Item@Token3 = crit.GetItem ( PID_LAB_TOKEN, -1 );
 		if( valid (Token3)) DeleteItem (Token3);
     }
 }

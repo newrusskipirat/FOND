@@ -7316,6 +7316,18 @@ Volume=1
 SoundId=48
 Cost=375
 
+[Proto] # {’окен химической лаборатории}
+ProtoId=4065
+Type=5
+ScriptModule=item
+ScriptFunc=_InitToken
+PicMap=art\items\smalbox2.frm
+PicInv=art\inven\ChemLab.png
+Flags=1572894
+DisableEgg=1
+Stackable=1
+SoundId=48
+
 [Proto]
 ProtoId=7900
 Type=5
@@ -7786,15 +7798,3 @@ Flags=24
 DisableEgg=1
 SoundId=48
 Material=3
-
-[Proto] # {’окен химической лаборатории}
-ProtoId=16804
-Type=5
-ScriptModule=item
-ScriptFunc=_InitToken
-PicMap=art\items\smalbox2.frm
-PicInv=art\inven\ChemLab.png
-Flags=1572894
-DisableEgg=1
-Stackable=1
-SoundId=48

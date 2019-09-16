@@ -1078,8 +1078,8 @@
 #define PID_COINPRESS_TOKEN				 	  ( 4062 )
 #define PID_SAWMILL_TOKEN				 	  ( 4063 )
 #define PID_LATHE_TOKEN					 	  ( 4064 )
+#define PID_LAB_TOKEN                         ( 4065 ) //токен химлабы
 #define PID_cigarette                         ( 22050 )   					// Сигарета
-#define PID_CHEMLAB_TOKEN 					  ( 16804 ) //токен химлабы
 
 
 /******************************************************************
