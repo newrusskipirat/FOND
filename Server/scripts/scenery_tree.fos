@@ -3,7 +3,7 @@
 #include "_macros.fos"
 
 import void InjureCritter( Critter& cr, uint dmg, uint dmgType, uint8 dir, uint attackerId ) from "combat";
-
+import Item@ getPopup( Critter& player ) from "popups";
 // Использование топора на дереве ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Проверяет сценери на то, является ли объект деревом.
@@ -68,11 +68,21 @@ bool UseAxeOnTree(Critter@ cr, uint16 hX, uint16 hY, uint16 pid){
         Log( "Critter is not valid."       );
         return false;
     }
-    /*if( not valid( tree ) )
+	
+	if( valid( getPopup(cr) ) )
+	{
+		cr.Say( SAY_NETMSG, "Тут уже ничего не осталось." );
+		return true;
+	}
+	
+   /*if( not valid( tree ) )
     {
         Log( "Scenery (tree) is not valid." );
         return false;
     }*/
+	
+	cr.Say( SAY_EMOTE_ON_HEAD, "рубит дерево" );
+	
     bool  damArmL = cr.Damage[ DAMAGE_LEFT_ARM ] != 0;
     bool  damArmR = cr.Damage[ DAMAGE_RIGHT_ARM ] != 0;
     bool  damLegL = cr.Damage[ DAMAGE_LEFT_LEG ] != 0;
@@ -157,6 +167,15 @@ bool UseAxeOnTree(Critter@ cr, uint16 hX, uint16 hY, uint16 pid){
         uint32     itemsWeight = cr.ItemsWeight();
         uint32     carryWeight = cr.Stat[ ST_CARRY_WEIGHT ];
         count = Random( 1, count );
+		
+		Item@ holder = map.AddItem( cr.HexX, cr.HexY, PID_POPUP, 1 );
+		if( valid(holder) )
+		{
+			uint[] values = { holder.Id };
+			holder.Val3 = CreateTimeEvent( __FullSecond + REAL_SECOND( 24 ), "e_clearPlace", values, true );
+		}			
+		
+		
         // Криттер может утащить все дрова.
         if( cr.ItemsWeight() + proto.Weight * count <= carryWeight )
         {
@@ -201,5 +220,14 @@ bool UseAxeOnTree(Critter@ cr, uint16 hX, uint16 hY, uint16 pid){
 		string[] action = { "Вам не кажется, что тут осталось что-либо полезное.", "Это дерево уже дало все, что могло.", "Вы не видите на этом дереве ничего, что можно было бы срубить.", "Попытка нарубить немного дров успехом не увенчалась.", "Вы промазали топором по суку. Бывает.", "Вы хорошенько врезали топором по стволу, но мгновенного результата нет."};
 		cr.Say( SAY_NETMSG, action[Random(0,action.length()-1)] );
 	}
-    return false;
+    return true;
+}
+
+
+uint e_clearPlace( uint[] @ values )
+{
+    if( !valid(values) || values.length() != 1 || values[0] == 0 ) return 0;
+	Item@ holder = GetItem( values[0] );
+	if( valid(holder) ) DeleteItem(holder);
+    return 0;
 }
