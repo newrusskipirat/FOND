@@ -303,7 +303,7 @@ bool _StartAdventureGM_talk( Critter& player, Critter& talkCr, bool attach, uint
 	int level = talkCr.StatBase[ST_LEVEL];
 	if(level < 12 ) 
 	{
-		if(isReadyToLvlUp(talkCr)) talkCr.StatBase[ST_EXPERIENCE] = 1000 * LvlProgression(level);
+		if(isReadyToLvlUp(talkCr)) talkCr.StatBase[ST_EXPERIENCE] += 10000;
 		else talkCr.Say(SAY_NETMSG, "Выберите перк!");
 		return false;
 	}
