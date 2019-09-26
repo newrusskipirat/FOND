@@ -999,13 +999,17 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 		cr.Say( SAY_NETMSG, "Ёто была последн€€");}
 		return true;
 	}
-    if( pid == PID_cigarette && cr.CountItem( PID_LIGHTER ) > 0 )
+    if( pid == PID_cigarette )
     {
+		if (cr.CountItem( PID_LIGHTER ) > 0)
+		{
         cr.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_TEXT, STR_CIGARETTES_SMOKE );
 		_SubItem( item, 1 );
-		cr.StatBase[ ST_EXPERIENCE ] += Random( 100, 500 );
+		cr.StatBase[ ST_EXPERIENCE ] += Random( 100, 300 );
 		AffectPoison( cr, Random( 5, 10 ) );
-        return true;
+		}
+		else  cr.Say( SAY_NETMSG, "¬ам нужна зажигалка");
+		return true;
     }
 
     // Mutate
