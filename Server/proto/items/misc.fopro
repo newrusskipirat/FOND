@@ -7678,10 +7678,10 @@ PicInv=art\inven\Zigarette.png
 Flags=402653214
 DisableEgg=1
 Stackable=1
-Weight=10
-Volume=1
+Weight=7
+Volume=0
 SoundId=48
-Cost=15
+Cost=3
 Material=1
 
 
