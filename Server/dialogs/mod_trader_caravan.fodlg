@@ -104,7 +104,7 @@ lang=russ engl
 0 28010 @
 29 29000 None 0 #
 0 29010 #
-0 29020 D _item p PID_REAL_BOTTLE_CAPS > 49 R _item p PID_REAL_BOTTLE_CAPS - 50 R _item p PID_MEAT + 1 &
+0 29020 D _item p PID_REAL_BOTTLE_CAPS > 49 R _item p PID_REAL_BOTTLE_CAPS - 50 R _item p PID_IGUANA_ON_A_STICK + 1 &
 
 [russ]
 {100}{}{Караванщик}
