@@ -953,6 +953,7 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 			case PID_MEAT_JERKY : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_RAD_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
+			case PID_RAGOUT : critter.SayMsg( SAY_EMOTE_ON_HEAD, "Кушает рагу"); break;
 			default : critter.Say( SAY_EMOTE_ON_HEAD, "Что-то " + (ItemType == ITEM_TYPE_DRUG ? "принимает" : "ест" ) + " [" + pid + "]" ); break;
 		}
 		
