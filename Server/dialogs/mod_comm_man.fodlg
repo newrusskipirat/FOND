@@ -37,7 +37,7 @@ lang=russ engl
 10 8020 @
 16 9000 None 0 #
 18 9010 D _item p PID_JET > 0 D _script dialog@d_TimeoutCheck 1 1 R _item p PID_BOTTLE_CAPS + 100 R _script dialog@r_TimeoutSet 2 1 1 R _param p ST_EXPERIENCE + 200 R _item p PID_JET - 1 #
-18 9020 D _item p PID_KOSYAK > 0 D _script dialog@d_TimeoutCheck 1 1 R _item p PID_BOTTLE_CAPS + 200 R _script dialog@r_TimeoutSet 2 1 1 R _param p ST_EXPERIENCE + 200 R _item p PID_KOSYAK - 1 #
+18 9020 D _item p PID_KOSYAK > 0 D _script dialog@d_TimeoutCheck 1 1 R _script dialog@r_TimeoutSet 2 1 1 R _param p ST_EXPERIENCE + 200 R _item p PID_KOSYAK - 1 R _item p PID_BOTTLE_CAPS + 50 #
 0 9030 @
 17 10000 None 0 #
 0 10010 @
@@ -80,11 +80,11 @@ lang=russ engl
 {8020}{}{Расскажи про другие места работы.}
 {9000}{}{Да, что есть?}
 {9010}{}{Джет 100 монет.}
-{9020}{}{Косяк, 200 монет.}
+{9020}{}{Косяк, 50 монет.}
 {9030}{}{Ничего, я передумал.}
 {10000}{}{Нет, не нужно.}
 {10010}{}{Ладно, ладно.}
-{11000}{}{Отдает деньги, прячет наркотик в карманы.}
+{11000}{}{[Отдает деньги, прячет наркотик в карман.]}
 {11010}{}{Ладно, счастливо.}
 {12000}{}{Бывай.@@Хорошо в Модоке...@@*осматривается вокруг*}
 
