@@ -653,12 +653,12 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 	if( @targetItem !is null && targetItem.GetType() == ITEM_TYPE_DOOR )
         cr.StatBase[ ST_LAST_DOOR_ID ] = targetItem.Id;
 
-    if( pid == PID_BANDAGE && ( useOnSelf || @targetCr !is null ) )
+    /*if( pid == PID_BANDAGE && ( useOnSelf || @targetCr !is null ) )
     {
         if( __Bandage( cr, ( @targetCr !is null ) ? targetCr : cr ) )
             _SubItem( item, 1 );
         return false;
-    }
+    }*/
 
     if( pid == PID_SHIV ) {
         if( valid( targetItem ) ) {
@@ -675,7 +675,19 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
         cr.Say( SAY_NETMSG, "Похоже, вы без понятия, что с этим можно делать." );
         return true;
     }
-    
+	
+    if( pid == PID_BANDAGE || pid == PID_CRAFT_L_RAGS )
+    {
+		bool isBandage = ( pid == PID_BANDAGE );
+
+		Critter@ victim = ( useOnSelf ? @cr : @targetCr );
+		victim.StatBase[ ST_BLEED ] -= ( isBandage ? 35 : 15 );
+
+		cr.Say( SAY_EMOTE_ON_HEAD, "перебинтовывает" + ( useOnSelf ? "ся" : "" ) );
+        cr.DeleteItem( ( isBandage ? PID_BANDAGE : PID_CRAFT_L_RAGS ), 1 );
+        return true;
+    }
+	
     if( pid == PID_MOTION_SENSOR ) {
         if( useOnSelf ) {
             Map @map = cr.GetMap();
@@ -953,7 +965,7 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 			case PID_MEAT_JERKY : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_RAD_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
-			case PID_RAGOUT : critter.SayMsg( SAY_EMOTE_ON_HEAD, "Кушает рагу"); break;
+			case PID_RAGOUT : critter.Say( SAY_EMOTE_ON_HEAD, "Кушает рагу" ); break;
 			default : critter.Say( SAY_EMOTE_ON_HEAD, "Что-то " + (ItemType == ITEM_TYPE_DRUG ? "принимает" : "ест" ) + " [" + pid + "]" ); break;
 		}
 		
