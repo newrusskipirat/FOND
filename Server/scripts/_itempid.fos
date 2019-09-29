@@ -51,68 +51,68 @@
 ***************       Weapons                       ***************
 ******************************************************************/
 
-// Small Guns
-// Pistols
-#define PID_ZIP_GUN                           ( 300 )
-#define PID_9MM_MAUSER                        ( 122 )
-#define PID_10MM_PISTOL                       ( 8 )
-#define PID_14MM_PISTOL                       ( 22 )
-#define PID_DESERT_EAGLE                      ( 18 )
-#define PID_DESERT_EAGLE_EXT_MAG              ( 404 )
-#define PID_223_PISTOL                        ( 241 )
-#define PID_44_MAGNUM_REVOLVER                ( 313 )
-#define PID_44_MAGNUM_SPEEDLOADER             ( 398 )
-#define PID_NEEDLER_PISTOL                    ( 388 ) // HN Needler
-#define PID_PK12_GAUSS_PISTOL                 ( 394 ) // 2mm EC
-#define PID_ONEHAND_ROCKET_LAUNCHER           ( 1034 )
-#define PID_FLARE_GUN                         ( 1037 )
-#define PID_ANACONDA                          ( 1040 )
-// Rifles
-#define PID_HUNTING_RIFLE                     ( 10 )
-#define PID_SCOPED_HUNTING_RIFLE              ( 287 )
-#define PID_SPRINGER_RIFLE                    ( 299 )
-#define PID_ASSAULT_RIFLE                     ( 23 )
-#define PID_ASSAULT_RIFLE_EXT_MAG             ( 405 )
-#define PID_SNIPER_RIFLE                      ( 143 )
-#define PID_FN_FAL                            ( 351 )
-#define PID_FN_FAL_NIGHT_SCOPE                ( 403 )
-#define PID_FN_FAL_HPFA                       ( 500 )
-#define PID_RED_RYDER_BB_GUN                  ( 161 )
-#define PID_RED_RYDER_LE_BB_GUN               ( 162 )
-#define PID_JONNY_BB_GUN                      ( 261 )
-#define PID_INDEPENDENT                       ( 353 )
-#define PID_M72_GAUSS_RIFLE                   ( 392 ) // 2mm EC
-// Shotguns
-#define PID_SHOTGUN                           ( 94 )
-#define PID_SAWED_OFF_SHOTGUN                 ( 385 ) // 12 ga.
-#define PID_COMBAT_SHOTGUN                    ( 242 )
-#define PID_HK_CAWS                           ( 268 )
-#define PID_PANCOR_JACKHAMMER                 ( 354 )
-#define PID_REMINGTON                         ( 1039 )
-// Pistol-machine gun
-#define PID_10MM_SMG                          ( 9 )
-#define PID_HK_P90C                           ( 296 )
-#define PID_TOMMY_GUN                         ( 283 )
-#define PID_HK_G11                            ( 352 )
-#define PID_HK_G11E                           ( 391 ) // 4.7mm Caseless
-#define PID_GREASE_GUN                        ( 332 )
-#define PID_MAUSER_SMG                        ( 578 )
+// Small Guns - Pistols
+#define PID_ZIP_GUN                           ( 300 )						// Самопальный пистолет
+#define PID_9MM_MAUSER                        ( 122 )						// 9 мм Маузер
+#define PID_10MM_PISTOL                       ( 8 )						    // Кольт 6520
+#define PID_14MM_PISTOL                       ( 22 )						// Пистолет 14 мм
+#define PID_DESERT_EAGLE                      ( 18 )						// Дезерт Игл
+#define PID_DESERT_EAGLE_EXT_MAG              ( 404 )						// Дезерт Игл (увел. магазин.)
+#define PID_223_PISTOL                        ( 241 )						// Пистолет калибра 0.223
+#define PID_44_MAGNUM_REVOLVER                ( 313 )						// Револьвер Магнум 0.44
+#define PID_44_MAGNUM_SPEEDLOADER             ( 398 )						// Револьвер Магнум 0.44 (уск. заряжания)
+#define PID_NEEDLER_PISTOL                    ( 388 )						// Пистолет-инъектор
+#define PID_PK12_GAUSS_PISTOL                 ( 394 )						// Гаусс пистолет PPK12
+#define PID_ONEHAND_ROCKET_LAUNCHER           ( 1034 )						// Ручная пушка
+#define PID_FLARE_GUN                         ( 1037 )						// Сигнальный пистолет
+#define PID_ANACONDA                          ( 1040 )						// Револьвер "Кольт Анаконда" 0.45
+
+// Small Guns - Rifles
+#define PID_HUNTING_RIFLE                     ( 10 )						// Охотничье ружье
+#define PID_SCOPED_HUNTING_RIFLE              ( 287 )						// Охотничье ружье с опт. прицелом
+#define PID_SPRINGER_RIFLE                    ( 299 )						// Самопальное ружье
+#define PID_TOMMY_GUN                         ( 283 )						// Томмиган
+#define PID_ASSAULT_RIFLE                     ( 23 )						// Штурмовая винтовка
+#define PID_ASSAULT_RIFLE_EXT_MAG             ( 405 )						// Штурмовая винтовка (увел. магазин)
+#define PID_SNIPER_RIFLE                      ( 143 )						// Снайперская винтовка
+#define PID_FN_FAL                            ( 351 )						// FN FAL
+#define PID_FN_FAL_NIGHT_SCOPE                ( 403 )						// FN FAL ПНВ
+#define PID_FN_FAL_HPFA                       ( 500 )						// FN FAL HPFA
+#define PID_RED_RYDER_BB_GUN                  ( 161 )						// Пневматическое ружье Ред Райдер
+#define PID_RED_RYDER_LE_BB_GUN               ( 162 )						// Эксклюзивное пневматическое ружье Ред Райдер
+#define PID_JONNY_BB_GUN                      ( 261 )						// Пневматическое ружье Джонни
+#define PID_INDEPENDENT                       ( 353 )						// XL70E3
+#define PID_M72_GAUSS_RIFLE                   ( 392 )						// Гаусс винтовка M72
+
+// Small Guns - Shotguns
+#define PID_SHOTGUN                           ( 94 )						// Дробовик
+#define PID_SAWED_OFF_SHOTGUN                 ( 385 )						// Обрез
+#define PID_COMBAT_SHOTGUN                    ( 242 )						// Боевой дробовик
+#define PID_HK_CAWS                           ( 268 )						// H&K Ш.О.Б.Б.
+#define PID_PANCOR_JACKHAMMER                 ( 354 )						// Панкор Джекхаммер
+#define PID_REMINGTON                         ( 1039 )						// Дробовик Ремингтон 870
+
+// Small Guns - Pistol-machine gun
+#define PID_10MM_SMG                          ( 9 )    						// Пистолет-пулемет 10 мм
+#define PID_HK_P90C                           ( 296 )     					// H&K P90c
+#define PID_HK_G11                            ( 352 )  						// H&K G11
+#define PID_HK_G11E                           ( 391 )						// H&K G11E
+#define PID_GREASE_GUN                        ( 332 )						// ПП М3А1 "Гриз Ган" 
+#define PID_MAUSER_SMG                        ( 578 )						// Маузер автоматический
 
 // Big guns
-#define PID_FLAMER                            ( 11 )
-#define PID_IMPROVED_FLAMETHROWER             ( 400 )
-#define PID_ROCKET_LAUNCHER                   ( 13 )
-#define PID_MINIGUN                           ( 12 )
-#define PID_AVENGER_MINIGUN                   ( 389 ) // 5mm JHP
-#define PID_VINDICATOR_MINIGUN                ( 395 ) // 4.7mm Caseless
-#define PID_BOZAR                             ( 350 )
-#define PID_LIGHT_SUPPORT_WEAPON              ( 355 )
-#define PID_M60                               ( 387 ) // 7.62
-#define PID_SOUND_BLASTER                     ( 594 ) // TabaK
-#define PID_GRENADELAUNCHER                   ( 1036 )
+#define PID_FLAMER                            ( 11 )						// Огнемет
+#define PID_IMPROVED_FLAMETHROWER             ( 400 )						// Усовершенствованный огнемет
+#define PID_ROCKET_LAUNCHER                   ( 13 )						// Гранатомет
+#define PID_MINIGUN                           ( 12 )						// Миниган
+#define PID_AVENGER_MINIGUN                   ( 389 )						// Миниган "Мститель" // 5mm JHP
+#define PID_VINDICATOR_MINIGUN                ( 395 )						// Миниган "Виндикатор" // 4.7mm Caseless
+#define PID_BOZAR                             ( 350 )						// Бозар
+#define PID_LIGHT_SUPPORT_WEAPON              ( 355 )						// Легкий пулемет поддержки
+#define PID_M60                               ( 387 )						// Пулемет М60
+#define PID_GRENADELAUNCHER                   ( 1036 )						// Многозарядный гранатомёт M32
 
-// Energo
-// Laser
+// Energo guns  Laser
 #define PID_LASER_PISTOL                      ( 16 )
 #define PID_MAGNETO_LASER_PISTOL              ( 402 )
 #define PID_SOLAR_SCORCHER                    ( 390 ) // No ammo
@@ -121,24 +121,27 @@
 #define PID_GATLING_LASER                     ( 28 )
 #define PID_ALIEN_LASER_PISTOL                ( 120 )
 #define PID_LASER_RIFLE_LOW                   ( 600 )
-// Plasma
+
+// Energo guns  Plasma
 #define PID_PLASMA_PISTOL                     ( 24 )
 #define PID_PLASMA_PISTOL_EXT_CART            ( 406 )
 #define PID_PLASMA_RIFLE                      ( 15 )
 #define PID_TURBO_PLASMA_RIFLE                ( 233 )
 #define PID_LASER_PISTOL_LOW                  ( 1041 )
-// Pulse
-#define PID_YK32_PULSE_PISTOL                 ( 396 ) // Small Energy
-#define PID_YK42B_PULSE_RIFLE                 ( 397 ) // Micro Fusion
 
-// Throwing
-// Grenade
+// Energo guns - Pulse
+#define PID_YK32_PULSE_PISTOL                 ( 396 )						// Импульсный пистолет YK32
+#define PID_YK42B_PULSE_RIFLE                 ( 397 )						// Импульсное ружье YK42B
+#define PID_SOUND_BLASTER                     ( 594 )						// Акустическое ружье AR-91M
+
+// Throwing -  Grenade
 #define PID_MOLOTOV_COCKTAIL                  ( 159 ) // Grouped
 #define PID_FRAG_GRENADE                      ( 25 )  // Grouped
 #define PID_PLASMA_GRENADE                    ( 26 )  // Grouped
 #define PID_PULSE_GRENADE                     ( 27 )  // Grouped
 #define PID_FLASH_GRENADE                     ( 660 ) // Grouped
-// Other
+
+// Throwing -  Other
 #define PID_FLARE                             ( 79 )  // Grouped
 #define PID_ACTIVE_FLARE                      ( 205 ) // Active
 #define PID_PLANT_SPIKE                       ( 365 ) // Grouped
@@ -149,31 +152,33 @@
 #define PID_REFINED_ORE                       ( 486 ) // Grouped
 #define PID_BALL                              ( 650 ) // Grouped
 
-// Melee
-// Cutting
+// Melee -  Cutting
 #define PID_KNIFE                             ( 4 )
 #define PID_COMBAT_KNIFE                      ( 236 )
 #define PID_LIL_JESUS_WEAPON                  ( 517 )
 #define PID_SHIV                              ( 383 )
 #define PID_SWITCHBLADE                       ( 319 )
 #define PID_WAKIZASHI_BLADE                   ( 522 )
-// Pricking
-#define PID_SPEAR                             ( 7 )
-#define PID_SHARP_SPEAR                       ( 280 )
-#define PID_SHARPENED_POLE                    ( 320 )
-// Shock
-#define PID_CLUB                              ( 5 )
-#define PID_CROWBAR                           ( 20 )
-#define PID_WRENCH                            ( 384 )
-#define PID_SLEDGEHAMMER                      ( 6 )
-#define PID_LOUISVILLE_SLUGGER                ( 386 )
-#define PID_SUPER_SLEDGE                      ( 115 )
-// Electric
+
+// Melee -  Pricking
+#define PID_SPEAR                             ( 7 )							    // Копье
+#define PID_SHARP_SPEAR                       ( 280 )							// Заточенное копье
+#define PID_SHARPENED_POLE                    ( 320 )							// Кол
+
+// Melee -  Shock
+#define PID_CLUB                              ( 5 )						     	// Дубинка
+#define PID_CROWBAR                           ( 20 )							// Монтировка
+#define PID_WRENCH                            ( 384 )                           // Гаечный ключ
+#define PID_SLEDGEHAMMER                      ( 6 )							    // Кувалда
+#define PID_LOUISVILLE_SLUGGER                ( 386 )							// Луисвилльская бита
+#define PID_SUPER_SLEDGE                      ( 115 )  							// Суперкувалда
+
+// Melee -  Electric
 #define PID_CATTLE_PROD                       ( 160 )
 #define PID_SUPER_CATTLE_PROD                 ( 399 )
 #define PID_RIPPER                            ( 116 )
 
-// Unarmed
+// Melee -  Unarmed
 #define PID_BOXING_GLOVES                     ( 292 )
 #define PID_PLATED_BOXING_GLOVES              ( 293 )
 #define PID_RING_BOXING_GLOVES                ( 496 )
