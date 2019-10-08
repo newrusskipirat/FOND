@@ -3,10 +3,10 @@
 # 3.1.0 changelog - added various /items & inven .pngs, proto & graphics by VVish
 # 4.0 changelog - added EffectId field
 
-[Proto] #Фрукт
+[Proto] # {Фрукт}
 Pid=71
 Type=16
-PicMapName=art\items\fruit.png
+PicMapName=art\items\FRUIT.fofrm
 PicInvName=art\inven\fruit.frm
 Flags=150994974
 DisableEgg=1
@@ -19,10 +19,10 @@ Food_Restore=4
 Food_Flags=2
 EffectId=4
 
-[Proto] # Игуана на палке
+[Proto] # {Игуана на палке}
 Pid=81
 Type=16
-PicMapName=art\items\smalbox2.frm
+PicMapName=art\items\IguanaG.fofrm
 PicInvName=art\inven\iguana.frm
 Flags=150994974
 DisableEgg=1
@@ -35,10 +35,10 @@ Food_Restore=12
 Food_Flags=0
 EffectId=5
 
-[Proto] # шашлык
+[Proto] # {Шашлык}
 Pid=103
 Type=16
-PicMapName=art\items\kebab_floor.png
+PicMapName=art\items\kebab_floor21.png
 PicInvName=art\inven\iguan2.frm
 Flags=150994974
 DisableEgg=1
@@ -52,10 +52,10 @@ Food_Flags=0
 EffectId=7
 
 
-[Proto] # нюкакола
+[Proto] # {Ядер-кола}
 Pid=106
 Type=2
-PicMapName=art\items\NukaCola.frm
+PicMapName=art\items\NukaCola.FRM
 PicInvName=art\inven\bottle.frm
 Flags=150994974
 DisableEgg=1
@@ -68,7 +68,7 @@ Food_Thrist=20
 Food_Flags=0
 EffectId=9
 
-[Proto] # пиво
+[Proto] # {Пиво}
 Pid=124
 Type=2
 PicMapName=art\items\beer.frm
@@ -83,7 +83,7 @@ Cost=15
 Food_Thrist=20
 EffectId=12
 
-[Proto] # самогон
+[Proto] # {Cамогон}
 Pid=125
 Type=2
 PicMapName=art\items\schlager.frm
@@ -98,10 +98,10 @@ Cost=20
 Food_Thrist=20
 EffectId=13
 
-[Proto] # гамма-пиво
+[Proto] # {Гамма-пиво}
 Pid=310
 Type=2
-PicMapName=art\items\gamabeer.png
+PicMapName=art\items\gamabeer.fofrm
 PicInvName=art\inven\gamabeer.frm
 LightDistance=1
 LightIntensity=50
@@ -117,10 +117,10 @@ Food_Thrist=20
 EffectId=18
 
 
-[Proto] # гамма-ром
+[Proto] # {Гамма-ром}
 Pid=311
 Type=2
-PicMapName=art\items\roenbeer.png
+PicMapName=art\items\roenbeer.fofrm
 PicInvName=art\inven\roenbeer.frm
 LightDistance=1
 LightIntensity=50
@@ -135,10 +135,10 @@ Cost=40
 Food_Thrist=20
 EffectId=19
 
-[Proto] # печенька
+[Proto] # {Печенька}
 Pid=378
 Type=16
-PicMapName=art\items\smalbox2.frm
+PicMapName=art\items\cookie1.png
 PicInvName=art\inven\cookie1.frm
 Flags=150994974
 DisableEgg=1
@@ -150,7 +150,7 @@ Food_Restore=2
 Food_Flags=0
 EffectId=21
 
-[Proto] # вяленое мясо
+[Proto] # {Вяленое мясо}
 ProtoId=284
 Type=16
 PicMap=art\items\dryed_meat_floor.png
@@ -166,7 +166,23 @@ Food_Restore=5
 Food_Flags=0
 EffectId=7
 
-[Proto] # пластиковая бутылка с водой
+[Proto]
+Pid=469
+Type=2
+PicMapName=art\items\gutrot.png
+PicInvName=art\inven\gutrot.frm
+Flags=150994974
+DisableEgg=1
+Weight=456
+Volume=1
+SoundId=48
+Cost=5
+Material=1
+Food_Thrist=20
+Food_Restore=3
+EffectId=23
+
+[Proto] # {Пластиковая бутылка с водой}
 ProtoId=533
 Type=16
 PicMap=art\items\bott_full.frm
@@ -181,7 +197,7 @@ Cost=20
 Food_Thrist=15
 Food_Flags=0
 
-[Proto] # кусок мяса
+[Proto] # {Кусок мяса}
 ProtoId=539
 Type=16
 PicMap=art\items\raw_meat_floor.png
@@ -197,7 +213,7 @@ Food_Restore=7
 Food_Flags=2
 EffectId=7
 
-[Proto] # кусок жареного мяса
+[Proto] # {Кусок жареного мяса}
 ProtoId=1553
 Type=16
 PicMap=art\items\fryed_meat_floor.png
@@ -213,7 +229,7 @@ Food_Restore=10
 Food_Flags=0
 EffectId=7
 
-[Proto] # желудок
+[Proto] # {Желудок кротокрыса}
 ProtoId=1444
 Type=16
 PicMap=art\items\smalbox2.frm
@@ -228,7 +244,7 @@ Material=7
 Food_Restore=4
 Food_Flags=6
 
-[Proto] # фаршированный желудок
+[Proto] # {Фаршированный желудок}
 ProtoId=1559
 Type=16
 PicMap=art\items\eda1_floor.png
@@ -261,7 +277,7 @@ Food_Flags=0
 [Proto] # кусок мяса крысы
 ProtoId=1551
 Type=16
-PicMap=art\items\rat_floor.png
+PicMap=art\items\rat_raw.FRM
 PicInv=art\inven\rat_raw.png
 Flags=402653214
 DisableEgg=1
@@ -276,7 +292,7 @@ Food_Flags=2
 [Proto] # жареный кусок мяса крысы
 ProtoId=1554
 Type=16
-PicMap=art\items\rat_on_stick_floor.png
+PicMap=art\items\rat_on_a_stick.FRM
 PicInv=art\inven\rat_on_stick.png
 Flags=402653214
 DisableEgg=1
@@ -321,8 +337,8 @@ Food_Flags=0
 [Proto] # Кусок радиоактивного мяса
 ProtoId=1440
 Type=16
-PicMap=art\items\raw_meat_floor.png
-PicInv=art\inven\fresh_meat.frm
+PicMap=art\items\not_fresh_meat_floor.fofrm
+PicInv=art\inven\not_fresh_meat.png
 Flags=402653214
 DisableEgg=1
 Stackable=1
@@ -336,8 +352,8 @@ Food_Flags=6
 [Proto] # Грибы
 ProtoId=1436
 Type=16
-PicMap=art\items\mush_ground.png
-PicInv=art\inven\mush_low.png
+PicMap=art\items\MGBRUCHO.FRM
+PicInv=art\inven\MUSHROOM.FRM
 Flags=419430430
 DisableEgg=1
 Stackable=1
@@ -353,8 +369,8 @@ Food_Flags=1
 [Proto] # Грибы-звездочки
 ProtoId=1564
 Type=16
-PicMap=art\items\mush_ground.png
-PicInv=art\inven\mush_low.png
+PicMap=art\items\MUXOMO1.FRM
+PicInv=art\inven\MUXOMOR.FRM
 Flags=419430430
 DisableEgg=1
 Stackable=1
@@ -517,4 +533,60 @@ SoundId=48
 Cost=20
 Food_Thrist=15
 Food_Flags=0
-1627
+
+[Proto] # PID_BEER_ROTTEN {Ядовитое пиво}
+Pid=1628
+Type=2
+PicMapName=art\items\beer.frm
+PicInvName=art\inven\BEERPSN0.frm
+Flags=150994974
+DisableEgg=1
+Weight=453
+Volume=20
+SoundId=48
+Cost=25
+Food_Thrist=15
+Food_Restore=1
+
+[Proto] # PID_BEER2 {Пиво тёмное}
+Pid=1629
+Type=2
+PicMapName=art\items\beer.frm
+PicInvName=art\inven\beer0.frm
+Flags=150994974
+DisableEgg=1
+Weight=453
+Volume=20
+SoundId=48
+Cost=25
+Food_Thrist=15
+Food_Restore=1
+
+[Proto] # PID_ROOT_BEER {Темный Рутбир}
+Pid=1630
+Type=2
+PicMapName=art\items\beer.frm
+PicInvName=art\inven\BEERROOT0.FRM
+Flags=150994974
+DisableEgg=1
+Weight=453
+Volume=20
+SoundId=48
+Cost=35
+Food_Thrist=15
+Food_Restore=1
+
+[Proto] # PID_BOTTLE_PART {пластиковая бутылка с водой (полопустая)}
+ProtoId=1631
+Type=16
+PicMap=art\items\bott_full.frm
+PicInv=art\inven\bott_amm.png
+Flags=419430430
+DisableEgg=1
+Stackable=1
+Weight=250
+Volume=1
+SoundId=48
+Cost=10
+Food_Thrist=8
+Food_Flags=0

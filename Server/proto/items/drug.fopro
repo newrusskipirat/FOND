@@ -3,10 +3,10 @@
 # 3.1.0 changelog - added various /items & /inven .pngs, proto & graphics by VVish
 # 4.0 changelog - added EffectId field
 
-[Proto]
+[Proto] # PID_STIMPAK {Стимулятор}
 Pid=40
 Type=2
-PicMapName=art\items\stimx.frm
+PicMapName=art\items\stimpack.fofrm
 PicInvName=art\inven\stimx.frm
 Flags=150994974
 DisableEgg=1
@@ -16,10 +16,10 @@ Cost=175
 Material=1
 EffectId=0
 
-[Proto]
+[Proto] # PID_RADAWAY {Антирадин}
 Pid=48
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\radaway.fofrm
 PicInvName=art\inven\iv.frm
 Flags=150994974
 DisableEgg=1
@@ -42,7 +42,7 @@ Cost=100
 Material=1
 EffectId=2
 
-[Proto] # Ментат
+[Proto] # PID_MENTATS {Ментат}
 Pid=53
 Type=2
 PicMapName=art\items\syrign2.png
@@ -55,10 +55,10 @@ Cost=300
 Material=1
 EffectId=3
 
-[Proto] # Баффаут
+[Proto] # PID_BUFFOUT {Баффаут}
 Pid=87
 Type=2
-PicMapName=art\items\dxboost2.png
+PicMapName=art\items\buffout.fofrm
 PicInvName=art\inven\dxboost2.frm
 Flags=150994974
 DisableEgg=1
@@ -68,10 +68,10 @@ Cost=600
 Material=1
 EffectId=6
 
-[Proto] # Рад-Х
+[Proto] # PID_RAD_X {Рад-X}
 Pid=109
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\Radx.fofrm
 PicInvName=art\inven\drg_rad2.frm
 Flags=150994974
 DisableEgg=1
@@ -81,10 +81,10 @@ Cost=440
 Material=1
 EffectId=10
 
-[Proto] # Психо
+[Proto] # PID_PSYCHO {Психо}
 Pid=110
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\PSYCHO.FRM
 PicInvName=art\inven\lastdrug.frm
 Flags=150994974
 DisableEgg=1
@@ -94,10 +94,10 @@ Cost=1500
 Material=1
 EffectId=11
 
-[Proto] # Суперстимпак
+[Proto] # PID_SUPER_STIMPAK {Суперстимулятор}
 Pid=144
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\ground_sstimpak.fofrm
 PicInvName=art\inven\stimpak.frm
 Flags=150994974
 DisableEgg=1
@@ -108,10 +108,10 @@ Cost=350
 Material=1
 EffectId=14
 
-[Proto] # Джет
+[Proto] # PID_JET {Джет}
 Pid=259
 Type=2
-PicMapName=art\items\jet.png
+PicMapName=art\items\Jet.fofrm
 PicInvName=art\inven\jet.frm
 Flags=150994974
 DisableEgg=1
@@ -122,10 +122,10 @@ Cost=30
 Material=1
 EffectId=15
 
-[Proto] # Антиджет
+[Proto] # PID_JET_ANTIDOTE {Аддиктол}
 Pid=260
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\antijet.fofrm
 PicInvName=art\inven\jetanti.frm
 Flags=150994974
 DisableEgg=1
@@ -136,10 +136,10 @@ Cost=750
 Material=1
 EffectId=16
 
-[Proto]
+[Proto] # PID_HEALING_POWDER {Целебный порошок}
 Pid=273
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\healingpowder1.frm
 PicInvName=art\inven\healpwdr.frm
 Flags=150994974
 DisableEgg=1
@@ -149,10 +149,10 @@ Cost=25
 Material=7
 EffectId=17
 
-[Proto]
+[Proto] # PID_HYPO_POISON {Нейротоксин}
 Pid=334
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\poison.frm
 PicInvName=art\inven\poison.frm
 Flags=150994974
 DisableEgg=1
@@ -163,10 +163,10 @@ Cost=200
 Material=2
 EffectId=20
 
-[Proto]
+[Proto] # PID_MONUMENT_CHUNCK {Постамент}
 Pid=424
 Type=2
-PicMapName=art\items\rock3.png
+PicMapName=art\items\ROCK3.png
 PicInvName=art\inven\rock3.frm
 Flags=419430430
 DisableEgg=1
@@ -176,23 +176,7 @@ SoundId=48
 Material=1
 EffectId=22
 
-[Proto]
-Pid=469
-Type=2
-PicMapName=art\items\gutrot.png
-PicInvName=art\inven\gutrot.frm
-Flags=150994974
-DisableEgg=1
-Weight=456
-Volume=1
-SoundId=48
-Cost=5
-Material=1
-Food_Thrist=20
-Food_Restore=3
-EffectId=23
-
-[Proto]
+[Proto] # PID_MUTATED_TOE {Мутировавший палец ноги}
 Pid=473
 Type=2
 PicMapName=art\items\bpack2.frm
@@ -205,10 +189,10 @@ SoundId=48
 Material=1
 EffectId=24
 
-[Proto]
+[Proto] # PID_KITTY_SEX_DRUG_AGILITY {Бонус +1 к ловкости}
 Pid=480
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\hypo.fofrm
 PicInvName=art\inven\bonusagl.frm
 Flags=150994974
 DisableEgg=1
@@ -217,10 +201,10 @@ SoundId=48
 Material=1
 EffectId=25
 
-[Proto]
+[Proto] # PID_KITTY_SEX_DRUG_INTELLIGENCE {Бонус +1 к интеллекту}
 Pid=481
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\hypo.fofrm
 PicInvName=art\inven\bonusint.frm
 Flags=150994974
 DisableEgg=1
@@ -229,10 +213,10 @@ SoundId=48
 Material=1
 EffectId=26
 
-[Proto]
+[Proto] # PID_KITTY_SEX_DRUG_STRENGTH {Бонус +1 к силе}
 Pid=482
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\hypo.fofrm
 PicInvName=art\inven\bonusstr.frm
 Flags=150994974
 DisableEgg=1
@@ -241,10 +225,10 @@ SoundId=48
 Material=1
 EffectId=27
 
-[Proto]
+[Proto] # PID_HYPO {Шприц Срастающий Раны}
 Pid=525
 Type=2
-PicMapName=art\items\bpack2.frm
+PicMapName=art\items\hypo.fofrm
 PicInvName=art\inven\fedhypo.frm
 Flags=150994974
 DisableEgg=1
