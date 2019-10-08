@@ -1255,12 +1255,16 @@
 # define SKIN_NAKED                               ( 0 )		//Дикарь, голый
 # define SKIN_JUMPSUIT                            ( 1 )		//Пижама
 # define SKIN_JACKET                              ( 2 )		//Куртка кожаная
-# define SKIN_LEATHER_ARMOR_MK1                   ( 3 )		//Броня кожаная МК1
-# define SKIN_LEATHER_ARMOR_MK2                   ( 4 )		//Броня кожаная МК2
-# define SKIN_LEATHER_ARMOR_BLUE                  ( 5 )		//Броня кожаная огнеупорная
-# define SKIN_LEATHER_ARMOR_CAMMO                 ( 6 )		//Броня кожаная серая каммо
-# define SKIN_LEATHER_ARMOR_RED                   ( 7 )		//Броня кожаная красная
-# define SKIN_METAL 		                      ( 8 )		//Броня металлическая
+# define SKIN_CLJ                                 ( 3 )		//Боевая кожаная куртка
+# define SKIN_LEATHER_ARMOR_MK1                   ( 4 )		//Броня кожаная МК1
+# define SKIN_LEATHER_ARMOR_MK2                   ( 5 )		//Броня кожаная МК2
+# define SKIN_LEATHER_ARMOR_BLUE                  ( 6 )		//Броня кожаная огнеупорная
+# define SKIN_LEATHER_ARMOR_CAMMO                 ( 7 )		//Броня кожаная серая каммо
+# define SKIN_LEATHER_ARMOR_RED                   ( 8 )		//Броня кожаная красная
+# define SKIN_LEATHER_ARMOR_YEL                   ( 9 )		//Броня кожаная желтая
+# define SKIN_METAL 		                      ( 10 )	//Броня металлическая МК1, ржавая
+# define SKIN_METAL_MK2                           ( 11 )	//Броня металлическая МК2, полированная
+# define SKIN_METAL_TESLA                         ( 12 )	//Броня металлическая, тесла
 
 // Имена групп
 # define SKIN_TYPE_WOMAN                          ( 0 )		//Женщина
@@ -1272,81 +1276,110 @@
 # define SKIN_TYPE_FAT                            ( 6 )		//Мужчина жиробас
 
 // Стандартная женщина
-# define CRTYPE_DW_TRIBAL_F                       ( 61 )	
-# define CRTYPE_DW_JUMPSUIT_F                     ( 4 )		
-# define CRTYPE_DW_LEATHER_JACKET_F               ( 6 )		
-# define CRTYPE_DW_LEATHER_ARMOR_MK1_F            ( 5 )		
-# define CRTYPE_DW_LEATHER_ARMOR_MK2_F            ( 165 )
-# define CRTYPE_DW_LEATHER_ARMOR_BLUE_F           ( 123 )		
-# define CRTYPE_DW_LEATHER_ARMOR_CAMMO_F          ( 195 )
-# define CRTYPE_DW_LEATHER_ARMOR_RED_F            ( 165 )
-# define CRTYPE_DW_METAL_ARMOR_F                  ( 7 )		
+# define CRTYPE_DW_TRIBAL_F                       ( 61 )	//Дикарка стандартная, голая
+# define CRTYPE_DW_JUMPSUIT_F                     ( 4 )		//Комбенизон убежища синий
+# define CRTYPE_DW_LEATHER_JACKET_F               ( 6 )		//Куртка кожаная
+# define CRTYPE_DW_CLJ_F                          ( 6 )		//Боевая кожаная куртка
+# define CRTYPE_DW_LEATHER_ARMOR_MK1_F            ( 5 )		//Броня кожаная МК1
+# define CRTYPE_DW_LEATHER_ARMOR_MK2_F            ( 165 )   //Броня кожаная МК2
+# define CRTYPE_DW_LEATHER_ARMOR_BLUE_F           ( 123 )	//Броня кожаная огнеупорная	
+# define CRTYPE_DW_LEATHER_ARMOR_CAMMO_F          ( 200 )   //Броня кожаная серая каммо
+# define CRTYPE_DW_LEATHER_ARMOR_RED_F            ( 207 )   //Броня кожаная красная
+# define CRTYPE_DW_LEATHER_ARMOR_YEL_F            ( 235 )   //Броня кожаная МК3 желтая
+# define CRTYPE_DW_METAL_ARMOR_F				  ( 227 )	//Броня металлическая МК1, ржавая
+# define CRTYPE_DW_METAL_ARMOR_MK2_F		    	( 7 )	//Броня металлическая МК2, полированная
+# define CRTYPE_DW_METAL_TESLA_F				  ( 231 )	//Броня металлическая, тесла
 
 // Баба-панкуха
-# define CRTYPE_PUNKESS_TRIBAL                    ( 151 )
-# define CRTYPE_PUNKESS_JUMPSUIT                  ( 152 )
-# define CRTYPE_PUNKESS_LEATHER_JACKET            ( 34 )
-# define CRTYPE_PUNKESS_LEATHER_ARMOR_MK1         ( 153 )
-# define CRTYPE_PUNKESS_LEATHER_ARMOR_MK2         ( 153 )
-# define CRTYPE_PUNKESS_LEATHER_ARMOR_BLUE        ( 153 )
-# define CRTYPE_PUNKESS_LEATHER_ARMOR_CAMMO       ( 153 )
-# define CRTYPE_PUNKESS_LEATHER_ARMOR_RED         ( 153 )
-# define CRTYPE_PUNKESS_METAL_ARMOR               ( 154 )
+# define CRTYPE_PUNKESS_TRIBAL                    ( 151 )   //Дикарка панкуха, голая
+# define CRTYPE_PUNKESS_JUMPSUIT                  ( 152 )   //Комбенизон убежища синий
+# define CRTYPE_PUNKESS_LEATHER_JACKET            ( 34 )    //Куртка кожаная
+# define CRTYPE_PUNKESS_CLJ                       ( 34 )	//Боевая кожаная куртка
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_MK1         ( 153 )   //Броня кожаная МК1
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_MK2         ( 153 )   //Броня кожаная МК2
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_BLUE        ( 153 )   //Броня кожаная огнеупорная
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_CAMMO       ( 201 )   //Броня кожаная серая каммо
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_RED         ( 208 )   //Броня кожаная красная
+# define CRTYPE_PUNKESS_LEATHER_ARMOR_YEL         ( 241 )   //Броня кожаная МК3 желтая
+# define CRTYPE_PUNKESS_METAL_ARMOR               ( 154 )   //Броня металлическая МК1, ржавая
+# define CRTYPE_PUNKESS_METAL_ARMOR_MK2		      ( 154 )	//Броня металлическая МК2, полированная
+# define CRTYPE_PUNKESS_METAL_TESLA				  ( 154 )	//Броня металлическая, тесла
+
 
 // Стандартный мужчина
 # define CRTYPE_DW_TRIBAL_M                       ( 62 )
 # define CRTYPE_DW_JUMPSUIT_M                     ( 11 )
 # define CRTYPE_DW_LEATHER_JACKET_M               ( 13 )
+# define CRTYPE_DW_CLJ_M                          ( 13 )
 # define CRTYPE_DW_LEATHER_ARMOR_MK1_M            ( 12 )
 # define CRTYPE_DW_LEATHER_ARMOR_MK2_M            ( 166 )
 # define CRTYPE_DW_LEATHER_ARMOR_BLUE_M           ( 124 )
-# define CRTYPE_DW_LEATHER_ARMOR_CAMMO_M          ( 166 )
-# define CRTYPE_DW_LEATHER_ARMOR_RED_M            ( 166 )
-# define CRTYPE_DW_METAL_ARMOR_M                  ( 14 )
+# define CRTYPE_DW_LEATHER_ARMOR_CAMMO_M          ( 202 )
+# define CRTYPE_DW_LEATHER_ARMOR_RED_M            ( 209 )
+# define CRTYPE_DW_LEATHER_ARMOR_YEL_M            ( 236 )
+# define CRTYPE_DW_METAL_ARMOR_M                  ( 228 )
+# define CRTYPE_DW_METAL_ARMOR_MK2_M              ( 14 )
+# define CRTYPE_DW_METAL_TESLA_M                  ( 232 )
 
 // Патлатый
 # define CRTYPE_LHD_TRIBAL                        ( 110 )
 # define CRTYPE_LHD_JUMPSUIT                      ( 106 )
 # define CRTYPE_LHD_LEATHER_JACKET                ( 108 )
+# define CRTYPE_LHD_CLJ                           ( 108 )
 # define CRTYPE_LHD_LEATHER_ARMOR_MK1             ( 107 )
 # define CRTYPE_LHD_LEATHER_ARMOR_MK2             ( 167 )
 # define CRTYPE_LHD_LEATHER_ARMOR_BLUE            ( 125 )
-# define CRTYPE_LHD_LEATHER_ARMOR_CAMMO           ( 167 )
-# define CRTYPE_LHD_LEATHER_ARMOR_RED             ( 167 )
-# define CRTYPE_LHD_METAL_ARMOR                   ( 109 )
+# define CRTYPE_LHD_LEATHER_ARMOR_CAMMO           ( 204 )
+# define CRTYPE_LHD_LEATHER_ARMOR_RED             ( 211 )
+# define CRTYPE_LHD_LEATHER_ARMOR_YEL             ( 237 )
+# define CRTYPE_LHD_METAL_ARMOR                   ( 229 )
+# define CRTYPE_LHD_METAL_ARMOR_MK2               ( 109 )
+# define CRTYPE_LHD_METAL_TESLA                   ( 233 )
 
 // Лысый
 # define CRTYPE_BLD_TRIBAL                        ( 120 )
 # define CRTYPE_BLD_JUMPSUIT                      ( 8 )
 # define CRTYPE_BLD_LEATHER_JACKET                ( 118 )
+# define CRTYPE_BLD_CLJ                           ( 118 )
 # define CRTYPE_BLD_LEATHER_ARMOR_MK1             ( 117 )
 # define CRTYPE_BLD_LEATHER_ARMOR_MK2             ( 168 )
 # define CRTYPE_BLD_LEATHER_ARMOR_BLUE            ( 126 )
-# define CRTYPE_BLD_LEATHER_ARMOR_CAMMO           ( 168 )
-# define CRTYPE_BLD_LEATHER_ARMOR_RED             ( 168 )
-# define CRTYPE_BLD_METAL_ARMOR                   ( 119 )
+# define CRTYPE_BLD_LEATHER_ARMOR_CAMMO           ( 203 )
+# define CRTYPE_BLD_LEATHER_ARMOR_RED             ( 210 )
+# define CRTYPE_BLD_LEATHER_ARMOR_YEL             ( 238 )
+# define CRTYPE_BLD_METAL_ARMOR                   ( 230 )
+# define CRTYPE_BLD_METAL_ARMOR_MK2               ( 119 )
+# define CRTYPE_BLD_METAL_TESLA                   ( 234 )
 
 // Негр
 # define CRTYPE_BLACK_TRIBAL 					  ( 140 ) 
 # define CRTYPE_BLACK_JUMPSUIT 					  ( 142 ) 
 # define CRTYPE_BLACK_LEATHER_JACKET 			  ( 144 ) 
+# define CRTYPE_BLACK_CLJ              			  ( 144 ) 
 # define CRTYPE_BLACK_LEATHER_ARMOR_MK1 		  ( 146 ) 
 # define CRTYPE_BLACK_LEATHER_ARMOR_MK2           ( 146 )
 # define CRTYPE_BLACK_LEATHER_ARMOR_BLUE          ( 146 )
-# define CRTYPE_BLACK_LEATHER_ARMOR_CAMMO         ( 146 )
-# define CRTYPE_BLACK_LEATHER_ARMOR_RED           ( 146 )
+# define CRTYPE_BLACK_LEATHER_ARMOR_CAMMO         ( 206 )
+# define CRTYPE_BLACK_LEATHER_ARMOR_RED           ( 213 )
+# define CRTYPE_BLACK_LEATHER_ARMOR_YEL           ( 240 )
 # define CRTYPE_BLACK_METAL_ARMOR 				  ( 9 )   
+# define CRTYPE_BLACK_METAL_ARMOR_MK2 			  ( 9 )   
+# define CRTYPE_BLACK_METAL_TESLA 				  ( 9 )   
 
 // Толстяк Вик
 # define CRTYPE_FAT_TRIBAL 					      ( 91 ) 
 # define CRTYPE_FAT_JUMPSUIT 					  ( 91 ) 
 # define CRTYPE_FAT_LEATHER_JACKET 			      ( 160 ) 
+# define CRTYPE_FAT_CLJ 			      ( 160 ) 
 # define CRTYPE_FAT_LEATHER_ARMOR_MK1 		   	  ( 161 ) 
 # define CRTYPE_FAT_LEATHER_ARMOR_MK2             ( 161 )
 # define CRTYPE_FAT_LEATHER_ARMOR_BLUE            ( 161 )
-# define CRTYPE_FAT_LEATHER_ARMOR_CAMMO           ( 161 )
-# define CRTYPE_FAT_LEATHER_ARMOR_RED             ( 161 )
-# define CRTYPE_FAT_METAL_ARMOR 				  ( 162 )   
+# define CRTYPE_FAT_LEATHER_ARMOR_CAMMO           ( 205 )
+# define CRTYPE_FAT_LEATHER_ARMOR_RED             ( 212 )
+# define CRTYPE_FAT_LEATHER_ARMOR_YEL             ( 239 )
+# define CRTYPE_FAT_METAL_ARMOR 				  ( 162 )
+# define CRTYPE_FAT_METAL_ARMOR_MK2 			  ( 162 )
+# define CRTYPE_FAT_METAL_TESLA 				  ( 162 )
 
 // Роботы
 # define CRTYPE_ROBOT                             ( 66 )	//ЖБАН ходячий, оранжевый
@@ -1442,7 +1475,7 @@
 
 // Робы
 # define CRTYPE_ROBE_PINK  				          ( 2 )		//Роба пурпурная
-# define CRTYPE_ROBE_BLUE  				          ( 26 )	//Роба синяя
+# define CRTYPE_ROBE_BLUE  				          ( 26 )	//Роба голубая
 # define CRTYPE_ROBE_BROWN  			          ( 56 )	//Роба бардовая
 # define CRTYPE_ROBE_GREY  				          ( 84 )	//Роба серая
 # define CRTYPE_ROBE_SAND  				          ( 122 )	//Роба песчаная
@@ -1460,6 +1493,84 @@
 # define CRTYPE_SUPERMUTE_JACKET  	 	          ( 20 )	//кожанка для супермутов
 # define CRTYPE_SUPERMUTE_METAL  			      ( 114 )	//металка для супермутов
 # define CRTYPE_SUPERMUTE_METAL_BLACK 		      ( 170 )	//металка для супермутов, моднявая
+
+
+// Олимпус
+
+// Мужик белый Олимп
+# define CRTYPE_OLDW_TRIBAL_M  			          (323)     //Дикарь, голый
+# define CRTYPE_OLDW_JUMPSUIT_M 		          (323)     //Пижама
+# define CRTYPE_OLDW_LEATHER_JACKET_M 			  (332)     //Куртка кожаная
+# define CRTYPE_OLDW_CLJ_M 	          	     	  (335)     //Боевая кожаная куртка
+# define CRTYPE_OLDW_LEATHER_ARMOR_MK1_M 		  (337)     //Броня кожаная МК1
+# define CRTYPE_OLDW_LEATHER_ARMOR_MK2_M 		  (337)     //Броня кожаная МК2
+# define CRTYPE_OLDW_LEATHER_ARMOR_BLUE_M 		  (347)     //Броня кожаная огнеупорная
+# define CRTYPE_OLDW_LEATHER_ARMOR_CAMMO_M 		  (347)     //Броня кожаная серая каммо
+# define CRTYPE_OLDW_LEATHER_ARMOR_RED_M 		  (347)     //Броня кожаная красная
+# define CRTYPE_OLDW_LEATHER_ARMOR_YEL_M 		  (347)     //Броня кожаная желтая
+# define CRTYPE_OLDW_METAL_ARMOR_M 		          (340)     //Броня металлическая МК1, ржавая
+# define CRTYPE_OLDW_METAL_ARMOR_MK2_M 		      (340)     //Броня металлическая МК2, полированная
+# define CRTYPE_OLDW_METAL_TESLA_M 		          (340)     //Броня металлическая, тесла
+
+// Мужик негр Олимп
+# define CRTYPE_OLBLACK_TRIBA                     (325)
+# define CRTYPE_OLBLACK_JUMPSUIT                  (325)
+# define CRTYPE_OLBLACK_LEATHER_JACKET            (333)
+# define CRTYPE_OLBLACK_CLJ                       (336)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_MK1         (338)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_MK2         (338)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_BLUE        (338)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_CAMMO       (338)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_RED         (338)
+# define CRTYPE_OLBLACK_LEATHER_ARMOR_YEL         (338)
+# define CRTYPE_OLBLACK_METAL_ARMOR               (341)
+# define CRTYPE_OLBLACK_METAL_ARMOR_MK2           (341)
+# define CRTYPE_OLBLACK_METAL_TESLA               (341)
+
+// Мужик негр патлатый Олимп
+# define CRTYPE_OLLHB_TRIBAL                      (350)
+# define CRTYPE_OLLHB_JUMPSUIT                    (349)
+# define CRTYPE_OLLHB_LEATHER_JACKET              (334)
+# define CRTYPE_OLLHB_CLJ                         (334)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_MK1           (339)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_MK2           (339)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_BLUE          (339)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_CAMMO         (339)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_RED           (339)
+# define CRTYPE_OLLHB_LEATHER_ARMOR_YEL           (339)
+# define CRTYPE_OLLHB_METAL_ARMOR                 (343)
+# define CRTYPE_OLLHB_METAL_ARMOR_MK2             (343)
+# define CRTYPE_OLLHB_METAL_TESLA                 (343)
+
+// Женщина Блондинка Олимп
+# define CRTYPE_BL_TRIBAL                         (351)
+# define CRTYPE_BL_JUMPSUIT                       (352)
+# define CRTYPE_BL_LEATHER_JACKET                 (353)
+# define CRTYPE_BL_CLJ                            (353)
+# define CRTYPE_BL_LEATHER_ARMOR_MK1              (354)
+# define CRTYPE_BL_LEATHER_ARMOR_MK2              (356)
+# define CRTYPE_BL_LEATHER_ARMOR_BLUE             (356)
+# define CRTYPE_BL_LEATHER_ARMOR_CAMMO            (356)
+# define CRTYPE_BL_LEATHER_ARMOR_RED              (356)
+# define CRTYPE_BL_LEATHER_ARMOR_YEL              (356)
+# define CRTYPE_BL_METAL_ARMOR                    (355)
+# define CRTYPE_BL_METAL_ARMOR_MK2                (355)
+# define CRTYPE_BL_METAL_TESLA                    (355)
+
+// Женщина Рыжая Олимп
+# define CRTYPE_FR_TRIBAL                         (357)
+# define CRTYPE_FR_JUMPSUIT                       (358)
+# define CRTYPE_FR_LEATHER_JACKET                 (359)
+# define CRTYPE_FR_CLJ                            (359)
+# define CRTYPE_FR_LEATHER_ARMOR_MK1              (360)
+# define CRTYPE_FR_LEATHER_ARMOR_MK2              (362)
+# define CRTYPE_FR_LEATHER_ARMOR_FRUE             (362)
+# define CRTYPE_FR_LEATHER_ARMOR_CAMMO            (362)
+# define CRTYPE_FR_LEATHER_ARMOR_RED              (362)
+# define CRTYPE_FR_LEATHER_ARMOR_YEL              (362)
+# define CRTYPE_FR_METAL_ARMOR                    (361)
+# define CRTYPE_FR_METAL_ARMOR_MK2                (361)
+# define CRTYPE_FR_METAL_TESLA                    (361)
 
 // Прочие
 # define CRTYPE_VAULT_BOY                         ( 249 )
