@@ -8,17 +8,18 @@
 // Light
 #define PID_LEATHER_JACKET                    ( 74 )    // Кожаная куртка
 #define PID_LEATHER_ARMOR                     ( 1 )     // Кожаная броня
-#define PID_LEATHER_ARMOR_MK_II               ( 379 )   // Кожаная броня МК2
+#define PID_LEATHER_ARMOR_MK_II               ( 379 )   // Кожаная броня мод. II
 #define PID_FIRERESIST_LEATHER_ARMOR          ( 900 )	// Огнестойкая кожаная броня
 #define PID_CURED_LEATHER_ARMOR               ( 265 )   // Боевая кожаная куртка
 #define PID_CURED_LEATHER_ARMOR_MK_II         ( 1033 )  // Улучшенная боевая кожаная куртка
+#define PID_LEATHER_ARMOR_MK_III			  ( 17020 ) // Кожаная броня мод. III
 
 // Medium
 #define PID_METAL_ARMOR                       ( 2 )    // Металлическая броня
-#define PID_METAL_ARMOR_MK_II                 ( 380 )  // Металлическая броня МК2
+#define PID_METAL_ARMOR_MK_II                 ( 380 )  // Металлическая броня мод. II
 #define PID_TESLA_ARMOR                       ( 240 )  // Броня Тесла
 #define PID_COMBAT_ARMOR                      ( 17 )   // Боевая броня
-#define PID_COMBAT_ARMOR_MK_II                ( 381 )  // Боевая броня МК2
+#define PID_COMBAT_ARMOR_MK_II                ( 381 )  // Боевая броня мод. II
 #define PID_BROTHERHOOD_COMBAT_ARMOR          ( 239 )  // Боевая броня "Братства"
 #define PID_BLACK_COMBAT_ARMOR                ( 547 )  // Черная боевая броня мод. II
 #define PID_MIRELURK_ARMOR                    ( 586 )  // Кустарная боевая броня

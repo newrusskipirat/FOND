@@ -2,7 +2,7 @@
 # 3.0.9 changelog - weapon balance change, http://www.everfall.com/paste/id.php?3q8tj6wie1uc
 # 3.1.0 changelog - added various /items .pngs, proto & graphics by VVish
 
-[Proto]	#Нож
+[Proto] # PID_KNIFE {Нож}
 ProtoId=4
 Type=3
 PicMap=art\items\knife.frm
@@ -43,7 +43,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_CLUB {Дубинка}
 ProtoId=5
 Type=3
 PicMap=art\items\club.frm
@@ -75,7 +75,7 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=54
 
-[Proto]
+[Proto] # PID_SLEDGEHAMMER {Кувалда}
 ProtoId=6
 Type=3
 PicMap=art\items\sledge.frm
@@ -116,7 +116,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=55
 Weapon_SoundId_1=55
 
-[Proto]
+[Proto] # PID_SPEAR {Копье}
 ProtoId=7
 Type=3
 PicMap=art\items\spear.frm
@@ -158,7 +158,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=56
 Weapon_SoundId_1=56
 
-[Proto]
+[Proto] # PID_10MM_PISTOL {Пистолет Кольт 6520}
 ProtoId=8
 Type=3
 PicMap=art\items\pistol.frm
@@ -197,7 +197,7 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=65
 Weapon_HearRadius=40
 
-[Proto]
+[Proto] # PID_10MM_SMG {H&K MP9}
 ProtoId=9
 Type=3
 PicMap=art\items\uzi.frm
@@ -242,7 +242,7 @@ Weapon_SoundId_0=68
 Weapon_SoundId_1=68
 Weapon_HearRadius=40
 
-[Proto]
+[Proto] # PID_HUNTING_RIFLE {Охотничье ружье Colt Rangemaster}
 ProtoId=10
 Type=3
 PicMap=art\items\rifle.frm
@@ -280,7 +280,7 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=71
 Weapon_HearRadius=75
 
-[Proto]
+[Proto] # PID_FLAMER {Огнемет Факел 450}
 ProtoId=11
 Type=3
 PicMap=art\items\flamethr.frm
@@ -389,10 +389,10 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=78
 
-[Proto]
+[Proto] # PID_PLASMA_RIFLE {Плазменное ружье}
 ProtoId=15
 Type=3
-PicMap=art\items\flamethr.frm
+PicMap=art\items\energy\plasma.fofrm
 PicInv=art\inven\plasma.frm
 Flags=134217886
 DisableEgg=1
@@ -427,10 +427,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=75
 
-[Proto]
+[Proto] # PID_LASER_PISTOL {Лазерный пистолет LP-1000W}
 ProtoId=16
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\lasergun.fofrm
 PicInv=art\inven\lasergun.frm
 Flags=134217758
 DisableEgg=1
@@ -465,10 +465,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=67
 Weapon_HearRadius=30
 
-[Proto]
+[Proto] # PID_DESERT_EAGLE {Дезерт Игл}
 ProtoId=18
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\deagle.fofrm
 PicInv=art\inven\magnum.frm
 Flags=134217758
 DisableEgg=1
@@ -544,10 +544,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=50
 Weapon_SoundId_1=50
 
-[Proto]
+[Proto] # PID_CROWBAR {Монтировка}
 ProtoId=20
 Type=3
-PicMap=art\items\club.frm
+PicMap=art\items\melee\crowbar.fofrm
 PicInv=art\inven\crowbar.frm
 Flags=134217758
 DisableEgg=1
@@ -577,10 +577,10 @@ Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=53
 
-[Proto]
+[Proto] # PID_BRASS_KNUCKLES {Кастет}
 ProtoId=21
 Type=3
-PicMap=art\items\BRSNUCK.png
+PicMap=art\items\melee\BRSNUCK.png
 PicInv=art\inven\brsnuck.frm
 Flags=134217758
 DisableEgg=1
@@ -646,10 +646,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=69
 Weapon_HearRadius=75
 
-[Proto]
+[Proto] # PID_ASSAULT_RIFLE {Штурмовая винтовка AK-112}
 ProtoId=23
 Type=3
-PicMap=art\items\assrifle.frm
+PicMap=art\items\small\grifle.fofrm
 PicInv=art\inven\grifle.frm
 Flags=134217886
 DisableEgg=1
@@ -692,10 +692,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=35
 
-[Proto]
+[Proto] # PID_PLASMA_PISTOL {Плазменный пистолет Глок 86}
 ProtoId=24
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\glock.fofrm
 PicInv=art\inven\glock.frm
 Flags=134217758
 DisableEgg=1
@@ -804,7 +804,7 @@ ProtoId=27
 Type=3
 ScriptModule=item
 ScriptFunc=_TestTrapInit
-PicMap=art\items\grenadeq.frm
+PicMap=art\items\throwing\grenadeq.frm
 PicInv=art\inven\grenadeq.frm
 Flags=134217758
 DisableEgg=1
@@ -834,10 +834,10 @@ Weapon_MaxDist_0=15
 Weapon_ApCost_0=4
 Weapon_SoundId_0=81
 
-[Proto]
+[Proto] # PID_GATLING_LASER {Гатлинг-лазер H&K L30}
 ProtoId=28
 Type=3
-PicMap=art\items\GATLING.frm
+PicMap=art\items\energy\minilazr.fofrm
 PicInv=art\inven\minilazr.frm
 Flags=134217886
 DisableEgg=1
@@ -945,12 +945,12 @@ Weapon_ApCost_0=2
 Weapon_Aim_0=1
 Weapon_SoundId_0=52
 
-[Proto]
+[Proto] # PID_SHOTGUN {Дробовик Winchester Widowmaker}
 ProtoId=94
 Type=3
 ScriptModule=item
 ScriptFunc=_TestTrapInit
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\shotgun6.fofrm
 PicInv=art\inven\shotgun6.frm
 Flags=134217886
 DisableEgg=1
@@ -993,10 +993,10 @@ Weapon_SoundId_0=82
 Weapon_SoundId_1=82
 Weapon_HearRadius=45
 
-[Proto]
+[Proto] # PID_SUPER_SLEDGE {Суперкувалда}
 ProtoId=115
 Type=3
-PicMap=art\items\sledge.frm
+PicMap=art\items\melee\ssledge2.fofrm
 PicInv=art\inven\ssledge2.frm
 Flags=134217886
 DisableEgg=1
@@ -1083,7 +1083,7 @@ Weapon_SoundId_1=48
 [Proto]
 ProtoId=118
 Type=3
-PicMap=art\items\LRIFLELOW.frm
+PicMap=art\items\energy\LRIFLELOW.frm
 PicInv=art\inven\lrifle.frm
 Flags=134217886
 DisableEgg=1
@@ -1156,10 +1156,10 @@ Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=83
 
-[Proto]
+[Proto] # PID_9MM_MAUSER {Mauser M/96}
 ProtoId=122
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\gizgun1.fofrm
 PicInv=art\inven\gizgun1.frm
 Flags=134217758
 DisableEgg=1
@@ -1194,10 +1194,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=66
 Weapon_HearRadius=35
 
-[Proto]
+[Proto] # PID_SNIPER_RIFLE {Снайперская винтовка}
 ProtoId=143
 Type=3
-PicMap=art\items\SnipeRifle.frm
+PicMap=art\items\small\sniper.fofrm
 PicInv=art\inven\sniper.frm
 Flags=134217886
 DisableEgg=1
@@ -1232,10 +1232,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=71
 Weapon_HearRadius=75
 
-[Proto]
+[Proto] # PID_MOLOTOV_COCKTAIL {Коктейль Молотова}
 ProtoId=159
 Type=3
-PicMap=art\items\molotov.frm
+PicMap=art\items\throwing\mola.fofrm
 PicInv=art\inven\mola.frm
 Flags=134217758
 DisableEgg=1
@@ -1265,10 +1265,10 @@ Weapon_MaxDist_0=12
 Weapon_ApCost_0=5
 Weapon_SoundId_0=79
 
-[Proto]
+[Proto] # PID_CATTLE_PROD {Электрокнут}
 ProtoId=160
 Type=3
-PicMap=art\items\club.frm
+PicMap=art\items\melee\cprod3.fofrm
 PicInv=art\inven\cprod3.frm
 Flags=134217758
 DisableEgg=1
@@ -1348,10 +1348,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=85
 Weapon_HearRadius=5
 
-[Proto]
+[Proto] # PID_RED_RYDER_LE_BB_GUN {Эксклюзивное пневморужье Ред Райдер}
 ProtoId=162
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\rrspec.fofrm
 PicInv=art\inven\rrspec.frm
 Flags=134217886
 DisableEgg=1
@@ -1422,10 +1422,10 @@ Weapon_ApCost_0=2
 Weapon_Aim_0=1
 Weapon_SoundId_0=52
 
-[Proto]
+[Proto] # PID_TURBO_PLASMA_RIFLE {Турбоплазменная винтовка}
 ProtoId=233
 Type=3
-PicMap=art\items\flamethr.frm
+PicMap=art\items\energy\plasma.fofrm
 PicInv=art\inven\plas2.frm
 Flags=134217886
 DisableEgg=1
@@ -1460,10 +1460,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=75
 
-[Proto]
+[Proto] # PID_SPIKED_KNUCKLES {Шипованный кастет}
 ProtoId=234
 Type=3
-PicMap=art\items\BRSKNKLS.png
+PicMap=art\items\melee\BRSKNKLS.png
 PicInv=art\inven\brsknkls.frm
 Flags=134217758
 DisableEgg=1
@@ -1491,10 +1491,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=49
 
-[Proto]
+[Proto] # PID_POWER_FIST {Силовой кастет}
 ProtoId=235
 Type=3
-PicMap=art\items\wepnbox.frm
+PicMap=art\items\melee\gaunt.fofrm
 PicInv=art\inven\gaunt.frm
 Flags=134217758
 DisableEgg=1
@@ -1567,10 +1567,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_223_PISTOL {Пистолет калибра 0,223}
 ProtoId=241
 Type=3
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\decker.fofrm
 PicInv=art\inven\decker.frm
 Flags=134217758
 DisableEgg=1
@@ -1604,10 +1604,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=69
 
-[Proto]
+[Proto] # PID_COMBAT_SHOTGUN {Боевой дробовик Винчестер Ситикиллер}
 ProtoId=242
 Type=3
-PicMap=art\items\asshot.frm
+PicMap=art\items\small\asshot.frm
 PicInv=art\inven\assshot.frm
 Flags=134217886
 DisableEgg=1
@@ -1685,10 +1685,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=85
 
-[Proto]
+[Proto] # PID_HK_CAWS {H&K ШОББ}
 ProtoId=268
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\hkcaws.fofrm
 PicInv=art\inven\hkcaws.frm
 Flags=134217886
 DisableEgg=1
@@ -1809,10 +1809,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=56
 Weapon_SoundId_1=56
 
-[Proto]
+[Proto] # PID_TOMMY_GUN {Томмиган}
 ProtoId=283
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\tommygun.fofrm
 PicInv=art\inven\tommygun.frm
 Flags=134217886
 DisableEgg=1
@@ -1854,10 +1854,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_SCOPED_HUNTING_RIFLE {Охотничье ружье с опт. прицелом}
 ProtoId=287
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\hrifle2.fofrm
 PicInv=art\inven\hrifle2.frm
 Flags=134217886
 DisableEgg=1
@@ -1950,10 +1950,10 @@ Weapon_MaxDist_0=1
 Weapon_ApCost_0=3
 Weapon_Aim_0=1
 
-[Proto]
+[Proto]# PID_BOXING_GLOVES {Боксерские перчатки}
 ProtoId=292
 Type=3
-PicMap=art\items\wepnbox.frm
+PicMap=art\items\melee\boxglove.fofrm
 PicInv=art\inven\boxglove.frm
 Flags=134217758
 DisableEgg=1
@@ -1982,10 +1982,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=49
 
-[Proto]
+[Proto] # PID_PLATED_BOXING_GLOVES {Перчатки с утяжелителем}
 ProtoId=293
 Type=3
-PicMap=art\items\wepnbox.frm
+PicMap=art\items\melee\boxglove.fofrm
 PicInv=art\inven\boxglov2.frm
 Flags=134217758
 DisableEgg=1
@@ -2014,10 +2014,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=49
 
-[Proto]
+[Proto] # PID_HK_P90C {HK P90c}
 ProtoId=296
 Type=3
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\hkp90c.fofrm
 PicInv=art\inven\hkp90c.frm
 Flags=134217758
 DisableEgg=1
@@ -2059,10 +2059,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_SPRINGER_RIFLE {Самопал (ружье)}
 ProtoId=299
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\springun.fofrm
 PicInv=art\inven\springun.frm
 Flags=134217886
 DisableEgg=1
@@ -2099,7 +2099,7 @@ Weapon_HearRadius=50
 [Proto]
 ProtoId=300
 Type=3
-PicMap=art\items\zipgun.frm
+PicMap=art\items\small\zipgun.frm
 PicInv=art\inven\zipgun.frm
 Flags=134217758
 DisableEgg=1
@@ -2133,12 +2133,12 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=86
 Weapon_HearRadius=30
 
-[Proto]
+[Proto] # PID_44_MAGNUM_REVOLVER {Револьвер Магнум 0,44}
 ProtoId=313
 Type=3
 ScriptModule=item
 ScriptFunc=_RevolverInit
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\44magnum.fofrm
 PicInv=art\inven\magnum2.frm
 Flags=134217758
 DisableEgg=1
@@ -2172,7 +2172,7 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=69
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_SWITCHBLADE {Выкидной нож}
 ProtoId=319
 Type=3
 PicMap=art\items\knife.frm
@@ -2212,7 +2212,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_SHARPENED_POLE {Кол}
 ProtoId=320
 Type=3
 PicMap=art\items\spear.frm
@@ -2255,10 +2255,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=56
 Weapon_SoundId_1=56
 
-[Proto]
+[Proto] # PID_GREASE_GUN {ПП М3А1 "Гриз Ган"}
 ProtoId=332
 Type=3
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\greasegn.fofrm
 PicInv=art\inven\greasegn.frm
 Flags=134217758
 DisableEgg=1
@@ -2300,10 +2300,10 @@ Weapon_SoundId_0=68
 Weapon_SoundId_1=68
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_BOZAR {Бозар}
 ProtoId=350
 Type=3
-PicMap=art\items\bozar.frm
+PicMap=art\items\heavy\bozar.fofrm
 PicInv=art\inven\bozar.frm
 Flags=134218142
 DisableEgg=1
@@ -2336,10 +2336,10 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 Weapon_HearRadius=60
 
-[Proto]
+[Proto] # PID_FN_FAL {FN FAL}
 ProtoId=351
 Type=3
-PicMap=art\items\FNFAL.frm
+PicMap=art\items\small\fnfal.fofrm
 PicInv=art\inven\fnfal.frm
 Flags=134217886
 DisableEgg=1
@@ -2381,10 +2381,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_HK_G11 {H&K G11}
 ProtoId=352
 Type=3
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\hkg11.fofrm
 PicInv=art\inven\hkg11.frm
 Flags=134217886
 DisableEgg=1
@@ -2426,10 +2426,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_INDEPENDENT {XL70E3}
 ProtoId=353
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\indweap.fofrm
 PicInv=art\inven\indweap.frm
 Flags=134217886
 DisableEgg=1
@@ -2471,10 +2471,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_PANCOR_JACKHAMMER {Панкор Джекхаммер}
 ProtoId=354
 Type=3
-PicMap=art\items\rifle.frm
+PicMap=art\items\small\jackhamr.fofrm
 PicInv=art\inven\jackhamr.frm
 Flags=134217886
 DisableEgg=1
@@ -2518,10 +2518,10 @@ Weapon_SoundId_1=82
 Weapon_HearRadius=50
 
 
-[Proto]
+[Proto] # PID_LIGHT_SUPPORT_WEAPON {Легкий пулемет}
 ProtoId=355
 Type=3
-PicMap=art\items\flamethr.frm
+PicMap=art\items\heavy\LPP.FRM
 PicInv=art\inven\lightsup.frm
 Flags=134218142
 DisableEgg=1
@@ -2554,7 +2554,7 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_PLANT_SPIKE {Шип растения}
 ProtoId=365
 Type=3
 PicMap=art\items\plntspik.frm
@@ -2594,7 +2594,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=50
 Weapon_SoundId_1=50
 
-[Proto]
+[Proto] # PID_DEATHCLAW_CLAW_1 {Коготь}
 ProtoId=371
 Type=3
 PicMap=art\items\dclaw1.frm
@@ -2625,7 +2625,7 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=48
 
-[Proto]
+[Proto] # PID_DEATHCLAW_CLAW_2 {Коготь}
 ProtoId=372
 Type=3
 PicMap=art\items\dclaw2.frm
@@ -2696,7 +2696,7 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_WRENCH {Гаечный ключ}
 ProtoId=384
 Type=3
 PicMap=art\items\club.frm
@@ -2728,12 +2728,12 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=53
 
-[Proto]
+[Proto] # PID_SAWED_OFF_SHOTGUN {Обрез}
 ProtoId=385
 Type=3
 ScriptModule=item
 ScriptFunc=_TestTrapInit
-PicMap=art\items\SOSHOTGN.png
+PicMap=art\items\small\soshotgn.png
 PicInv=art\inven\soshotgn.frm
 Flags=134217758
 DisableEgg=1
@@ -2776,7 +2776,7 @@ Weapon_SoundId_0=82
 Weapon_SoundId_1=82
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_LOUISVILLE_SLUGGER {Луисвилльская бита}
 ProtoId=386
 Type=3
 PicMap=art\items\club.frm
@@ -2809,10 +2809,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=54
 
-[Proto]
+[Proto] # PID_M60 {М60}
 ProtoId=387
 Type=3
-PicMap=art\items\flamethr.frm
+PicMap=art\items\heavy\m60.fofrm
 PicInv=art\inven\m60.frm
 Flags=134218142
 DisableEgg=1
@@ -2845,10 +2845,10 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_NEEDLER_PISTOL {Пистолет-инъектор}
 ProtoId=388
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\needler.fofrm
 PicInv=art\inven\needler.frm
 Flags=134217758
 DisableEgg=1
@@ -2882,10 +2882,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=90
 
-[Proto]
+[Proto] # PID_AVENGER_MINIGUN {Миниган "Мститель"}
 ProtoId=389
 Type=3
-PicMap=art\items\minigun.frm
+PicMap=art\items\heavy\MSTITEL.FRM
 PicInv=art\inven\aminigun.frm
 Flags=134218142
 DisableEgg=1
@@ -2918,10 +2918,10 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_SOLAR_SCORCHER {Солнечный скорчер}
 ProtoId=390
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\solarscr.png
 PicInv=art\inven\solarscr.frm
 Flags=134217758
 DisableEgg=1
@@ -2955,10 +2955,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=67
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_HK_G11E {H&K G11E}
 ProtoId=391
 Type=3
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\hkg11e.fofrm
 PicInv=art\inven\hkg11e.frm
 Flags=134217886
 DisableEgg=1
@@ -3001,10 +3001,10 @@ Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
 
-[Proto]
+[Proto] # PID_M72_GAUSS_RIFLE {Гаусс-винтовка M72}
 ProtoId=392
 Type=3
-PicMap=art\items\M72GAUSS.frm
+PicMap=art\items\small\M72GAUSS.frm
 PicInv=art\inven\m72gauss.frm
 Flags=134217886
 DisableEgg=1
@@ -3039,7 +3039,7 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=87
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_PHAZER {Фазер}
 ProtoId=393
 Type=3
 PicMap=art\items\pistol.frm
@@ -3078,10 +3078,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=67
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_PK12_GAUSS_PISTOL {Гауссов пистолет PPK12}
 ProtoId=394
 Type=3
-PicMap=art\items\Gausspstl.frm
+PicMap=art\items\small\gaussptl.fofrm
 PicInv=art\inven\gaussptl.frm
 Flags=134217758
 DisableEgg=1
@@ -3116,10 +3116,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=89
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_VINDICATOR_MINIGUN {Миниган "Виндикатор"}
 ProtoId=395
 Type=3
-PicMap=art\items\minigun.frm
+PicMap=art\items\heavy\vminigun.fofrm
 PicInv=art\inven\vminigun.frm
 Flags=134218142
 DisableEgg=1
@@ -3152,10 +3152,10 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_YK32_PULSE_PISTOL {Импульсный пистолет YK32}
 ProtoId=396
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\pulsepst.png
 PicInv=art\inven\pulsepst.frm
 Flags=134217758
 DisableEgg=1
@@ -3229,10 +3229,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=88
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_44_MAGNUM_SPEEDLOADER {Магнум 0,44 (ускоритель заряжания)}
 ProtoId=398
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\44mspeed.fofrm
 PicInv=art\inven\44mspeed.frm
 Flags=134217758
 DisableEgg=1
@@ -3267,10 +3267,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=69
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_SUPER_CATTLE_PROD {Суперэлектрокнут}
 ProtoId=399
 Type=3
-PicMap=art\items\club.frm
+PicMap=art\items\melee\cprod3.fofrm
 PicInv=art\inven\catprod2.frm
 Flags=134217758
 DisableEgg=1
@@ -3316,7 +3316,7 @@ Weapon_SoundId_1=57
 [Proto]
 ProtoId=400
 Type=3
-PicMap=art\items\FLAMER_mk2.frm
+PicMap=art\items\heavy\FLAMER_mk2.frm
 PicInv=art\inven\iflameth.frm
 Flags=134218142
 DisableEgg=1
@@ -3389,10 +3389,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=74
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_MAGNETO_LASER_PISTOL {Магнито-лазерный пистолет}
 ProtoId=402
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\mlaspist.fofrm
 PicInv=art\inven\mlaspist.frm
 Flags=134217758
 DisableEgg=1
@@ -3428,10 +3428,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=67
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_FN_FAL_NIGHT_SCOPE {FN FAL (с ПНВ)}
 ProtoId=403
 Type=3
-PicMap=art\items\FNFAL.frm
+PicMap=art\items\small\fnfallow.fofrm
 PicInv=art\inven\fnfallow.frm
 Flags=134217886
 DisableEgg=1
@@ -3474,10 +3474,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_DESERT_EAGLE_EXT_MAG {Дезерт Игл (увел. магазин.)}
 ProtoId=404
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\deagle2.fofrm
 PicInv=art\inven\deagle2.frm
 Flags=134217758
 DisableEgg=1
@@ -3511,10 +3511,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=66
 Weapon_HearRadius=45
 
-[Proto]
+[Proto] # PID_ASSAULT_RIFLE_EXT_MAG {Штурмовая винтовка (увел. магазин)}
 ProtoId=405
 Type=3
-PicMap=art\items\assrifle.frm
+PicMap=art\items\small\assrifl2.fofrm
 PicInv=art\inven\assrifl2.frm
 Flags=134217886
 DisableEgg=1
@@ -3557,10 +3557,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_PLASMA_PISTOL_EXT_CART {Плазменный пистолет (увел. магазин)}
 ProtoId=406
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\energy\plaspst2.fofrm
 PicInv=art\inven\plaspst2.frm
 Flags=134217758
 DisableEgg=1
@@ -3595,10 +3595,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=70
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_MEGA_POWER_FIST {Силовой суперкастет}
 ProtoId=407
 Type=3
-PicMap=art\items\wepnbox.frm
+PicMap=art\items\melee\mpwrfist.fofrm
 PicInv=art\inven\mpwrfist.frm
 Flags=134217758
 DisableEgg=1
@@ -3631,10 +3631,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=49
 
-[Proto]
+[Proto] # PID_HOLY_HAND_GRENADE {Святая граната}
 ProtoId=421
 Type=3
-PicMap=art\items\holygren.frm
+PicMap=art\items\throwing\holygren.frm
 PicInv=art\inven\holygren.frm
 Flags=134250526
 DisableEgg=1
@@ -3669,7 +3669,7 @@ Weapon_ApCost_0=4
 Weapon_SoundId_0=80
 Weapon_HearRadius=500
 
-[Proto]
+[Proto] # PID_GOLD_NUGGET {Золотой самородок}
 ProtoId=423
 Type=3
 PicMap=art\items\rock2.frm
@@ -3711,10 +3711,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=50
 Weapon_SoundId_1=50
 
-[Proto]
+[Proto] # PID_URANIUM_ORE {Урановая руда}
 ProtoId=426
 Type=3
-PicMap=art\items\rock2.frm
+PicMap=art\items\throwing\rock3.png
 PicInv=art\inven\rock4.frm
 Flags=134217758
 DisableEgg=1
@@ -3862,10 +3862,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=49
 Weapon_SoundId_1=49
 
-[Proto]
+[Proto] # PID_RING_BOXING_GLOVES {Боксерские перчатки}
 ProtoId=496
 Type=3
-PicMap=art\items\wepnbox.frm
+PicMap=art\items\melee\boxglove.fofrm
 PicInv=art\inven\boxglove.frm
 Flags=134217758
 DisableEgg=1
@@ -3959,10 +3959,10 @@ Weapon_ApCost_0=5
 Weapon_Aim_0=1
 Weapon_SoundId_0=75
 
-[Proto]
+[Proto] # PID_FN_FAL_HPFA {FN FAL HPFA}
 ProtoId=500
 Type=3
-PicMap=art\items\FNFAL.frm
+PicMap=art\items\small\FNFAL.frm
 PicInv=art\inven\fnfal.frm
 Flags=134217886
 DisableEgg=1
@@ -4004,7 +4004,7 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_LIL_JESUS_WEAPON {"Хесусик"}
 ProtoId=517
 Type=3
 PicMap=art\items\knife.frm
@@ -4272,10 +4272,10 @@ Weapon_Round_0=40
 Weapon_ApCost_0=6
 Weapon_SoundId_0=76
 
-[Proto]
+[Proto] # PID_MAUSER_SMG {Маузер (автоматический)}
 ProtoId=578
 Type=3
-PicMap=art\items\pistol.frm
+PicMap=art\items\small\mausersmg.fofrm
 PicInv=art\inven\mausersmg.frm
 Flags=134217758
 DisableEgg=1
@@ -4318,11 +4318,11 @@ Weapon_SoundId_0=66
 Weapon_SoundId_1=68
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_COLT {Кольт .45}
 ProtoId=591
 Type=3
 PicMap=art\items\pistol.frm
-PicInv=art\inven\10mm.PNG
+PicInv=art\inven\colt45.png
 Flags=134217758
 DisableEgg=1
 Deteriorable=1
@@ -4355,10 +4355,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=69
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] #  {Акустическое ружье AR-91M}
 ProtoId=594
 Type=3
-PicMap=art\items\Soundbl.frm
+PicMap=art\items\energy\Soundbl.frm
 PicInv=art\inven\soundbl.png
 Flags=134217758
 DisableEgg=1
@@ -4390,7 +4390,7 @@ Weapon_Round_0=2
 Weapon_ApCost_0=7
 Weapon_SoundId_0=37
 
-[Proto]
+[Proto] # {Коготь аркады}
 ProtoId=595
 Type=3
 ScriptModule=special_weapons
@@ -4423,7 +4423,7 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=48
 
-[Proto]
+[Proto] # {Огненное дыхание}
 ProtoId=596
 Type=3
 ScriptModule=special_weapons
@@ -4457,7 +4457,7 @@ Weapon_Round_0=1
 Weapon_ApCost_0=6
 Weapon_SoundId_0=73
 
-[Proto]
+[Proto] #  {Ножницы}
 ProtoId=597
 Type=3
 PicMap=art\items\knife.frm
@@ -4490,7 +4490,7 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=51
 
-[Proto]
+[Proto] #  {Опасная бритва}
 ProtoId=598
 Type=3
 PicMap=art\items\knife.frm
@@ -4524,10 +4524,10 @@ Weapon_ApCost_0=3
 Weapon_Aim_0=1
 Weapon_SoundId_0=51
 
-[Proto]
+[Proto] # PID_LASER_RIFLE_LOW {Лазерное ружье c увел. магазином}
 ProtoId=600
 Type=3
-PicMap=art\items\LRIFLELOW.frm
+PicMap=art\items\energy\LRIFLELOW.frm
 PicInv=art\inven\LRIFLELOW.png
 Flags=134217886
 DisableEgg=1
@@ -4604,10 +4604,10 @@ Weapon_ApCost_1=4
 Weapon_SoundId_0=52
 Weapon_SoundId_1=52
 
-[Proto]
+[Proto] #  {Светошумовая граната}
 ProtoId=660
 Type=3
-PicMap=art\items\grenadef.frm
+PicMap=art\items\throwing\grenadef.frm
 PicInv=art\inven\grenadef.png
 Flags=134217758
 DisableEgg=1
@@ -5032,11 +5032,11 @@ Weapon_ApCost_0=6
 Weapon_SoundId_0=78
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_FLARE_GUN {Сигнальный пистолет}
 ProtoId=1037
 Type=3
 PicMap=art\items\pistol.frm
-PicInv=art\inven\flash_pistol.PNG
+PicInv=art\inven\signal_pistol.png
 Flags=134217758
 DisableEgg=1
 Deteriorable=1
@@ -5076,11 +5076,11 @@ Weapon_SoundId_0=78
 Weapon_SoundId_1=78
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] # PID_REMINGTON {Дробовик Ремингтон 870}
 ProtoId=1039
 Type=3
-PicMap=art\items\rifle.frm
-PicInv=art\inven\remington.png
+PicMap=art\items\small\rem870mg.fofrm
+PicInv=art\inven\Reming870.png
 Flags=134217886
 DisableEgg=1
 Deteriorable=1
@@ -5122,12 +5122,12 @@ Weapon_SoundId_0=82
 Weapon_SoundId_1=82
 Weapon_HearRadius=50
 
-[Proto]
+[Proto] #  {Револьвер "Кольт Анаконда" .45}
 ProtoId=1040
 Type=3
 ScriptModule=item
 ScriptFunc=_RevolverInit
-PicMap=art\items\revolver_hrenov.frm
+PicMap=art\items\small\revolver_hrenov.frm
 PicInv=art\inven\revolver44.PNG
 Flags=134217758
 DisableEgg=1
@@ -5240,10 +5240,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_SPEAK_P {Отравленное копье}
 ProtoId=1043
 Type=3
-PicMap=art\items\spear2_ver2.FRM
+PicMap=art\items\melee\spear2_ver2.FRM
 PicInv=art\inven\spear4.frm
 Flags=134217758
 DisableEgg=1
@@ -5364,10 +5364,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_SAWGUN_LOW {Пушка-пила}
 ProtoId=1400
 Type=3
-PicMap=art\items\sawgun_low.frm
+PicMap=art\items\melee\sawgun_low.frm
 PicInv=art\inven\sawgun_low.png
 Flags=134217886
 DisableEgg=1
@@ -5413,7 +5413,7 @@ Weapon_HearRadius=30
 [Proto]
 ProtoId=1401
 Type=3
-PicMap=art\items\gatling_low.png
+PicMap=art\items\heavy\gatling_low.png
 PicInv=art\inven\gatling_low.png
 Flags=134218142
 DisableEgg=1
@@ -5621,12 +5621,12 @@ Weapon_SoundId_0=82
 Weapon_SoundId_1=82
 Weapon_HearRadius=40
 
-[Proto]
+[Proto] # PID_REVOLVER_LOW {Самодельный револьвер}
 ProtoId=1406
 Type=3
 ScriptModule=item
 ScriptFunc=_RevolverInit
-PicMap=art\items\custrevolv_low.png
+PicMap=art\items\small\custrevolv.png
 PicInv=art\inven\custrevolv_low.gif
 Flags=134217758
 DisableEgg=1
@@ -5697,10 +5697,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=86
 Weapon_HearRadius=40
 
-[Proto]
+[Proto] # PID_REV_RIFLE_LOW {Револьверная винтовка}
 ProtoId=1408
 Type=3
-PicMap=art\items\custrevolvrifle_low.png
+PicMap=art\items\small\custrevolvrifle_low.png
 PicInv=art\inven\custrevolvrifle_low.png
 Flags=134217886
 DisableEgg=1
@@ -5734,10 +5734,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=66
 Weapon_HearRadius=40
 
-[Proto]
+[Proto] # PID_GECKO_LOW {"Геккобой"}
 ProtoId=1409
 Type=3
-PicMap=art\items\gekko_low.png
+PicMap=art\items\small\gekko_low.png
 PicInv=art\inven\gekko_low.png
 Flags=134217886
 DisableEgg=1
@@ -5851,10 +5851,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=52
 Weapon_SoundId_1=52
 
-[Proto]
+[Proto] # PID_SMOKE_GUN_LOW {"Окурок"}
 ProtoId=1412
 Type=3
-PicMap=art\items\smoke_gun_low.png
+PicMap=art\items\small\smoke_gun_low.png
 PicInv=art\inven\smoke_gun_low.png
 Flags=134217758
 DisableEgg=1
@@ -6012,10 +6012,10 @@ Weapon_SoundId_0=82
 Weapon_HearRadius=55
 
 
-[Proto]
+[Proto] # PID_3GUN_LOW {14мм автопушка}
 ProtoId=1416
 Type=3
-PicMap=art\items\3gun_low.frm
+PicMap=art\items\heavy\3gun_low.frm
 PicInv=art\inven\3gun_low.png
 Flags=134218142
 DisableEgg=1
@@ -6160,10 +6160,10 @@ Weapon_Aim_1=1
 Weapon_SoundId_0=51
 Weapon_SoundId_1=51
 
-[Proto]
+[Proto] # PID_CHAIN {Стальная цепь}
 ProtoId=1420
 Type=3
-PicMap=art\items\chain.frm
+PicMap=art\items\melee\chain.frm
 PicInv=art\inven\chain.png
 Flags=134217758
 DisableEgg=1
@@ -6231,10 +6231,10 @@ Weapon_ApCost_0=4
 Weapon_Aim_0=1
 Weapon_SoundId_0=54
 
-[Proto]
+[Proto] # PID_AUTOGUN_LOW {Самодельный автомат}
 ProtoId=1422
 Type=3
-PicMap=art\items\autogun.frm
+PicMap=art\items\small\autogun.frm
 PicInv=art\inven\autogun_low.png
 Flags=134217886
 DisableEgg=1
@@ -6275,10 +6275,10 @@ Weapon_SoundId_0=72
 Weapon_SoundId_1=72
 Weapon_HearRadius=30
 
-[Proto]
+[Proto] # PID_IRON_PROD {Арматура}
 ProtoId=1423
 Type=3
-PicMap=art\items\iron_prod.png
+PicMap=art\items\melee\iron_prod.png
 PicInv=art\inven\iron_prod.png
 Flags=134217758
 DisableEgg=1
@@ -6343,7 +6343,7 @@ Weapon_SoundId_0=54
 [Proto]
 ProtoId=1425
 Type=3
-PicMap=art\items\wood_plank.png
+PicMap=art\items\melee\wood_plank.png
 PicInv=art\inven\wood_plank.png
 Flags=134217758
 DisableEgg=1
@@ -6375,7 +6375,7 @@ Weapon_SoundId_0=54
 [Proto]
 ProtoId=1426
 Type=3
-PicMap=art\items\water_tube.png
+PicMap=art\items\melee\water_tube.png
 PicInv=art\inven\water_tube.png
 Flags=134217758
 DisableEgg=1
@@ -6408,7 +6408,7 @@ Weapon_SoundId_0=53
 [Proto]
 ProtoId=1427
 Type=3
-PicMap=art\items\spearthrower.frm
+PicMap=art\items\small\spearthrower.frm
 PicInv=art\inven\spearthrower1.png
 Flags=134217886
 DisableEgg=1
@@ -6617,10 +6617,10 @@ Weapon_Aim_0=1
 Weapon_SoundId_0=67
 Weapon_HearRadius=30
 
-[Proto]
+[Proto] #  {Бур}
 ProtoId=1522
 Type=3
-PicMap=art\items\drill..frm
+PicMap=art\items\melee\drill.frm
 PicInv=art\inven\drill.png
 Flags=134218142
 DisableEgg=1
@@ -6661,7 +6661,7 @@ Weapon_ApCost_1=3
 Weapon_SoundId_0=48
 Weapon_SoundId_1=48
 
-[Proto]
+[Proto] #  {Сигареты}
 ProtoId=1523
 Type=3
 ScriptModule=item
@@ -6696,12 +6696,12 @@ Weapon_ApCost_1=1
 Weapon_Aim_0=1
 Weapon_Aim_1=1
 
-[Proto]
+[Proto] #  {Пистолет калибра 0.223}
 ProtoId=1531
 Type=3
 ScriptModule=item
 ScriptFunc=_InitRPStuff
-PicMap=art\items\uzi.frm
+PicMap=art\items\small\decker.fofrm
 PicInv=art\inven\decker.frm
 Flags=402653214
 DisableEgg=1
@@ -6933,7 +6933,7 @@ Weapon_HearRadius=30
 [Proto]
 ProtoId=3983
 Type=3
-PicMap=art\items\4shotgun.png
+PicMap=art\items\small\4shotgun.png
 PicInv=art\inven\4shotgun.gif
 Flags=134217886
 DisableEgg=1
@@ -7062,7 +7062,7 @@ Weapon_HearRadius=65
 [Proto]
 ProtoId=20000
 Type=3
-PicMap=art\items\weapon\GMlightsiber_ground.fofrm
+PicMap=art\items\melee\GMlightsiber_ground.fofrm
 PicInv=art\inven\GMlightsiber.png
 Flags=134217758
 DisableEgg=1
