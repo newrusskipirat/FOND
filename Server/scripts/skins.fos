@@ -1,6 +1,6 @@
 # include "_macros.fos"
 
-# define MAX_SKINS_COUNT    ( 173 )
+# define MAX_SKINS_COUNT    ( 414 )
 # define PID_ITEM_CLOTH     ( 905 )
 
 void ModuleInit( string&in, Handle@ )
