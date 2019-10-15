@@ -966,6 +966,8 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
 			case PID_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_RAD_MEAT : critter.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_GAME, 10331 ); break;
 			case PID_RAGOUT : critter.Say( SAY_EMOTE_ON_HEAD, "Кушает рагу" ); break;
+			case PID_GLASS_BOTTLE_DIRTY_FULL: 
+			case PID_BOTTLE_DIRTY_FULL: critter.Say( SAY_EMOTE_ON_HEAD, "Пьет воду" ); break;
 			default : critter.Say( SAY_EMOTE_ON_HEAD, "Что-то " + (ItemType == ITEM_TYPE_DRUG ? "принимает" : "ест" ) + " [" + pid + "]" ); break;
 		}
 		
@@ -1000,6 +1002,16 @@ bool critter_use_item( Critter& cr, Item& item, Critter@ targetCr, Item@ targetI
         cr.SayMsg( SAY_EMOTE_ON_HEAD, TEXTMSG_TEXT, STR_COSMETIC_USE );
         return true;
     }
+	
+	if (pid == PID_BOTTLE_GLASS)
+	{
+		return true;
+	}
+		
+	if (pid == PID_BOTTLE_EMPTY)
+	{
+		return true;
+	}
 
     // Cigarettes smoking
 	if (pid == PID_CIGARETTES )
@@ -1331,73 +1343,75 @@ bool critter_use_skill( Critter& cr, int skill, Critter@ targetCr, Item@ targetI
     }
     break;
 	
-    case SKILL_PUT_CONT:     // Put item in container, only targetItem is valid
-        if( cr.Stat[ ST_LAST_CONT_ID ] != 0 )
-        {
-            Item@ cont = GetItem( cr.Stat[ ST_LAST_CONT_ID ] );
-            if( @cont != null && cont.Accessory == ACCESSORY_CRITTER && cont.CritId == cr.Id )
-            {
-                uint16 targetPid = targetItem.GetProtoId();
-                if( cont.GetProtoId() == PID_FIRST_AID_KIT )
-                {
-                    bool isAidSupply = ( targetPid == PID_STIMPAK            ||
-                                         targetPid == PID_HEALING_POWDER     ||
-                                         targetPid == PID_BANDAGE            ||
-                                         targetPid == PID_CRAFT_L_RAGS               ||
-                                         targetPid == PID_ANTISEPTIC         ||
-                                         targetPid == PID_BOOZE              );
-                    if( !isAidSupply )
-                    {
-                        cr.Say( SAY_NETMSG, "Это нельзя положить в аптечку." );
-                        return true;
-                    }
-                }
-                else if( cont.GetProtoId() == PID_DOCTORS_BAG )
-                {
-                    bool isDocSupply = ( targetPid == PID_MULTI_TOOL ||
-                                         targetPid == PID_MEDCLIP    ||
-                                         targetPid == PID_PLANK      ||
-                                         targetPid == PID_MEDSPLINT  ||
-                                         targetPid == PID_ANTISEPTIC ||
-                                         targetPid == PID_BOOZE      ||
-                                         targetPid == PID_STRING     ||
-                                         targetPid == PID_MEDTHREAD  ||
-                                         targetPid == PID_MEDNEEDLE  ||
-                                         targetPid == PID_ANESTETIC  );
-                    if( !isDocSupply )
-                    {
-                        cr.Say( SAY_NETMSG, "Это нельзя положить в сумку доктора." );
-                        return true;
-                    }
-                    if( !isDocSupply )
-                    {
-                        cr.Say( SAY_NETMSG, "Это нельзя положить в сумку доктора." );
-                        return true;
-                    }
-                }
-                else if( cont.GetProtoId() == PID_KEY_BUNCH )
-                {
-                    if( targetItem.GetType() != ITEM_TYPE_KEY )
-                    {
-                        cr.Say( SAY_NETMSG, "Это нельзя прицепить на связку ключей." );
-                        return true;
-                    }
-                }
-				
-				if( !canPutItemInContainer( targetItem, cont ) || cont.Id == targetItem.Id )
-				{
-					cr.Say( SAY_NETMSG, "Не удалось впихнуть предмет в контейнер." );
-					return true;
-				}		
-                cr.StatBase[ ST_CARRY_WEIGHT_EXT ] -= int( targetItem.Proto.Weight * cr.GetItemTransferCount() );
-                ChangeCritterSpeed( cr );                       // pm added
-			
-            }
-        }
-	
-        break;
+    case SKILL_PUT_CONT: {
+		if( cr.ParamBase[ ST_LAST_CONT_ID ] == 0 )
+			return false;
+
+		Item@ cont = GetItem( cr.ParamBase[ ST_LAST_CONT_ID ] );
+		if( !valid( cont ) )
+			return false;
 		
-    // cr.Say(SAY_NETMSG, "put_cont "+targetItem.Id+" acc "+targetItem.Accessory);
+		uint16 targetPid = targetItem.GetProtoId();
+		if( cont.GetProtoId() == PID_FIRST_AID_KIT )
+		{
+			bool isAidSupply = ( targetPid == PID_STIMPAK            ||
+								 targetPid == PID_HEALING_POWDER     ||
+								 targetPid == PID_BANDAGE            ||
+								 targetPid == PID_CRAFT_L_RAGS       ||
+								 targetPid == PID_ANTISEPTIC         ||
+								 targetPid == PID_BOOZE              );
+			if( !isAidSupply )
+			{
+				cr.Say( SAY_NETMSG, "Это нельзя положить в аптечку." );
+				return true;
+			}
+			else
+				return false;
+		}
+		if( cont.GetProtoId() == PID_DOCTORS_BAG )
+		{
+			bool isDocSupply = ( targetPid == PID_STIMPAK            ||
+								 targetPid == PID_HEALING_POWDER     ||
+								 targetPid == PID_BANDAGE            ||
+								 targetPid == PID_CRAFT_L_RAGS       ||
+								 targetPid == PID_MULTI_TOOL ||
+								 targetPid == PID_MEDCLIP    ||
+								 targetPid == PID_PLANK      ||
+								 targetPid == PID_MEDSPLINT  ||
+								 targetPid == PID_ANTISEPTIC ||
+								 targetPid == PID_BOOZE      ||
+								 targetPid == PID_STRING     ||
+								 targetPid == PID_MEDTHREAD  ||
+								 targetPid == PID_MEDNEEDLE  ||
+								 targetPid == PID_ANESTETIC  );
+			if( !isDocSupply )
+			{
+				cr.Say( SAY_NETMSG, "Это нельзя положить в сумку доктора." );
+				return true;
+			}
+			else
+				return false;
+		}
+		if( cont.GetProtoId() == PID_KEY_BUNCH )
+		{
+			if( targetItem.GetType() != ITEM_TYPE_KEY )
+			{
+				cr.Say( SAY_NETMSG, "Это нельзя прицепить на связку ключей." );
+				return true;
+			}
+			else
+				return false;
+		}
+		if( cont.Accessory == ACCESSORY_CRITTER && cont.CritId == cr.Id )
+		{	
+			cr.ParamBase[ ST_CARRY_WEIGHT_EXT ] -= int( targetItem.Proto.Weight * cr.GetItemTransferCount() );
+			ChangeCritterSpeed( cr );  
+		}
+		return false;
+
+		cr.Say( SAY_NETMSG, "Из этого ничего не вышло." );
+		return true;
+    break; }
     case SKILL_TAKE_CONT:     // Take item from container, only targetItem is valid
         if( targetItem.Accessory == ACCESSORY_CONTAINER && targetItem.ContainerId != 0 )
         {

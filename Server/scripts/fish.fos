@@ -279,29 +279,171 @@ void fishing_checkTiles( Critter& player )
     }
     else
         player.Say( SAY_NETMSG, "Вы не на берегу." );
-
+}
+///////////////////////////////////////////////////////////////////
+void _InitGlassBottle( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "_UseEmptyGlassBottle" );
+}
+bool IsBottle( uint16 pid )
+{
+    return ( pid == PID_BOTTLE_EMPTY || pid == PID_BOTTLE_GLASS );
 }
 
+bool _UseEmptyGlassBottle( Item& bottle, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    uint16 pid = bottle.GetProtoId();
+    if( !IsBottle( pid ) )
+        return true;
 
-/*
-   void prepareToFishing(Critter& cr)
-   {
-        uint roll = Random(0, 100);
+    if( pid == PID_BOTTLE_GLASS || pid == PID_BOTTLE_EMPTY )
+    {
+        drainGlass (cr);
+    }
 
-        bool fh=true;
+    return true;
+}
 
-        //if(roll==0) {cr.Say(SAY_NETMSG, color_fish+"Вы воткнули крючок себе в глаз."); cr.ParamBase[DAMAGE_EYE]=1; fh=false; femote(cr, "схватился за глаз");}
-        //else if(roll<3) {cr.Say(SAY_NETMSG, color_size+"Вы сломали удочку."); modifyRod(cr, 0); fh=false; femote(cr, "сломал удочку");}
+void drainGlass( Critter& player, int var, int con, int param2 )
+{
+    drainingGlass_checkTiles( player );
+}
 
-        if(fh)
+void drainGlass( Critter& player )
+{
+    drainingGlass_checkTiles( player );
+}
+
+void drainingGlass_checkTiles( Critter& player )
+{
+    Map@ map = player.GetMap();
+    if( @map is null ) return;
+
+
+    uint16   tx = H2T( player.HexX );
+    uint16   ty = H2T( player.HexY );
+
+    GameVar@ is_dock = GetLocalVar( LMVAR_is_dock, map.Id );
+    uint     is_dock_val = is_dock.GetValue();
+
+    uint8    coast_flags = 0,
+             water_flags = 0;
+    bool     aboveGround = false;
+
+
+    coast_flags = checkCoast( map, tx, ty );
+
+    if( is_dock_val != 0 && coast_flags == 0 && ( checkSand( map, tx, ty ) == 0 ) )
+    {
+        coast_flags = 0xF;
+        aboveGround = true;
+    }
+
+    if( coast_flags != 0 )
+    {
+        water_flags = checkWaterAround( map, tx, ty, coast_flags, 1 + ( aboveGround ? 1 : 0 ), aboveGround );
+        if( water_flags != 0 )
         {
-                cr.RunClientScript("client_main@_waiting", 1, 0, 0, null, null);
-                femote(cr, "закинул удочку");
-                cr.SetEvent(CRITTER_EVENT_IDLE, "_processFishing");
-                uint time=Random(5, 10)*1000;
-                cr.Wait(time);
+
+            for( uint i = 0; i < 4; i++ )
+            {
+                if( water_flags & ( 0x1 << i ) == 0 )
+                    continue;
+                player.SetDir( dir[ i ] );
+                break;
+            }
+
+
+            femote( player, "Набирает воду в бутылку" );
+			player.DeleteItem(PID_BOTTLE_GLASS,1); player.AddItem ( PID_GLASS_BOTTLE_DIRTY_FULL , 1);
+           
         }
-   }*/
+        else
+            player.Say( SAY_NETMSG, "Рядом нет воды." );
+    }
+    else
+        player.Say( SAY_NETMSG, "Вы не на берегу." );
+}
+///////////////////////////////////////////
+void _InitBottle( Item& item, bool firstTime )
+{
+    item.SetEvent( ITEM_EVENT_USE, "_UseEmptyBottle" );
+}
+
+bool _UseEmptyBottle( Item& bottle, Critter& cr, Critter@ onCritter, Item@ onItem, Scenery@ onScenery )
+{
+    uint16 pid = bottle.GetProtoId();
+    if( !IsBottle( pid ) )
+        return true;
+
+    if( pid == PID_BOTTLE_GLASS || pid == PID_BOTTLE_EMPTY )
+    {
+        drain (cr);
+    }
+
+    return true;
+}
+
+void drain( Critter& player, int var, int con, int param2 )
+{
+    draining_checkTiles( player );
+}
+
+void drain( Critter& player )
+{
+    draining_checkTiles( player );
+}
+void draining_checkTiles( Critter& player )
+{
+    Map@ map = player.GetMap();
+    if( @map is null ) return;
+
+
+    uint16   tx = H2T( player.HexX );
+    uint16   ty = H2T( player.HexY );
+
+    GameVar@ is_dock = GetLocalVar( LMVAR_is_dock, map.Id );
+    uint     is_dock_val = is_dock.GetValue();
+
+    uint8    coast_flags = 0,
+             water_flags = 0;
+    bool     aboveGround = false;
+
+
+    coast_flags = checkCoast( map, tx, ty );
+
+    if( is_dock_val != 0 && coast_flags == 0 && ( checkSand( map, tx, ty ) == 0 ) )
+    {
+        coast_flags = 0xF;
+        aboveGround = true;
+    }
+
+    if( coast_flags != 0 )
+    {
+        water_flags = checkWaterAround( map, tx, ty, coast_flags, 1 + ( aboveGround ? 1 : 0 ), aboveGround );
+        if( water_flags != 0 )
+        {
+
+            for( uint i = 0; i < 4; i++ )
+            {
+                if( water_flags & ( 0x1 << i ) == 0 )
+                    continue;
+                player.SetDir( dir[ i ] );
+                break;
+            }
+
+
+            femote( player, "Набирает воду в бутылку" );
+			player.DeleteItem(PID_BOTTLE_EMPTY,1); player.AddItem ( PID_BOTTLE_DIRTY_FULL , 1);
+           
+        }
+        else
+            player.Say( SAY_NETMSG, "Рядом нет воды." );
+    }
+    else
+        player.Say( SAY_NETMSG, "Вы не на берегу." );
+}
+//////////////////////////////////////////////
 
 uint process_fishing( Critter@ cr, int& param0, int& param1, int& param2 )
 {

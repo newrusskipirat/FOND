@@ -1124,6 +1124,8 @@
 #define PID_MUSH_GREEN							( 1564 )		//грибы-звездочки
 #define PID_SHIT_BIG							( 1598 )		//Компост
 #define PID_SHIT_SMALL							( 1599 )		//Компост сухой
+#define PID_GLASS_BOTTLE_DIRTY_FULL				( 22087 ) 		// грязная вода в стекле
+#define PID_BOTTLE_DIRTY_FULL					( 22086 )		// грязная вода в пластике
 
 /******************************************************************
 ***************       Farmer's items                ***************

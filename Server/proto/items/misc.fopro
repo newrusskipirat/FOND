@@ -3118,9 +3118,11 @@ StartValue_3=168652658
 [Proto] # {Пустая пластиковая бутыль}
 ProtoId=532
 Type=5
+ScriptModule=fish
+ScriptFunc=_InitBottle
 PicMap=art\items\BOTTLEA_empty.frm
 PicInv=art\inven\bott_empty.frm
-Flags=134217758
+Flags=402653214
 DisableEgg=1
 Stackable=1
 Weight=150
@@ -3228,6 +3230,8 @@ Material=3
 [Proto] # {Бутылка}
 ProtoId=542
 Type=5
+ScriptModule=fish
+ScriptFunc=_InitGlassBottle
 PicMap=art\items\glassbottle.png
 PicInv=art\inven\glassbottle.frm
 Flags=402653214
