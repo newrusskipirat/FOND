@@ -19,7 +19,7 @@ import void SetDeterioration( Item& item, int wearProcent ) from "repair";
 #define MAP_SACR_ID       ( 100 )
 #define ITEM_ACCESSORY    ( 0 )
 
-#define RESPAWN_TIME      ( 60 * 60 * 60 * __TimeMultiplier )
+#define RESPAWN_TIME      ( 360 * __TimeMultiplier )
 
 /*	    #define MAP_SUTTER_11					(60)
    #define MAP_SUTTER_11_DN				(61)
@@ -144,10 +144,10 @@ void testspawn( Critter& cr, int, int, int )
 
 void _MapInit( Map& map, bool firstTime )
 {
-    /* uint[] values = {map.Id};
+       uint[] values = {map.Id};
        timeNum = CreateTimeEvent(__FullSecond+RESPAWN_TIME, "e_SpawnStuff", values, false);
        map.SetData(MAP_DATA_TIME, timeNum);
-       timeNum = 0;*/
+       timeNum = 0;
 }
 
 uint e_SpawnStuff( uint[] @ values )
