@@ -2337,7 +2337,7 @@ void unsafe_rolling_GM( Critter& gm, int p0, int p1, int p2, string@, int[]@ val
 
 void Roll( Critter& cr, int stat, int n, int val )
 {
-	if( stat < 0 || stat > 7 || n < 0 || val < 0 ) return;
+	if( stat < 0 || (stat > 7 && stat < 200)||stat >217 || n < 0 || val < 0 ) return;
 	/*
 	Map@ map = cr.GetMap();
 	if( !valid( map ) ) return;
@@ -2353,12 +2353,21 @@ void Roll( Critter& cr, int stat, int n, int val )
 		string[] stat_names = { "ÑÈËÀ", "ÂÎÑÏĞÈßÒÈÅ", "ÂÛÍÎÑËÈÂÎÑÒÜ", "ÕÀĞÈÇÌÀ", "ÈÍÒÅËËÅÊÒ", "ËÎÂÊÎÑÒÜ", "ÓÄÀ×À" };
 		string[] skill_names = { "ËÎ", "ÒÎ", "İÎ", "ĞÓÊÎÏ", "ÌÈËÈ", "ÌÅÒÀÒÅËÜÍÎÅ", "ÑÀÍÈÒÀĞ", "ÄÎÊÒÎĞ", "ÑÊĞÛÒÍÎÑÒÜ", "ÂÇËÎÌ", "ÂÎĞÎÂÑÒÂÎ", "ËÎÂÓØÊÈ", "ÍÀÓÊÀ", "ĞÅÌÎÍÒ", "ÊĞÀÑÍÎĞÅ×ÈÅ", "ÒÎĞÃÎÂËß", "ÀÇÀĞÒ", "ÑÊÈÒÀËÅÖ" };
 		if( stat < 8 )
-			result = stat_names[ stat - 1 ];// + "[" + cr.Stat[stat - 1] + "]";
-		else
-			result = skill_names[ stat - 200 ];
-		summ += cr.Stat[stat - 1]; //Random( 1, cr.Stat[stat] );
+		{result = stat_names[ stat - 1 ];// + "[" + cr.Stat[stat - 1] + "]";
+		summ += cr.Stat[stat - 1];}
+		else if (( stat > 199) && (stat < 218))
+		{
+		result = skill_names[ stat - 200 ];
+		n = 0; val = 0;
+		summ = cr.Skill[stat]+Random(-50,50);
+		if (summ >300) summ = 300;
+		if (summ <0) summ = 0;
+		result += " +- 50 = ";
+		}
+		 //Random( 1, cr.Stat[stat] );
 		
 	}
+	
 	
 	if( n != 0 && val != 0 )
 	{
@@ -2372,6 +2381,7 @@ void Roll( Critter& cr, int stat, int n, int val )
 	{
 		result += " " + summ;
 	}
+	
 	Log(""+result);
 	cr.Say( SAY_NORM, "|0xA6EEF900 " + result );
 	/*
