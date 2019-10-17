@@ -2287,7 +2287,7 @@ void ProccessFood( Critter& cr, Item& item )
 
 	uint PID = item.GetProtoId();
 	
-	if ( PID == PID_BOTTLE_FULL ) cr.AddItem( PID_BOTTLE_EMPTY, 1 );
+	if (( PID == PID_BOTTLE_FULL )|| (PID == PID_BOTTLE_DIRTY_FULL)) cr.AddItem( PID_BOTTLE_EMPTY, 1 );
 	if ( 	
 		PID == PID_ANTIDOTE ||
 		PID == PID_GLASS_BOTTLE_FULL ||
@@ -2296,7 +2296,8 @@ void ProccessFood( Critter& cr, Item& item )
 		PID == PID_BOOZE ||
 		PID == PID_GAMMA_GULP_BEER ||
 		PID == PID_ROENTGEN_RUM ||
-		PID == PID_ROT_GUT 
+		PID == PID_ROT_GUT ||
+		PID == PID_GLASS_BOTTLE_DIRTY_FULL
 		)
 		cr.AddItem( PID_BOTTLE_GLASS, 1 );
 	
