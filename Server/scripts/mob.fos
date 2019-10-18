@@ -259,6 +259,9 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 	uint8  PSum1 = 0;
 	uint8  PSum2 = 0;
 	uint8  PSum3 = 0;
+	uint8 SReq1 = 0;
+	uint8 SReq2 = 0;
+	uint8 SReq3 = 0;
 	uint8 Exp1 = 0;
 	uint8 Exp2 = 0;
 	uint8 Exp3 = 0;
@@ -297,16 +300,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				Add1=PID_RAT_MEAT; 
 				Sum1=1;
 				Str1="Вы бездарно разделываете бедную крысу";
+				SReq1 = 10;
+				Exp1 = 15;
 				Add2=PID_RAT_MEAT;
 				Sum2=1;
 				PAdd2=PID_MOUSE_SKIN;
 				PSum2=1;
 				Str2="Вы разделываете бедную крысу";
+				SReq2 = 30;
+				Exp2 = 30;
 				Add3=PID_RAT_MEAT;
 				Sum3=1;
 				PAdd3=PID_MOUSE_SKIN;
 				PSum3=1;
 				Str3="Вы умело разделываете бедную крысу";
+				SReq3 = 50;
+				Exp3 = 50;
 			break;
 			
 			case NPC_PID_Mantis:
@@ -316,16 +325,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MANTIS_SHELL;
 				PSum1=0;
 				Str1="Вы не смогли ни сохранить панцирь, ни достать мяса";
+				SReq1 = 10;
+				Exp1 = 10;
 				Add2=PID_MEAT;
 				Sum2=1;
 				PAdd2=PID_MANTIS_SHELL;
 				PSum2=0;
 				Str2="Вы достали мясо, но при этом сломали панцирь";
+				SReq2 = 40;
+				Exp2 = 35;
 				Add3=PID_MEAT;
 				Sum3=1;
 				PAdd3=PID_MANTIS_SHELL;
 				PSum3=1;
 				Str3="Вы сняли панцирь и добрались до мяса";	
+				SReq3 = 100;
+				Exp3 = 80;
             break;
 			
 			case NPC_PID_RegularPigRat:
@@ -334,16 +349,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_RAGS;
 				PSum1=1;
 				Str1="В процессе добычи мяса вы исполосали кожу животного";
+				SReq1 = 35;
+				Exp1 = 15;
 				Add2=PID_MEAT;
 				Sum2=1;
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=1;
 				Str2="Вам удалось сохранить кожу животного и достать мяса";
+				SReq2 = 70;
+				Exp2 = 50;
 				Add3=PID_MEAT;
 				Sum3=2;
 				PAdd3=PID_CRAFT_L_HIDE;
 				PSum3=1;
 				Str3="Вы вырезали самые мясистые места туши, повредив шкуры";
+				SReq3 = 110;
+				Exp3 = 100;
             break;
 			
 			case NPC_PID_Molerat:
@@ -353,16 +374,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MOLERAT_STOMATCH;
 				PSum1=0;
 				Str1="В процессе добычи мяса вы повредили желудок кротокрыса";
+				SReq1 = 35;
+				Exp1 = 10;
 				Add2=PID_MEAT;
 				Sum2=1;
 				PAdd2=PID_MOLERAT_STOMATCH;
 				PSum2=1;
 				Str2="Вы вырезали желудок кротокрыса и немного мяса с ним";
+				SReq2 = 80;
+				Exp2 = 50;
 				Add3=PID_MEAT;
 				Sum3=2;
 				PAdd3=PID_MOLERAT_STOMATCH;
 				PSum3=1;
 				Str3="Вы вырезали желудок кротокрыса и немало мяса";
+				SReq3 = 120;
+				Exp3 = 75;
             break;
 			
 			case NPC_PID_SmallSilverGecko:
@@ -371,16 +398,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_RAGS;
 				PSum1=2;
 				Str1="Ради мяса вы порезали тушу гекко";
+				SReq1 = 50;
+				Exp1 = 25;
 				Add2=PID_GECKO_MEAT;
 				Sum2=2;
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=1;
 				Str2="Вы не особо умело разделываете гекко";
+				SReq2 = 100;
+				Exp2 = 55;
 				Add3=PID_GECKO_MEAT;
 				Sum3=2;
 				PAdd3=PID_GECKO_PELT;
 				PSum3=1;
 				Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+				SReq3 = 150;
+				Exp3 = 100;
             break;
 			
 			case NPC_PID_GoldenGecko:
@@ -389,16 +422,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_RAGS;
 				PSum1=2;
 				Str1="Ради мяса вы порезали тушу гекко";
+				SReq1 = 50;
+				Exp1 = 25;
 				Add2=PID_GECKO_MEAT;
 				Sum2=2;
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=1;
 				Str2="Вы не особо умело разделываете гекко";
+				SReq2 = 100;
+				Exp2 = 55;
 				Add3=PID_GECKO_MEAT;
 				Sum3=2;
 				PAdd3=PID_GOLDEN_GECKO_PELT;
 				PSum3=1;
 				Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+				SReq3 = 150;
+				Exp3 = 100;
             break;
 			
 			case NPC_PID_WildDog:
@@ -407,16 +446,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_RAGS;
 				PSum1=1;
 				Str1="Вы разделываете тушку пса";
+				SReq1 = 50;
+				Exp1 = 15;
 				Add2=PID_MEAT;
 				Sum2=Random(1,2);
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=Random(0,1);
 				Str2="Вы не особо умело разделали животное";
+				SReq2 = 85;
+				Exp2 = 30;
 				Add3=PID_MEAT;
 				Sum3=2;
 				PAdd3=PID_CRAFT_L_HIDE;
 				PSum3=1;
 				Str3="Вы удачно разделали пса";
+				SReq3 = 100;
+				Exp3 = 50;
             break;
 			
 			case NPC_PID_SmallRadscorpion:
@@ -425,16 +470,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MANTIS_SHELL;
 				PSum1=0;
 				Str1="Вы достали немного мяса из тела скорпиона";
+				SReq1 = 60;
+				Exp1 = 50;
 				Add2=PID_MEAT;
 				Sum2=1;
 				PAdd2=PID_MANTIS_SHELL;
 				PSum2=1;
 				Str2="Отломав кусок панциря вы добрались до мяса";
+				SReq2 = 100;
+				Exp2 = 75;
 				Add3=PID_MEAT;
 				Sum3=2;
 				PAdd3=PID_SCORPION_TAIL;
 				PSum3=1;
 				Str3="Вы умело лишили мертвого скорпиона его жала";
+				SReq3 = 150;
+				Exp3 = 125;
             break;
 			
 			case NPC_PID_LargeRadscorpion:
@@ -443,16 +494,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MANTIS_SHELL;
 				PSum1=0;
 				Str1="Вы достали немного мяса из тела скорпиона";
+				SReq1 = 60;
+				Exp1 = 50;
 				Add2=PID_MEAT;
 				Sum2=2;
 				PAdd2=PID_MANTIS_SHELL;
 				PSum2=1;
 				Str2="Отломав кусок панциря вы добрались до мяса";
+				SReq2 = 100;
+				Exp2 = 75;
 				Add3=PID_MEAT;
 				Sum3=3;
 				PAdd3=PID_SCORPION_TAIL;
 				PSum3=1;
 				Str3="Вы умело лишили мертвого скорпиона его жала";
+				SReq3 = 150;
+				Exp3 = 125;
             break;
 			
 			case NPC_PID_Brahmin:
@@ -461,16 +518,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_HIDE;
 				PSum1=Random(0,2);
 				Str1="Вы исполосали ножом всю шкуру";
+				SReq1 = 50;
+				Exp1 = 25;
 				Add2=PID_MEAT;
 				Sum2=Random(5,8);
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=Random(2,4);
 				Str2="Вы разделали брамина не так хорошо как хотелось бы";
+				SReq2 = 75;
+				Exp2 = 45;
 				Add3=PID_MEAT;
 				Sum3=10;
 				PAdd3=PID_BRAHMIN_SKIN;
 				PSum3=1;
 				Str3="Вы лишили тушу брамина мяса и шкуры";
+				SReq3 = 100;
+				Exp3 = 70;
             break;
 			
 			case NPC_PID_SporePlant:
@@ -484,16 +547,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MUTATED_GLAND;
 				PSum1=Random(0,1);
 				Str1="Вы небрежно распотрошили мутанта";
+				SReq1 = 100;
+				Exp1 = 100;
 				Add2=PID_RAD_MEAT;
 				Sum2=Random(3,4);
 				PAdd2=PID_MUTATED_GLAND;
 				PSum2=1;
 				Str2="Вы извлекаете железу твари";
+				SReq2 = 150;
+				Exp2 = 150;
 				Add3=PID_RAD_MEAT;
 				Sum3=Random(4,5);
 				PAdd3=PID_MUTATED_GLAND;
 				PSum3=1;
 				Str3="Вы извлекаете железу твари";	
+				SReq3 = 175;
+				Exp3 = 175;
 			break;
 			
 			case NPC_PID_SmDeathclaw:
@@ -504,16 +573,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_DEATHCLAW_CLAW_1;
 				PSum1=0;
 				Str1="Вы распотрошили тушу";
+				SReq1 = 65;
+				Exp1 = 50;
 				Add2=PID_MEAT;
 				Sum2=3;
 				PAdd2=PID_DEATHCLAW_CLAW_1;
 				PSum2=Random(0,1);
 				Str2="Вы усердно поработали ножом над тушей";
+				SReq2 = 80;
+				Exp2 = 75;
 				Add3=PID_MEAT;
 				Sum3=4;
 				PAdd3=PID_DEATHCLAW_CLAW_1;
 				PSum3=1;
 				Str3="Вы вырезали все, что посчитали возможным";
+				SReq3 = 140;
+				Exp3 = 150;
             break;
 			
 			case NPC_PID_FireGecko:
@@ -522,16 +597,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_CRAFT_L_RAGS;
 				PSum1=4;
 				Str1="Ради мяса вы порезали тушу гекко";
+				SReq1 = 50;
+				Exp1 = 25;
 				Add2=PID_GECKO_MEAT;
 				Sum2=3;
 				PAdd2=PID_CRAFT_L_HIDE;
 				PSum2=2;
 				Str2="Вы не особо умело разделываете гекко";
+				SReq2 = 100;
+				Exp2 = 55;
 				Add3=PID_GECKO_MEAT;
 				Sum3=3;
 				PAdd3=PID_FIRE_GECKO_PELT;
 				PSum3=1;
 				Str3="Вы аккуратно сняли шкуру с гекко, не забыв про мясо";
+				SReq3 = 150;
+				Exp3 = 100;
             break;
 			
 			case NPC_PID_Centaur:
@@ -540,16 +621,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MUTATED_GLAND;
 				PSum1=Random(0,1);
 				Str1="Вы небрежно распотрошили мутанта";
+				SReq1 = 100;
+				Exp1 = 100;
 				Add2=PID_RAD_MEAT;
 				Sum2=Random(3,4);
 				PAdd2=PID_MUTATED_GLAND;
 				PSum2=1;
 				Str2="Вы извлекаете железу твари";
+				SReq2 = 150;
+				Exp2 = 150;
 				Add3=PID_RAD_MEAT;
 				Sum3=Random(4,5);
 				PAdd3=PID_MUTATED_GLAND;
 				PSum3=1;
 				Str3="Вы извлекаете железу твари";
+				SReq3 = 175;
+				Exp3 = 175;
             break;
 			
 			case NPC_PID_Floater:
@@ -558,16 +645,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MUTATED_GLAND;
 				PSum1=Random(0,1);
 				Str1="Вы небрежно распотрошили мутанта";
+				SReq1 = 100;
+				Exp1 = 100;
 				Add2=PID_RAD_MEAT;
 				Sum2=Random(3,4);
 				PAdd2=PID_MUTATED_GLAND;
 				PSum2=1;
 				Str2="Вы извлекаете железу твари";
+				SReq2 = 150;
+				Exp2 = 150;
 				Add3=PID_RAD_MEAT;
 				Sum3=Random(4,5);
 				PAdd3=PID_MUTATED_GLAND;
 				PSum3=1;
 				Str3="Вы извлекаете железу твари";
+				SReq3 = 175;
+				Exp3 = 175;
             break;
 			
 			case NPC_PID_MirelurkWeak:
@@ -576,16 +669,22 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 				PAdd1=PID_MIRELUK_SHELL;
 				PSum1=0;
 				Str1="Разбив панцирь, вы вырезали немного мяса";
+				SReq1 = 100;
+				Exp1 = 35;
 				Add2=PID_MEAT;
 				Sum2=2;
 				PAdd2=PID_MANTIS_SHELL;
 				PSum2=2;
 				Str2="Вы сломали панцирь в попытках его оторвать от тела болотника";
+				SReq2 = 130;
+				Exp2 = 80;
 				Add3=PID_MEAT;
 				Sum3=2;
 				PAdd3=PID_MIRELUK_SHELL;
 				PSum3=1;
 				Str3="Вы успешно срываете панцирь с болотника";
+				SReq3 = 170;
+				Exp3 = 200;
 			break;
 			
 			case NPC_PID_BanditFemale:		
@@ -730,39 +829,48 @@ bool e_InitSkinningUse( Item& item, Critter& cr, Critter@ onCritter, Item@ onIte
 		}
 	}
 	
-			if  (result > 149)
+			if  (result > SReq3)
 			{
 				if (Add3 >0) _CritAddItem(cr,Add3,Sum3);
 				cr.Say( SAY_NETMSG, Str3 );
 				skinned = true;
-				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
+				if (PAdd3>0) _CritAddItem(cr,PAdd3,PSum3);
+				cr.StatBase[ ST_EXPERIENCE ] += Exp3;
+				/*if (cr.Perk[PE_GECKO_SKINNING] !=0)		
 				{
 					if (PAdd3>0) _CritAddItem(cr,PAdd3,PSum3);
 				}
-				else cr.Say( SAY_NETMSG, StrNoPerk);
+				else cr.Say( SAY_NETMSG, StrNoPerk);*/
 			}
-		else 	if (result > 100)
+			
+		else 	if (result > SReq2)
 				{
 				if (Add2 >0) _CritAddItem(cr,Add2,Sum2);
 				cr.Say( SAY_NETMSG, Str2 );
 				skinned = true;
-				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
+				if (PAdd2>0) _CritAddItem(cr,PAdd2,PSum2);
+				cr.StatBase[ ST_EXPERIENCE ] += Exp2;
+				/*if (cr.Perk[PE_GECKO_SKINNING] !=0)		
 				{
 					if (PAdd2>0) _CritAddItem(cr,PAdd2,PSum2);
 				}
-				else cr.Say( SAY_NETMSG, StrNoPerk);
+				else cr.Say( SAY_NETMSG, StrNoPerk);*/
 				}
-		else if (result > 40)
+				
+		else if (result > SReq1)
 			{
 				if (Add1 >0) _CritAddItem(cr,Add1,Sum1);
 				cr.Say( SAY_NETMSG, Str1 );
 				skinned = true;
-				if (cr.Perk[PE_GECKO_SKINNING] !=0)		
+				if (PAdd1>0) _CritAddItem(cr,PAdd1,PSum1);
+				cr.StatBase[ ST_EXPERIENCE ] += Exp1;
+				/*if (cr.Perk[PE_GECKO_SKINNING] !=0)		
 				{
 					if (PAdd1>0) _CritAddItem(cr,PAdd1,PSum1);
 				}
-				else cr.Say( SAY_NETMSG, StrNoPerk);
+				else cr.Say( SAY_NETMSG, StrNoPerk);*/
 			}
+			
 		else 
 			{
 			cr.Say( SAY_NETMSG,"Ваших навыков не хватает чтобы разделать эту тушу." );
