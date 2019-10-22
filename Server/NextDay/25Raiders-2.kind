@@ -44,6 +44,6 @@ Queens = 1733
 Bioms = Lake Rail River Road Ruins Westland
 TimeMinute = 120-260
 SpawnRadius = 15-25
-AiScript = Aggressor
+AiScript = Default
 UnityParam:ST_TEAM_ID = 564-570
 Friends = 25Raiders-2

@@ -38,6 +38,6 @@ Queens = 1703
 Bioms = Rail Road Ruins 
 TimeMinute = 120-260
 SpawnRadius = 15-25
-AiScript = Aggressor
+AiScript = Default
 UnityParam:ST_TEAM_ID = 558-563
 Friends = 24Gangs-2

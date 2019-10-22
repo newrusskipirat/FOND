@@ -184,6 +184,7 @@ void changedParam_Experience( Critter& cr, uint, int oldValue )
 		
 		exp *= ((cr.Stat[ ST_INTELLECT]+cr.Stat[ST_CHARISMA]) * 0.1);
 		exp += ( exp * 100 * cr.Perk[ PE_SWIFT_LEARNER ] ) / 300;
+		exp *= 3;
 
         cr.StatBase[ ST_EXPERIENCE ] = oldValue + exp;
 

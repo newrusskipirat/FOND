@@ -43,6 +43,6 @@ Queens = 1673
 Bioms = Forest Lake Rail River Road Ruins 
 TimeMinute = 120-260
 SpawnRadius = 15-25
-AiScript = Aggressor
+AiScript = Default
 UnityParam:ST_TEAM_ID = 553-556
 Friends = 23Cannibals 23Cannibals-2 23Cannibals-3
